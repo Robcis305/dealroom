@@ -11,22 +11,22 @@
 - [x] **AUTH-02**: Magic link tokens expire after 10 minutes, are single-use, and are stored as SHA-256 hashes in the database
 - [x] **AUTH-03**: Authenticated session persists for 24 hours of inactivity; re-authentication required after expiry
 - [ ] **AUTH-04**: Admin can revoke any participant's access at any time, immediately invalidating active sessions
-- [ ] **AUTH-05**: Re-authentication uses the same magic link flow (enter email -> receive link -> click to access)
+- [x] **AUTH-05**: Re-authentication uses the same magic link flow (enter email -> receive link -> click to access)
 - [x] **AUTH-06**: Rate limiting enforced on authentication endpoints to prevent brute force and token enumeration
 
 ### Workspaces
 
-- [ ] **WORK-01**: Admin can create a deal workspace with: codename, client name (admin-visible only), initial status, and CIS's advisory side (buyer-side or seller-side) -- the CIS side field is required and determines which Rep role is available for external counterparty contacts throughout the deal
-- [ ] **WORK-02**: Deal list home screen shows all workspaces the authenticated user has access to (Admin sees all; other roles see only their assigned workspaces)
-- [ ] **WORK-03**: Deal status lifecycle supports: Engagement, Active DD, IOI Stage, Closing, Closed, Archived
+- [x] **WORK-01**: Admin can create a deal workspace with: codename, client name (admin-visible only), initial status, and CIS's advisory side (buyer-side or seller-side) -- the CIS side field is required and determines which Rep role is available for external counterparty contacts throughout the deal
+- [x] **WORK-02**: Deal list home screen shows all workspaces the authenticated user has access to (Admin sees all; other roles see only their assigned workspaces)
+- [x] **WORK-03**: Deal status lifecycle supports: Engagement, Active DD, IOI Stage, Closing, Closed, Archived
 - [ ] **WORK-04**: Admin can search and filter deal list by deal name or status
 - [ ] **WORK-05**: Each deal workspace requires at least one active Client participant; system warns when none exists and enforces this constraint on deal status transitions
 
 ### Folders
 
-- [ ] **FOLD-01**: New workspace automatically creates 8 default folders: Financials, Legal, Operations, Human Capital, Tax, Technology, Deal Documents, Miscellaneous
-- [ ] **FOLD-02**: Admin can rename, add, and delete folders at any time
-- [ ] **FOLD-03**: Folder-level access control -- each participant can be granted or restricted from specific folders independently
+- [x] **FOLD-01**: New workspace automatically creates 8 default folders: Financials, Legal, Operations, Human Capital, Tax, Technology, Deal Documents, Miscellaneous
+- [x] **FOLD-02**: Admin can rename, add, and delete folders at any time
+- [x] **FOLD-03**: Folder-level access control -- each participant can be granted or restricted from specific folders independently
 
 ### Files
 
@@ -57,7 +57,7 @@
 
 ### Activity Log
 
-- [ ] **ACTY-01**: All significant actions logged immutably (append-only, no edits or deletions): file uploaded, file downloaded, file deleted, folder created, folder renamed, participant invited, participant removed, access revoked, status changed
+- [x] **ACTY-01**: All significant actions logged immutably (append-only, no edits or deletions): file uploaded, file downloaded, file deleted, folder created, folder renamed, participant invited, participant removed, access revoked, status changed
 - [ ] **ACTY-02**: Activity feed displayed in reverse chronological order in the workspace right panel, showing user, action, file/folder name, and timestamp
 
 ### Notifications
@@ -115,16 +115,16 @@
 | AUTH-02 | Phase 1: Foundation | Complete |
 | AUTH-03 | Phase 1: Foundation | Complete |
 | AUTH-04 | Phase 3: Collaboration | Pending |
-| AUTH-05 | Phase 1: Foundation | Pending |
+| AUTH-05 | Phase 1: Foundation | Complete |
 | AUTH-06 | Phase 1: Foundation | Complete |
-| WORK-01 | Phase 1: Foundation | Pending |
-| WORK-02 | Phase 1: Foundation | Pending |
-| WORK-03 | Phase 1: Foundation | Pending |
+| WORK-01 | Phase 1: Foundation | Complete |
+| WORK-02 | Phase 1: Foundation | Complete |
+| WORK-03 | Phase 1: Foundation | Complete |
 | WORK-04 | Phase 4: Interface and Polish | Pending |
 | WORK-05 | Phase 4: Interface and Polish | Pending |
-| FOLD-01 | Phase 1: Foundation | Pending |
-| FOLD-02 | Phase 1: Foundation | Pending |
-| FOLD-03 | Phase 1: Foundation | Pending |
+| FOLD-01 | Phase 1: Foundation | Complete |
+| FOLD-02 | Phase 1: Foundation | Complete |
+| FOLD-03 | Phase 1: Foundation | Complete |
 | FILE-01 | Phase 2: File Operations | Pending |
 | FILE-02 | Phase 2: File Operations | Pending |
 | FILE-03 | Phase 2: File Operations | Pending |
@@ -140,7 +140,7 @@
 | PART-05 | Phase 3: Collaboration | Pending |
 | PART-06 | Phase 3: Collaboration | Pending |
 | PART-07 | Phase 3: Collaboration | Pending |
-| ACTY-01 | Phase 1: Foundation | Pending |
+| ACTY-01 | Phase 1: Foundation | Complete |
 | ACTY-02 | Phase 4: Interface and Polish | Pending |
 | NOTF-01 | Phase 3: Collaboration | Pending |
 | NOTF-02 | Phase 3: Collaboration | Pending |

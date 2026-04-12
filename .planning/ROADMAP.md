@@ -89,7 +89,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 1/4 | In Progress|  |
+| 1. Foundation | 2/4 | In Progress|  |
 | 2. File Operations | 0/2 | Not started | - |
 | 3. Collaboration | 0/2 | Not started | - |
 | 4. Interface and Polish | 0/1 | Not started | - |

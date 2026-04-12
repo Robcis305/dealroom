@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-foundation-01-01-PLAN.md
-last_updated: "2026-04-12T20:30:31.423Z"
+stopped_at: Completed 01-foundation-01-02-PLAN.md
+last_updated: "2026-04-12T20:39:36.020Z"
 last_activity: 2026-04-12 -- Roadmap created (4 phases, 41 requirements mapped)
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 5 | 2 tasks | 30 files |
+| Phase 01-foundation P02 | 6 | 3 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: Neon PostgreSQL via @neondatabase/serverless: native Drizzle integration over Supabase
 - [Phase 01-foundation]: activityLogs table has no updatedAt: append-only immutability contract at schema level
 - [Phase 01-foundation]: Custom magic link auth (no Auth.js): SHA-256 hashing with timing-safe compare, ~150 lines owned code
+- [Phase 01-foundation]: logActivity uses any-typed txOrDb: Drizzle PgTransaction type not assignable to typeof db; any avoids complex generics while maintaining runtime correctness at schema level
+- [Phase 01-foundation]: requireDealAccess/requireFolderAccess are no-ops in Phase 1: Phase 1 routes have no participant logic; Phase 3 fills real IDOR enforcement
+- [Phase 01-foundation]: DAL auth gate pattern: verifySession() called at data boundary in every protected function (post-CVE-2025-29927); middleware is UX redirect only
 
 ### Pending Todos
 
@@ -79,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T20:30:31.420Z
-Stopped at: Completed 01-foundation-01-01-PLAN.md
+Last session: 2026-04-12T20:39:36.017Z
+Stopped at: Completed 01-foundation-01-02-PLAN.md
 Resume file: None
