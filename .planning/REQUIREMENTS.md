@@ -7,12 +7,12 @@
 
 ### Authentication
 
-- [ ] **AUTH-01**: User can authenticate via magic link sent to their email address (no passwords)
-- [ ] **AUTH-02**: Magic link tokens expire after 10 minutes, are single-use, and are stored as SHA-256 hashes in the database
-- [ ] **AUTH-03**: Authenticated session persists for 24 hours of inactivity; re-authentication required after expiry
+- [x] **AUTH-01**: User can authenticate via magic link sent to their email address (no passwords)
+- [x] **AUTH-02**: Magic link tokens expire after 10 minutes, are single-use, and are stored as SHA-256 hashes in the database
+- [x] **AUTH-03**: Authenticated session persists for 24 hours of inactivity; re-authentication required after expiry
 - [ ] **AUTH-04**: Admin can revoke any participant's access at any time, immediately invalidating active sessions
 - [ ] **AUTH-05**: Re-authentication uses the same magic link flow (enter email -> receive link -> click to access)
-- [ ] **AUTH-06**: Rate limiting enforced on authentication endpoints to prevent brute force and token enumeration
+- [x] **AUTH-06**: Rate limiting enforced on authentication endpoints to prevent brute force and token enumeration
 
 ### Workspaces
 
@@ -111,12 +111,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 1: Foundation | Pending |
-| AUTH-02 | Phase 1: Foundation | Pending |
-| AUTH-03 | Phase 1: Foundation | Pending |
+| AUTH-01 | Phase 1: Foundation | Complete |
+| AUTH-02 | Phase 1: Foundation | Complete |
+| AUTH-03 | Phase 1: Foundation | Complete |
 | AUTH-04 | Phase 3: Collaboration | Pending |
 | AUTH-05 | Phase 1: Foundation | Pending |
-| AUTH-06 | Phase 1: Foundation | Pending |
+| AUTH-06 | Phase 1: Foundation | Complete |
 | WORK-01 | Phase 1: Foundation | Pending |
 | WORK-02 | Phase 1: Foundation | Pending |
 | WORK-03 | Phase 1: Foundation | Pending |

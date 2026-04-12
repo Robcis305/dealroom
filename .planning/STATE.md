@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-04-12T19:44:59.900Z"
+stopped_at: Completed 01-foundation-01-01-PLAN.md
+last_updated: "2026-04-12T20:30:31.423Z"
 last_activity: 2026-04-12 -- Roadmap created (4 phases, 41 requirements mapped)
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 1
   percent: 0
 ---
 
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01-foundation P01 | 5 | 2 tasks | 30 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,10 @@ Recent decisions affecting current work:
 - [Roadmap]: 4-phase coarse structure -- Foundation, File Ops, Collaboration, Polish
 - [Roadmap]: Activity logging writes enabled from Phase 1; feed UI deferred to Phase 4
 - [Roadmap]: Security patterns (requireAuth, requireDealAccess, requireFolderAccess) established in Phase 1, inherited by all phases
+- [Phase 01-foundation]: Database sessions over JWT: iron-session cookie holds sessionId for admin-revocable auth
+- [Phase 01-foundation]: Neon PostgreSQL via @neondatabase/serverless: native Drizzle integration over Supabase
+- [Phase 01-foundation]: activityLogs table has no updatedAt: append-only immutability contract at schema level
+- [Phase 01-foundation]: Custom magic link auth (no Auth.js): SHA-256 hashing with timing-safe compare, ~150 lines owned code
 
 ### Pending Todos
 
@@ -74,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T19:44:59.889Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation/01-CONTEXT.md
+Last session: 2026-04-12T20:30:31.420Z
+Stopped at: Completed 01-foundation-01-01-PLAN.md
+Resume file: None
