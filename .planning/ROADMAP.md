@@ -29,12 +29,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Admin can create a new deal workspace (codename, client name, CIS advisory side) and the 8 default due diligence folders are auto-created
   4. Admin can rename, add, and delete folders within a workspace, and folder-level access control data model is in place
   5. Three-panel workspace layout renders (folder sidebar, file list area, right panel) with CIS brand styling (#E10600 accent, DM Sans font, dark aesthetic) and the login screen displays CIS Partners branding
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Bootstrap Next.js project, Drizzle schema (8 tables), auth lib (tokens, session, rate-limit), Wave 0 test stubs
-- [ ] 01-02-PLAN.md -- Auth API routes, workspace/folder API routes, full DAL (verifySession, workspaces, folders, activity)
-- [ ] 01-03-PLAN.md -- Tailwind brand config, UI primitives, login screen, workspace shell (3-panel layout, folder sidebar, deal overview)
+- [ ] 01-01-PLAN.md -- Bootstrap Next.js project, Drizzle schema (8 tables), auth lib (tokens, session, rate-limit), Wave 0 test stubs (9 files incl. verify route stub)
+- [ ] 01-02-PLAN.md -- Auth API routes, workspace/folder API routes, full DAL (verifySession, workspaces, folders, activity), access stubs (requireDealAccess/requireFolderAccess), S3 client stub
+- [ ] 01-03-PLAN.md -- Tailwind brand config, UI primitives (Button, Input, Modal, Badge), login screen and auth verify page
+- [ ] 01-04-PLAN.md -- Workspace shell (3-panel layout, folder sidebar, deal overview), deal list, NewDealModal, human-verify checkpoint
 
 ### Phase 2: File Operations
 **Goal**: Users can upload, download, and manage files within deal folders -- the core value proposition of the platform -- with presigned S3 URLs ensuring files never transit through the app server, and every file action logged to the activity table.
@@ -88,7 +89,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Not started | - |
+| 1. Foundation | 0/4 | Not started | - |
 | 2. File Operations | 0/2 | Not started | - |
 | 3. Collaboration | 0/2 | Not started | - |
 | 4. Interface and Polish | 0/1 | Not started | - |
