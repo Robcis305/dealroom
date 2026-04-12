@@ -1,0 +1,63 @@
+# Project State
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-04-12)
+
+**Core value:** One organized, permission-controlled workspace per deal -- so both CIS Partners and clients always know where to find documents and exactly what happened to them.
+**Current focus:** Phase 1: Foundation
+
+## Current Position
+
+Phase: 1 of 4 (Foundation)
+Plan: 0 of 3 in current phase
+Status: Ready to plan
+Last activity: 2026-04-12 -- Roadmap created (4 phases, 41 requirements mapped)
+
+Progress: [░░░░░░░░░░] 0%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0
+- Average duration: -
+- Total execution time: 0 hours
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+**Recent Trend:**
+- Last 5 plans: -
+- Trend: -
+
+*Updated after each plan completion*
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- [Roadmap]: 4-phase coarse structure -- Foundation, File Ops, Collaboration, Polish
+- [Roadmap]: Activity logging writes enabled from Phase 1; feed UI deferred to Phase 4
+- [Roadmap]: Security patterns (requireAuth, requireDealAccess, requireFolderAccess) established in Phase 1, inherited by all phases
+
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+- [Research]: Session invalidation strategy (database sessions vs. short-lived JWT + refresh) must be decided during Phase 1 planning
+- [Research]: Neon vs. Supabase PostgreSQL -- final decision needed at Phase 1 start
+- [Research]: Multipart upload library choice (lib-storage vs. Uppy) -- decide during Phase 2 planning
+
+## Session Continuity
+
+Last session: 2026-04-12
+Stopped at: Roadmap created, ready for Phase 1 planning
+Resume file: None
