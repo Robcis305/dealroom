@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-foundation-01-02-PLAN.md
-last_updated: "2026-04-12T20:39:36.020Z"
+stopped_at: Completed 01-foundation-01-03-PLAN.md
+last_updated: "2026-04-12T20:44:51.870Z"
 last_activity: 2026-04-12 -- Roadmap created (4 phases, 41 requirements mapped)
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 5 | 2 tasks | 30 files |
 | Phase 01-foundation P02 | 6 | 3 tasks | 19 files |
+| Phase 01-foundation P03 | 2 | 1 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: logActivity uses any-typed txOrDb: Drizzle PgTransaction type not assignable to typeof db; any avoids complex generics while maintaining runtime correctness at schema level
 - [Phase 01-foundation]: requireDealAccess/requireFolderAccess are no-ops in Phase 1: Phase 1 routes have no participant logic; Phase 3 fills real IDOR enforcement
 - [Phase 01-foundation]: DAL auth gate pattern: verifySession() called at data boundary in every protected function (post-CVE-2025-29927); middleware is UX redirect only
+- [Phase 01-foundation]: VerifyPage sync over async: jsdom cannot render async Server Components — sync searchParams union type works in both test env and Next.js runtime
+- [Phase 01-foundation]: Tailwind v4 @theme in globals.css with next/font CSS variable injection: next/font injects --font-sans/--font-mono variables matching @theme names for runtime override
+- [Phase 01-foundation]: clsx + twMerge pattern for all UI primitive className composition: all primitives accept className prop for consumer overrides
 
 ### Pending Todos
 
@@ -83,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T20:39:36.017Z
-Stopped at: Completed 01-foundation-01-02-PLAN.md
+Last session: 2026-04-12T20:44:51.867Z
+Stopped at: Completed 01-foundation-01-03-PLAN.md
 Resume file: None
