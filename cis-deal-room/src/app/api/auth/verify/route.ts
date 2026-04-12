@@ -1,0 +1,66 @@
+import { NextRequest } from 'next/server';
+import { eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { magicLinkTokens, users } from '@/db/schema';
+import { hashToken } from '@/lib/auth/tokens';
+import { authVerifyLimiter } from '@/lib/auth/rate-limit';
+import { createSession, setSessionCookie } from '@/lib/auth/session';
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const rawToken = searchParams.get('token');
+  const email = searchParams.get('email');
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+
+  if (!rawToken || !email) {
+    return Response.redirect(`${appUrl}/auth/verify?error=invalid`);
+  }
+
+  // 1. Rate limit by IP — authVerifyLimiter: 10 attempts per IP per 15 minutes
+  const clientIP =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
+  const rateLimitResult = await authVerifyLimiter.limit(clientIP);
+  if (!rateLimitResult.success) {
+    return Response.redirect(`${appUrl}/auth/verify?error=rate_limited`);
+  }
+
+  // 2. Hash the raw token and look up in the database
+  const tokenHash = hashToken(rawToken);
+  const [tokenRow] = await db
+    .select()
+    .from(magicLinkTokens)
+    .where(eq(magicLinkTokens.tokenHash, tokenHash))
+    .limit(1);
+
+  // 3. No row found → already consumed (single-use) or never existed
+  if (!tokenRow) {
+    return Response.redirect(`${appUrl}/auth/verify?error=used`);
+  }
+
+  // 4. Row exists but expired → delete it and redirect with expired error
+  if (tokenRow.expiresAt < new Date()) {
+    await db.delete(magicLinkTokens).where(eq(magicLinkTokens.tokenHash, tokenHash));
+    return Response.redirect(`${appUrl}/auth/verify?error=expired`);
+  }
+
+  // 5. Valid token → consume it (single-use contract)
+  await db.delete(magicLinkTokens).where(eq(magicLinkTokens.tokenHash, tokenHash));
+
+  // 6. Upsert user (creates account on first use, updates timestamp on subsequent logins)
+  const [user] = await db
+    .insert(users)
+    .values({ email, isAdmin: false })
+    .onConflictDoUpdate({
+      target: users.email,
+      set: { updatedAt: new Date() },
+    })
+    .returning({ id: users.id });
+
+  // 7. Create database session and set cookie
+  const sessionId = await createSession(user.id);
+  const response = Response.redirect(`${appUrl}/deals`);
+  setSessionCookie(response, sessionId);
+
+  return response;
+}

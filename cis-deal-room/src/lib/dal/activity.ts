@@ -1,8 +1,13 @@
-import { db } from '@/db';
 import { activityLogs } from '@/db/schema';
 import type { ActivityAction, ActivityTargetType } from '@/types';
 
-type DbOrTx = typeof db | Parameters<typeof db.transaction>[0];
+/**
+ * Minimal interface shared by the db singleton and Drizzle transaction objects.
+ * Both expose an `insert` method with the same signature.
+ */
+export interface DbLike {
+  insert: <T extends object>(table: T) => { values: (values: object | object[]) => Promise<unknown> };
+}
 
 /**
  * Appends an immutable activity log row.
@@ -14,7 +19,8 @@ type DbOrTx = typeof db | Parameters<typeof db.transaction>[0];
  *                 the activity log participates in the same atomic operation.
  */
 export async function logActivity(
-  txOrDb: DbOrTx,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  txOrDb: any,
   params: {
     workspaceId: string;
     userId: string;
@@ -24,7 +30,7 @@ export async function logActivity(
     metadata?: Record<string, unknown>;
   }
 ): Promise<void> {
-  await (txOrDb as typeof db).insert(activityLogs).values({
+  await txOrDb.insert(activityLogs).values({
     workspaceId: params.workspaceId,
     userId: params.userId,
     action: params.action,
