@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-foundation-01-03-PLAN.md
-last_updated: "2026-04-12T20:44:51.870Z"
+stopped_at: "Checkpoint: human-verify 01-foundation-01-04 (Task 2 — verify full Phase 1 journey in browser)"
+last_updated: "2026-04-12T20:50:35.087Z"
 last_activity: 2026-04-12 -- Roadmap created (4 phases, 41 requirements mapped)
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-foundation P01 | 5 | 2 tasks | 30 files |
 | Phase 01-foundation P02 | 6 | 3 tasks | 19 files |
 | Phase 01-foundation P03 | 2 | 1 tasks | 11 files |
+| Phase 01-foundation P04 | 4 | 1 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: VerifyPage sync over async: jsdom cannot render async Server Components — sync searchParams union type works in both test env and Next.js runtime
 - [Phase 01-foundation]: Tailwind v4 @theme in globals.css with next/font CSS variable injection: next/font injects --font-sans/--font-mono variables matching @theme names for runtime override
 - [Phase 01-foundation]: clsx + twMerge pattern for all UI primitive className composition: all primitives accept className prop for consumer overrides
+- [Phase 01-foundation]: WorkspaceShell is use client: needs useState for selectedFolderId, status dropdown, and folder mutations
+- [Phase 01-foundation]: Optimistic updates for status change and folder rename/delete with revert on API failure
+- [Phase 01-foundation]: Zod v4 enum error param uses error string directly (not errorMap object)
 
 ### Pending Todos
 
@@ -87,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T20:44:51.867Z
-Stopped at: Completed 01-foundation-01-03-PLAN.md
+Last session: 2026-04-12T20:50:35.085Z
+Stopped at: Checkpoint: human-verify 01-foundation-01-04 (Task 2 — verify full Phase 1 journey in browser)
 Resume file: None
