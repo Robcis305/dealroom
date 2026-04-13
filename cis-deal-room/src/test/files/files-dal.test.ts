@@ -34,6 +34,13 @@ import {
 
 const mockSession = { sessionId: 's1', userId: 'u1', userEmail: 'a@b.com', isAdmin: true };
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockInsert.mockReset();
+  mockSelect.mockReset();
+  mockDelete.mockReset();
+});
+
 describe('getFilesForFolder', () => {
   it('throws Unauthorized when no session', async () => {
     vi.mocked(verifySession).mockResolvedValue(null);
@@ -100,8 +107,21 @@ describe('deleteFile', () => {
 
   it('throws Admin required when non-admin', async () => {
     vi.mocked(verifySession).mockResolvedValue({ ...mockSession, isAdmin: false });
-    const chain = { from: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue([{ id: 'file-1' }]) };
-    mockSelect.mockReturnValue(chain);
     await expect(deleteFile('file-1')).rejects.toThrow('Admin required');
+  });
+});
+
+describe('getFileById', () => {
+  it('throws Unauthorized when no session', async () => {
+    vi.mocked(verifySession).mockResolvedValue(null);
+    await expect(getFileById('file-1')).rejects.toThrow('Unauthorized');
+  });
+
+  it('returns null when file is not found', async () => {
+    vi.mocked(verifySession).mockResolvedValue(mockSession);
+    const chain = { from: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue([]) };
+    mockSelect.mockReturnValue(chain);
+    const result = await getFileById('nonexistent');
+    expect(result).toBeNull();
   });
 });

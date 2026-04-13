@@ -102,40 +102,35 @@ export async function createFile(input: {
 
 /**
  * Deletes a file row by ID and logs the 'deleted' activity.
- * Fetches the file first, then the folder to get workspaceId for the activity log.
+ * Fetches the file + parent folder in one join to get workspaceId for the activity log.
  * Admin-only. Does NOT delete the S3 object — the route handler does that.
  */
 export async function deleteFile(fileId: string) {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
 
-  // Fetch the file row first
-  const [file] = await db
-    .select()
+  // Fetch file + folder to get workspaceId
+  const [row] = await db
+    .select({ file: files, folder: folders })
     .from(files)
+    .leftJoin(folders, eq(folders.id, files.folderId))
     .where(eq(files.id, fileId))
     .limit(1);
 
-  if (!file) throw new Error('File not found');
-  if (!session.isAdmin) throw new Error('Admin required');
-
-  // Fetch the parent folder to get workspaceId for the activity log
-  const [folder] = await db
-    .select()
-    .from(folders)
-    .where(eq(folders.id, file.folderId))
-    .limit(1);
+  if (!row) throw new Error('File not found');
+  if (!row.folder) throw new Error('Folder not found');
 
   await db.delete(files).where(eq(files.id, fileId));
 
   await logActivity(db, {
-    workspaceId: folder?.workspaceId ?? '',
+    workspaceId: row.folder.workspaceId,
     userId: session.userId,
     action: 'deleted',
     targetType: 'file',
     targetId: fileId,
-    metadata: { fileName: file.name },
+    metadata: { fileName: row.file.name },
   });
 
-  return file;
+  return row.file;
 }
