@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
-import { magicLinkTokens, users } from '@/db/schema';
+import { magicLinkTokens, users, workspaceParticipants } from '@/db/schema';
 import { hashToken } from '@/lib/auth/tokens';
 import { authVerifyLimiter } from '@/lib/auth/rate-limit';
 import { createSession, setSessionCookie } from '@/lib/auth/session';
@@ -57,9 +57,26 @@ export async function GET(request: NextRequest) {
     })
     .returning({ id: users.id });
 
-  // 7. Create database session and set cookie
+  // 7. If invitation token, flip matching participant rows for this user to active
+  if (tokenRow.purpose === 'invitation') {
+    await db
+      .update(workspaceParticipants)
+      .set({ status: 'active', activatedAt: new Date() })
+      .where(
+        and(
+          eq(workspaceParticipants.userId, user.id),
+          eq(workspaceParticipants.status, 'invited')
+        )
+      );
+  }
+
+  // 8. Create database session and set cookie
   const sessionId = await createSession(user.id);
-  const response = Response.redirect(`${appUrl}/deals`);
+  const redirectTarget =
+    tokenRow.purpose === 'invitation' && tokenRow.redirectTo
+      ? `${appUrl}${tokenRow.redirectTo}`
+      : `${appUrl}/deals`;
+  const response = Response.redirect(redirectTarget);
   setSessionCookie(response, sessionId);
 
   return response;

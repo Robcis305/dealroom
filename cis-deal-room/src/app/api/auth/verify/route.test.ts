@@ -20,6 +20,7 @@ vi.mock('@/lib/auth/session', () => ({
 vi.mock('@/db/schema', () => ({
   magicLinkTokens: {},
   users: { email: 'email' },
+  workspaceParticipants: { userId: 'userId', status: 'status' },
 }));
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
