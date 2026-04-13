@@ -1,14 +1,12 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { Resend } from 'resend';
 import { db } from '@/db';
 import { magicLinkTokens } from '@/db/schema';
 import { generateToken, hashToken } from '@/lib/auth/tokens';
 import { authSendLimiter } from '@/lib/auth/rate-limit';
 import { MagicLinkEmail } from '@/lib/email/magic-link';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendEmail } from '@/lib/email/send';
 
 const bodySchema = z.object({
   email: z.string().email(),
@@ -50,8 +48,7 @@ export async function POST(request: NextRequest) {
   const magicLink = `${appUrl}/auth/verify?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
   // 7. Send email via Resend using React Email template
-  await resend.emails.send({
-    from: 'CIS Partners <noreply@cispartners.com>',
+  await sendEmail({
     to: email,
     subject: 'Your CIS Deal Room sign-in link',
     react: MagicLinkEmail({ magicLink, email }),
