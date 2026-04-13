@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: "Phase 2 complete (10/10 tasks, 58/58 tests pass, 0 TS errors)"
-last_updated: "2026-04-13T13:10:00.000Z"
-last_activity: 2026-04-13 -- Phase 2 complete (file ops: presign URLs, FileList, UploadModal, versioning)
+stopped_at: "Plan 3.1 complete (15/15 tasks, 113/113 tests pass, 0 TS errors); Plan 3.2 pending"
+last_updated: "2026-04-13T14:55:00.000Z"
+last_activity: 2026-04-13 -- Plan 3.1 complete (participant CRUD, real IDOR, invitation tokens, upload-batch notifications, 18 commits)
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 50
+  total_plans: 6
+  completed_plans: 6
+  percent: 62
 ---
 
 # Project State
@@ -21,21 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-12)
 
 **Core value:** One organized, permission-controlled workspace per deal -- so both CIS Partners and clients always know where to find documents and exactly what happened to them.
-**Current focus:** Phase 3: Collaboration (next)
+**Current focus:** Phase 3: Collaboration (Plan 3.2 — UI + E2E, next)
 
 ## Current Position
 
-Phase: 2 of 4 (File Operations) -- COMPLETE
-Plan: 1 of 1 in current phase (superpowers plan with 10 tasks)
-Status: Ready to discuss/plan Phase 3
-Last activity: 2026-04-13 -- Phase 2 complete (browser↔S3 presigned uploads/downloads, FileList UI, UploadModal, duplicate→versioning flow, admin delete, activity logging, S3 stub mode)
+Phase: 3 of 4 (Collaboration) -- IN PROGRESS
+Plan: 1 of 2 in current phase complete (3.1 backend + IDOR shipped; 3.2 UI + E2E pending)
+Status: Ready to write Plan 3.2
+Last activity: 2026-04-13 -- Plan 3.1 shipped: participant CRUD, real requireDealAccess/requireFolderAccess, invitation flow via flavored magic-link, upload-batch notification route, IDOR retrofit on all file and workspace/folder routes. 113 tests passing.
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 62%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 6
 - Average duration: -
 - Total execution time: - hours
 
@@ -45,9 +45,10 @@ Progress: [█████░░░░░] 50%
 |-------|-------|-------|----------|
 | 01-foundation | 4 | - | - |
 | 02-file-operations | 1 | - | - |
+| 03-collaboration | 1 / 2 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-01, 01-02, 01-03, 01-04, 02 (file ops)
+- Last 5 plans: 01-03, 01-04, 02 (file ops), 03-1 (backend + IDOR), [3.2 pending]
 - Trend: -
 
 *Updated after each plan completion*
@@ -56,6 +57,7 @@ Progress: [█████░░░░░] 50%
 | Phase 01-foundation P03 | 2 | 1 tasks | 11 files |
 | Phase 01-foundation P04 | 4 | 1 tasks | 9 files |
 | Phase 02-file-operations | 10 tasks | 13 files | - |
+| Phase 03-collaboration P1 | 15 tasks | 22 files | - |
 
 ## Accumulated Context
 
@@ -87,6 +89,15 @@ Recent decisions affecting current work:
 - [Phase 02-file-operations]: Zod v4 .uuid() validates variant bits (RFC 4122) — test fixtures must use real UUIDs, not "f1"/"w1" placeholders
 - [Phase 02-file-operations]: Admin-only file delete; S3 DeleteObject fires before DB row delete (DAL handles DB + activity log in one unit)
 - [Phase 02-file-operations]: react-dropzone for drag-and-drop; XHR used for S3 PUT to expose upload.onprogress
+- [Phase 03-1 collaboration]: Invitation tokens reuse magic_link_tokens table with purpose + redirect_to columns, 3-day expiry (vs 10-min login)
+- [Phase 03-1 collaboration]: Role-based permission resolver (canPerform) — no permission_level column on folder_access; view_only gets download-only, all others upload+download
+- [Phase 03-1 collaboration]: Self-edit guards server-side: admin cannot demote own role or remove self (checked in DAL, not just route)
+- [Phase 03-1 collaboration]: Participant removal does not touch sessions table — requireDealAccess denies on next request (sessions prove identity, participants prove authorization)
+- [Phase 03-1 collaboration]: Activity enum reuses short verbs (invited/removed) with target_type disambiguating; only participant_updated + notified_batch added as new values
+- [Phase 03-1 collaboration]: sendEmail() wrapper with stub-mode (console.log when RESEND_API_KEY unset); all email flows now route through it
+- [Phase 03-1 collaboration]: Upload-batch notification is client-initiated — UploadModal calls POST /notify-upload-batch once after all confirms; avoids server-side debounce infra
+- [Phase 03-1 collaboration]: Re-invite is idempotent — same admin POST on an already-invited user refreshes the token + updates role without duplicating the participant row
+- [Phase 03-1 collaboration]: Invitation token delete on re-invite scopes to purpose='invitation' to avoid clobbering in-flight login tokens
 
 ### Pending Todos
 
@@ -95,9 +106,10 @@ None yet.
 ### Blockers/Concerns
 
 - [Research]: Multipart upload library choice (lib-storage vs. Uppy) -- not adopted in Phase 2; plain XHR + presigned PUT used instead. Revisit if >500MB uploads become a requirement.
+- [Phase 03 v1 limitation]: Presigned download URLs issued within 15-minute window remain valid after access is revoked. Documented trade-off; revisit if threat model tightens.
 
 ## Session Continuity
 
 Last session: 2026-04-13
-Stopped at: Phase 2 complete; working tree has pre-existing residual state (see uncommitted .planning/ files and untracked scaffolding). Ready to discuss/plan Phase 3.
+Stopped at: Plan 3.1 shipped cleanly (113/113 tests, 0 TS errors, 18 commits from 121f91d..83b4257). Ready to write Plan 3.2 (UI + E2E) for Phase 3 completion.
 Resume file: None
