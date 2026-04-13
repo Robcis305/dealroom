@@ -35,7 +35,7 @@ vi.mock('@/db', () => ({
     transaction: (fn: (tx: unknown) => Promise<unknown>) => {
       mockTransaction(fn);
       return fn({
-        select: () => ({ from: () => ({ where: () => ({ limit: mockSelectChain }) }) }),
+        select: () => ({ from: () => ({ where: () => makeTxWhereResult() }) }),
         insert: () => ({ values: (v: unknown) => { mockInsertValues(v); return { returning: mockInsertReturning }; } }),
         update: () => ({ set: () => ({ where: mockUpdateWhere }) }),
         delete: () => ({ where: mockDeleteWhere }),
@@ -50,6 +50,27 @@ vi.mock('@/db', () => ({
     delete: () => ({ where: mockDeleteWhere }),
   },
 }));
+
+/**
+ * Like makeWhereResult but for inside transactions:
+ * supports both .limit(n) and direct await (for queries without .limit).
+ */
+function makeTxWhereResult() {
+  const obj: {
+    limit: typeof mockSelectChain;
+    then: (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) => unknown;
+    catch: (onRejected: (e: unknown) => unknown) => unknown;
+  } = {
+    limit: mockSelectChain,
+    then(onFulfilled, onRejected) {
+      return mockSelectChain().then(onFulfilled, onRejected);
+    },
+    catch(onRejected) {
+      return mockSelectChain().catch(onRejected);
+    },
+  };
+  return obj;
+}
 
 vi.mock('@/lib/dal/index', () => ({
   verifySession: vi.fn(),
@@ -132,6 +153,67 @@ describe('inviteParticipant', () => {
     });
     expect(result.participant.id).toBe('p1');
     expect(mockTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns rawToken', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    mockSelectChain
+      .mockResolvedValueOnce([{ id: 'user-1' }])  // user exists
+      .mockResolvedValueOnce([]);                   // no existing participant
+    mockInsertReturning
+      .mockResolvedValueOnce([{ id: 'p1', userId: 'user-1', role: 'client', status: 'invited' }]);
+
+    // generateToken mock returns 'raw-token-abc' by default — override with a 64-char hex string
+    const { generateToken } = await import('@/lib/auth/tokens');
+    vi.mocked(generateToken).mockReturnValue('a'.repeat(64));
+
+    const result = await inviteParticipant({
+      workspaceId: WORKSPACE_ID,
+      email: 'x@y.com',
+      role: 'client',
+      folderIds: [],
+    });
+    expect(result.rawToken).toMatch(/^[0-9a-f]{64}$/i);
+  });
+
+  it('re-invite updates role and refreshes token for existing participant', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+
+    const existingParticipant = {
+      id: 'p-existing',
+      workspaceId: WORKSPACE_ID,
+      userId: 'user-1',
+      role: 'client' as const,
+      status: 'invited' as const,
+    };
+
+    // Sequence: user lookup → existing user, participant lookup → existing participant
+    mockSelectChain
+      .mockResolvedValueOnce([{ id: 'user-1' }])       // user exists
+      .mockResolvedValueOnce([existingParticipant]);     // participant exists (re-invite)
+
+    const result = await inviteParticipant({
+      workspaceId: WORKSPACE_ID,
+      email: 'x@y.com',
+      role: 'counsel',
+      folderIds: [],
+    });
+
+    // Transaction should have been called once
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+
+    // No new participant row should have been inserted (mockInsertReturning not called for participant)
+    // The insert mock captures ALL insert values — none should look like a workspaceParticipants row
+    const participantInsertCalls = mockInsertValues.mock.calls.filter(
+      (args: unknown[]) => {
+        const v = args[0];
+        return v !== null && typeof v === 'object' && 'workspaceId' in (v as object) && 'userId' in (v as object);
+      }
+    );
+    expect(participantInsertCalls).toHaveLength(0);
+
+    // The returned participant should have the new role from input
+    expect(result.participant.role).toBe('counsel');
   });
 });
 

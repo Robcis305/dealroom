@@ -49,6 +49,7 @@ export type ActivityAction =
   | 'renamed_folder'
   | 'created_workspace'
   | 'revoked_access'
-  | 'status_changed';
+  | 'status_changed'
+  | 'participant_updated';
 
 export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant';

@@ -95,17 +95,27 @@ export async function inviteParticipant(input: InviteInput) {
       )
       .limit(1);
 
-    const participant =
-      existingParticipant ??
-      (await tx
-        .insert(workspaceParticipants)
-        .values({
-          workspaceId: input.workspaceId,
-          userId,
-          role: input.role,
-          status: 'invited',
-        })
-        .returning())[0];
+    // Fix #1: Re-invite must update the role on the existing participant row
+    if (existingParticipant) {
+      if (existingParticipant.role !== input.role) {
+        await tx
+          .update(workspaceParticipants)
+          .set({ role: input.role })
+          .where(eq(workspaceParticipants.id, existingParticipant.id));
+      }
+    }
+
+    const participant = existingParticipant
+      ? { ...existingParticipant, role: input.role }
+      : (await tx
+          .insert(workspaceParticipants)
+          .values({
+            workspaceId: input.workspaceId,
+            userId,
+            role: input.role,
+            status: 'invited',
+          })
+          .returning())[0];
 
     // 3. Insert folder_access rows (delete existing first if re-invite)
     await tx
@@ -122,7 +132,15 @@ export async function inviteParticipant(input: InviteInput) {
     }
 
     // 4. Create invitation token (delete any existing invitation tokens for this email)
-    await tx.delete(magicLinkTokens).where(eq(magicLinkTokens.email, input.email));
+    // Fix #2: Scope delete to only 'invitation' purpose tokens, not login tokens
+    await tx
+      .delete(magicLinkTokens)
+      .where(
+        and(
+          eq(magicLinkTokens.email, input.email),
+          eq(magicLinkTokens.purpose, 'invitation')
+        )
+      );
     await tx.insert(magicLinkTokens).values({
       email: input.email,
       tokenHash,
@@ -175,12 +193,15 @@ export async function updateParticipant(participantId: string, input: UpdateInpu
     throw new Error('Cannot demote self');
   }
 
-  const beforeFolderAccessRows = await db
-    .select({ folderId: folderAccess.folderId })
-    .from(folderAccess)
-    .where(eq(folderAccess.participantId, participantId));
+  // Fix #3: Read beforeFolderAccessRows inside the transaction to avoid TOCTOU race
+  let beforeFolderAccessRows: { folderId: string }[] = [];
 
   await db.transaction(async (tx) => {
+    beforeFolderAccessRows = await tx
+      .select({ folderId: folderAccess.folderId })
+      .from(folderAccess)
+      .where(eq(folderAccess.participantId, participantId));
+
     await tx
       .update(workspaceParticipants)
       .set({ role: input.role })
