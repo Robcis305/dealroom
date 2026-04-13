@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/Badge';
 import { FolderSidebar } from './FolderSidebar';
 import { DealOverview } from './DealOverview';
 import { RightPanel } from './RightPanel';
+import { FileList } from './FileList';
+import { UploadModal } from './UploadModal';
 import type { WorkspaceStatus } from '@/types';
 
 interface Workspace {
@@ -48,6 +50,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [folders, setFolders] = useState(initialFolders);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadRevision, setUploadRevision] = useState(0);
 
   async function handleStatusChange(newStatus: WorkspaceStatus) {
     const previous = status;
@@ -165,17 +169,13 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
               folders={folders}
             />
           ) : (
-            <div className="flex items-center justify-center h-full text-neutral-500 text-sm">
-              {/* File list UI is Phase 2 */}
-              <div className="text-center">
-                <p className="text-sm text-neutral-400">
-                  {folders.find((f) => f.id === selectedFolderId)?.name ?? 'Folder'}
-                </p>
-                <p className="text-xs text-neutral-600 mt-1">
-                  File upload and management available in next release.
-                </p>
-              </div>
-            </div>
+            <FileList
+              folderId={selectedFolderId}
+              folderName={folders.find((f) => f.id === selectedFolderId)?.name ?? 'Files'}
+              isAdmin={isAdmin}
+              onUpload={() => setShowUploadModal(true)}
+              uploadRevision={uploadRevision}
+            />
           )}
         </main>
 
@@ -184,6 +184,18 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
           <RightPanel workspaceId={workspace.id} />
         </div>
       </div>
+
+      <UploadModal
+        open={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        folders={folders}
+        initialFolderId={selectedFolderId ?? undefined}
+        workspaceId={workspace.id}
+        onUploadComplete={() => {
+          setShowUploadModal(false);
+          setUploadRevision((n) => n + 1);
+        }}
+      />
     </div>
   );
 }
