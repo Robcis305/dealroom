@@ -295,3 +295,13 @@ The build is complete when all of the following are true:
 ---
 
 *Design approved 2026-04-13. Proceed to implementation via writing-plans skill.*
+
+---
+
+## Verification log
+
+**2026-04-13 — Phase 2 Task 10 (workspace creation enforcement):** verified, no code changes needed.
+- [src/components/deals/NewDealModal.tsx](../../../cis-deal-room/src/components/deals/NewDealModal.tsx) initialises `cisAdvisorySide` to `''` (no pre-selected side) and the Zod schema uses `z.enum(['buyer_side', 'seller_side'])` with no `.default()`.
+- [src/app/api/workspaces/route.ts](../../../cis-deal-room/src/app/api/workspaces/route.ts) `createWorkspaceSchema` enforces `name.min(1)`, `clientName.min(1)`, and `cisAdvisorySide: z.enum(...)` with no default.
+
+Result: all four required fields (name, clientName, cisAdvisorySide, status) are enforced at both client and API boundary. Phase 1 implementation already satisfies the Phase 2 spec requirement.
