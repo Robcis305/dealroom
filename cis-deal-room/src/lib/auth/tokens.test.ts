@@ -1,39 +1,43 @@
 import { describe, it, expect } from 'vitest';
 import { generateToken, hashToken, timingSafeTokenCompare } from './tokens';
 
-// Wave 0 stubs — these tests must FAIL (RED) until implemented fully in Plan 01-02.
 describe('generateToken()', () => {
   it('returns a 64-character hex string', () => {
-    // TODO: implement — assert length and hex format
-    expect(true).toBe(false);
+    const t = generateToken();
+    expect(t).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('returns a different token on each call', () => {
-    // TODO: implement — assert uniqueness
-    expect(true).toBe(false);
+    const a = generateToken();
+    const b = generateToken();
+    expect(a).not.toBe(b);
   });
 });
 
 describe('hashToken()', () => {
   it('returns a deterministic SHA-256 hex digest', () => {
-    // TODO: implement — hash same token twice, assert equal
-    expect(true).toBe(false);
+    const token = 'deadbeef';
+    const h1 = hashToken(token);
+    const h2 = hashToken(token);
+    expect(h1).toBe(h2);
+    // SHA-256 output is 64 hex chars
+    expect(h1).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('returns different hashes for different tokens', () => {
-    // TODO: implement — hash two different tokens, assert not equal
-    expect(true).toBe(false);
+    expect(hashToken('a')).not.toBe(hashToken('b'));
   });
 });
 
 describe('timingSafeTokenCompare()', () => {
   it('returns true when two identical hex tokens are compared', () => {
-    // TODO: implement — compare same token hash to itself
-    expect(true).toBe(false);
+    const h = hashToken('x');
+    expect(timingSafeTokenCompare(h, h)).toBe(true);
   });
 
   it('returns false when tokens differ', () => {
-    // TODO: implement — compare different hashes
-    expect(true).toBe(false);
+    const a = hashToken('x');
+    const b = hashToken('y');
+    expect(timingSafeTokenCompare(a, b)).toBe(false);
   });
 });
