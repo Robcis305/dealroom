@@ -47,7 +47,11 @@ export const activityActionEnum = pgEnum('activity_action', [
   'created_workspace',
   'revoked_access',
   'status_changed',
+  'participant_updated',
+  'notified_batch',
 ]);
+
+export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
 
 export const activityTargetTypeEnum = pgEnum('activity_target_type', [
   'workspace',
@@ -81,6 +85,8 @@ export const magicLinkTokens = pgTable('magic_link_tokens', {
   tokenHash: text('token_hash').notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  purpose: magicLinkPurposeEnum('purpose').notNull().default('login'),
+  redirectTo: text('redirect_to'),
 });
 
 export const workspaces = pgTable('workspaces', {
