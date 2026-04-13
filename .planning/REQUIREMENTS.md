@@ -74,7 +74,7 @@
 - [ ] **UI-04**: Invite modal with email field, role dropdown (showing contextually correct Rep role based on deal's CIS side), and folder access checkboxes
 - [x] **UI-05**: Login screen with email input, magic link confirmation state, and CIS Partners branding
 - [ ] **UI-06**: Responsive behavior -- folder sidebar collapses to top-level dropdown, right panel becomes expandable drawer on tablet (768px); single-column layout on mobile (375px)
-- [ ] **UI-07**: CIS brand applied throughout -- #E10600 primary accent, #000000/#0D0D0D base, DM Sans UI font, JetBrains Mono for data values (file sizes, timestamps, IDs)
+- [x] **UI-07**: CIS brand applied throughout -- #E10600 primary accent, #000000/#0D0D0D base, DM Sans UI font, JetBrains Mono for data values (file sizes, timestamps, IDs)
 
 ## v2 Requirements
 
@@ -151,7 +151,7 @@
 | UI-04 | Phase 3: Collaboration | Pending |
 | UI-05 | Phase 1: Foundation | Complete |
 | UI-06 | Phase 4: Interface and Polish | Pending |
-| UI-07 | Phase 1: Foundation | Pending |
+| UI-07 | Phase 1: Foundation | Complete |
 
 **Coverage:**
 - v1 requirements: 41 total
