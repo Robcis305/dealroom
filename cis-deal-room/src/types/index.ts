@@ -50,6 +50,7 @@ export type ActivityAction =
   | 'created_workspace'
   | 'revoked_access'
   | 'status_changed'
-  | 'participant_updated';
+  | 'participant_updated'
+  | 'notified_batch';
 
 export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant';
