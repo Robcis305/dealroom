@@ -1,23 +1,55 @@
-import { eq, max, asc } from 'drizzle-orm';
+import { eq, and, inArray, max, asc } from 'drizzle-orm';
 import { db } from '@/db';
-import { folders } from '@/db/schema';
+import { folders, folderAccess, workspaceParticipants } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
 /**
- * Returns all folders for a workspace ordered by sortOrder.
- * Requires an authenticated session (any role — not admin-only).
+ * Returns folders for a workspace, filtered by the user's access:
+ * - Admin → all folders in the workspace.
+ * - Non-admin → only folders they have a folder_access row for.
+ *
+ * Ordered by sortOrder ascending.
  */
 export async function getFoldersForWorkspace(workspaceId: string) {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
 
+  if (session.isAdmin) {
+    return db
+      .select()
+      .from(folders)
+      .where(eq(folders.workspaceId, workspaceId))
+      .orderBy(asc(folders.sortOrder));
+  }
+
+  // Non-admin: subquery of folderIds they have access to within this workspace
+  const accessRows = await db
+    .select({ folderId: folderAccess.folderId })
+    .from(folderAccess)
+    .innerJoin(
+      workspaceParticipants,
+      eq(workspaceParticipants.id, folderAccess.participantId)
+    )
+    .where(
+      and(
+        eq(workspaceParticipants.userId, session.userId),
+        eq(workspaceParticipants.workspaceId, workspaceId),
+        eq(workspaceParticipants.status, 'active')
+      )
+    );
+
+  const accessibleFolderIds = accessRows.map((r) => r.folderId);
+  if (accessibleFolderIds.length === 0) return [];
+
   return db
     .select()
     .from(folders)
-    .where(eq(folders.workspaceId, workspaceId))
+    .where(
+      and(eq(folders.workspaceId, workspaceId), inArray(folders.id, accessibleFolderIds))
+    )
     .orderBy(asc(folders.sortOrder));
 }
 

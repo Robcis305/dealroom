@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/db/schema', () => ({
   folders: {},
+  folderAccess: {},
+  workspaceParticipants: {},
 }));
 
 describe('getFolders()', () => {
@@ -18,10 +20,10 @@ describe('getFolders()', () => {
 
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({
-        userId: 'user-1',
-        isAdmin: false,
+        userId: 'admin-1',
+        isAdmin: true,
         sessionId: 's1',
-        userEmail: 'user@example.com',
+        userEmail: 'admin@cis.com',
       }),
     }));
 
