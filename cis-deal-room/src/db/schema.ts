@@ -132,6 +132,23 @@ export const folderAccess = pgTable('folder_access', {
   grantedAt: timestamp('granted_at').notNull().defaultNow(),
 });
 
+export const files = pgTable('files', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  folderId: uuid('folder_id')
+    .notNull()
+    .references(() => folders.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  s3Key: text('s3_key').notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
+  mimeType: text('mime_type').notNull(),
+  version: integer('version').notNull().default(1),
+  uploadedBy: uuid('uploaded_by')
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  // No updatedAt — file rows are immutable once confirmed. Versioning creates new rows.
+});
+
 // append-only — intentionally no updatedAt
 export const activityLogs = pgTable('activity_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
