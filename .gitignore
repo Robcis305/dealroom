@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Microsoft Office lockfiles (~$ prefix on open docs)
+~$*
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
