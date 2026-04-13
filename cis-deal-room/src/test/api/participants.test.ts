@@ -7,14 +7,14 @@ vi.mock('@/lib/dal/participants', () => ({
   inviteParticipant: vi.fn(),
 }));
 vi.mock('@/lib/dal/workspaces', () => ({
-  getWorkspaceById: vi.fn(),
+  getWorkspace: vi.fn(),
 }));
 vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn().mockResolvedValue({ id: 'stub' }) }));
 
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { getParticipants, inviteParticipant } from '@/lib/dal/participants';
-import { getWorkspaceById } from '@/lib/dal/workspaces';
+import { getWorkspace } from '@/lib/dal/workspaces';
 import { GET, POST } from '@/app/api/workspaces/[id]/participants/route';
 
 const adminSession = { sessionId: 's1', userId: 'admin-u', userEmail: 'admin@cis.com', isAdmin: true };
@@ -87,7 +87,7 @@ describe('POST /api/workspaces/[id]/participants', () => {
 
   it('creates participant, sends invitation email, returns 201', async () => {
     vi.mocked(verifySession).mockResolvedValue(adminSession);
-    vi.mocked(getWorkspaceById).mockResolvedValue({ id: WORKSPACE_ID, name: 'Test Deal' } as any);
+    vi.mocked(getWorkspace).mockResolvedValue({ id: WORKSPACE_ID, name: 'Test Deal' } as any);
     vi.mocked(inviteParticipant).mockResolvedValue({
       participant: { id: 'p1', userId: 'u1', role: 'client', status: 'invited' } as any,
       rawToken: 'fake-token',

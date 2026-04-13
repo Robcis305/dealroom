@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { getParticipants, inviteParticipant } from '@/lib/dal/participants';
-import { getWorkspaceById } from '@/lib/dal/workspaces';
+import { getWorkspace } from '@/lib/dal/workspaces';
 import { sendEmail } from '@/lib/email/send';
 import { InvitationEmail } from '@/lib/email/invitation';
 
@@ -69,7 +69,7 @@ export async function POST(
     return Response.json({ error: 'Invalid request' }, { status: 400 });
   }
 
-  const workspace = await getWorkspaceById(workspaceId);
+  const workspace = await getWorkspace(workspaceId);
   if (!workspace) return Response.json({ error: 'Workspace not found' }, { status: 404 });
 
   const { participant, rawToken } = await inviteParticipant({
