@@ -71,6 +71,21 @@ export async function getWorkspace(workspaceId: string) {
   return workspace ?? null;
 }
 
+/**
+ * Alias for getWorkspace — returns a single workspace by ID without
+ * access checking. Callers should call requireDealAccess() first if needed.
+ */
+export async function getWorkspaceById(workspaceId: string) {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  const [row] = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  return row ?? null;
+}
+
 // ─── Write ────────────────────────────────────────────────────────────────────
 
 /**
