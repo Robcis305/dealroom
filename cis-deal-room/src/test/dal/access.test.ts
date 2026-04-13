@@ -6,6 +6,11 @@ vi.mock('@/db', () => ({
   db: {
     select: () => ({
       from: () => ({
+        innerJoin: () => ({
+          innerJoin: () => ({
+            where: () => ({ limit: mockSelectLimit }),
+          }),
+        }),
         where: () => ({ limit: mockSelectLimit }),
       }),
     }),
@@ -39,5 +44,53 @@ describe('requireDealAccess', () => {
   it('non-admin with only an invited (not active) row throws Unauthorized', async () => {
     mockSelectLimit.mockResolvedValue([]);
     await expect(requireDealAccess(WORKSPACE_ID, clientSession)).rejects.toThrow('Unauthorized');
+  });
+});
+
+import { requireFolderAccess } from '@/lib/dal/access';
+
+const FOLDER_ID = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
+
+describe('requireFolderAccess', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('admin bypasses and does not query DB', async () => {
+    await requireFolderAccess(FOLDER_ID, adminSession, 'upload');
+    expect(mockSelectLimit).not.toHaveBeenCalled();
+  });
+
+  it('throws Unauthorized when user has no folder_access row', async () => {
+    mockSelectLimit.mockResolvedValue([]);
+    await expect(
+      requireFolderAccess(FOLDER_ID, clientSession, 'download')
+    ).rejects.toThrow('Unauthorized');
+  });
+
+  it('client with folder_access can download', async () => {
+    mockSelectLimit.mockResolvedValue([{ role: 'client' }]);
+    await expect(
+      requireFolderAccess(FOLDER_ID, clientSession, 'download')
+    ).resolves.toBeUndefined();
+  });
+
+  it('client with folder_access can upload', async () => {
+    mockSelectLimit.mockResolvedValue([{ role: 'client' }]);
+    await expect(
+      requireFolderAccess(FOLDER_ID, clientSession, 'upload')
+    ).resolves.toBeUndefined();
+  });
+
+  it('view_only with folder_access can download', async () => {
+    mockSelectLimit.mockResolvedValue([{ role: 'view_only' }]);
+    await expect(
+      requireFolderAccess(FOLDER_ID, clientSession, 'download')
+    ).resolves.toBeUndefined();
+  });
+
+  it('view_only with folder_access cannot upload', async () => {
+    mockSelectLimit.mockResolvedValue([{ role: 'view_only' }]);
+    await expect(
+      requireFolderAccess(FOLDER_ID, clientSession, 'upload')
+    ).rejects.toThrow('Forbidden');
   });
 });

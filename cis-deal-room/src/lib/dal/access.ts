@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { workspaceParticipants } from '@/db/schema';
+import { workspaceParticipants, folderAccess, folders } from '@/db/schema';
+import { canPerform, type FolderAction, type ParticipantRole } from './permissions';
 import type { Session } from '@/types';
 
 /**
@@ -31,21 +32,38 @@ export async function requireDealAccess(
 }
 
 /**
- * Verify the session user has access to the given folder.
+ * Verify the session user can perform the given action on the folder.
  *
- * STUB: no-op in Phase 1. Phase 3 fills with real IDOR enforcement.
- *
- * Phase 3 implementation:
- *   SELECT from folderAccess WHERE folderId AND participantId matches session.userId
- *   Throw 'Unauthorized' if no matching row found.
- *
- * Phase 2 file routes MUST call this before returning file listings.
+ * Admin users bypass. Non-admins must (a) have a folder_access row for this
+ * folder and (b) their participant role must permit the requested action.
  */
 export async function requireFolderAccess(
   folderId: string,
-  session: Session
+  session: Session,
+  action: FolderAction
 ): Promise<void> {
-  // TODO (Phase 3): SELECT from folderAccess WHERE folderId AND participantId matches session.userId
-  void folderId;
-  void session;
+  if (session.isAdmin) return;
+
+  const [row] = await db
+    .select({ role: workspaceParticipants.role })
+    .from(folderAccess)
+    .innerJoin(folders, eq(folders.id, folderAccess.folderId))
+    .innerJoin(
+      workspaceParticipants,
+      eq(workspaceParticipants.id, folderAccess.participantId)
+    )
+    .where(
+      and(
+        eq(folderAccess.folderId, folderId),
+        eq(workspaceParticipants.userId, session.userId),
+        eq(workspaceParticipants.status, 'active')
+      )
+    )
+    .limit(1);
+
+  if (!row) throw new Error('Unauthorized');
+
+  if (!canPerform(row.role as ParticipantRole, action)) {
+    throw new Error('Forbidden');
+  }
 }
