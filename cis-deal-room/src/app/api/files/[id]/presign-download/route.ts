@@ -7,6 +7,7 @@ import { getS3Client, S3_BUCKET } from '@/lib/storage/s3';
 import { db } from '@/db';
 import { folders } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { requireFolderAccess } from '@/lib/dal/access';
 
 export async function GET(
   _request: Request,
@@ -19,6 +20,12 @@ export async function GET(
 
   const file = await getFileById(fileId);
   if (!file) return Response.json({ error: 'File not found' }, { status: 404 });
+
+  try {
+    await requireFolderAccess(file.folderId, session, 'download');
+  } catch {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   // S3 stub — return placeholder URL when bucket is not configured.
   // Skip the folder lookup in stub mode; activity log uses 'stub' workspaceId.

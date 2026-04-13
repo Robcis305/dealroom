@@ -4,6 +4,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { verifySession } from '@/lib/dal/index';
 import { checkDuplicate } from '@/lib/dal/files';
 import { getS3Client, S3_BUCKET } from '@/lib/storage/s3';
+import { requireFolderAccess } from '@/lib/dal/access';
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -50,6 +51,13 @@ export async function POST(request: Request) {
   // Validate file size
   if (sizeBytes > MAX_SIZE_BYTES) {
     return Response.json({ error: 'File size exceeds 500 MB limit' }, { status: 400 });
+  }
+
+  // IDOR enforcement: confirm caller has upload permission on this folder
+  try {
+    await requireFolderAccess(folderId, session, 'upload');
+  } catch {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   // Duplicate detection — let the caller decide whether to version or cancel

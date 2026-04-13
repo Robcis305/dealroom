@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { verifySession } from '@/lib/dal/index';
 import { createFile, checkDuplicate } from '@/lib/dal/files';
+import { requireFolderAccess } from '@/lib/dal/access';
 
 const schema = z.object({
   folderId: z.string().uuid(),
@@ -28,6 +29,12 @@ export async function POST(request: Request) {
   }
 
   const { folderId, fileName, s3Key, sizeBytes, mimeType, workspaceId, confirmedVersioning } = parsed;
+
+  try {
+    await requireFolderAccess(parsed.folderId, session, 'upload');
+  } catch {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   // Resolve previous version when the user chose to create a new version
   let previousVersion: number | undefined;

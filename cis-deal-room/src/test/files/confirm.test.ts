@@ -9,6 +9,10 @@ vi.mock('@/lib/dal/index', () => ({
   verifySession: vi.fn(),
 }));
 
+vi.mock('@/lib/dal/access', () => ({
+  requireFolderAccess: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { verifySession } from '@/lib/dal/index';
 import { createFile, checkDuplicate } from '@/lib/dal/files';
 import { POST } from '@/app/api/files/confirm/route';

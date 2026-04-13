@@ -17,6 +17,10 @@ vi.mock('@/lib/dal/index', () => ({
   verifySession: vi.fn(),
 }));
 
+vi.mock('@/lib/dal/access', () => ({
+  requireFolderAccess: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('@/lib/dal/activity', () => ({
   logActivity: vi.fn(),
 }));

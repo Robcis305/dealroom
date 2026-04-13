@@ -3,6 +3,7 @@ import { verifySession } from '@/lib/dal/index';
 import { db } from '@/db';
 import { users, files } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { requireFolderAccess } from '@/lib/dal/access';
 
 const schema = z.object({ folderId: z.string().uuid() });
 
@@ -13,6 +14,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const parsed = schema.safeParse({ folderId: url.searchParams.get('folderId') });
   if (!parsed.success) return Response.json({ error: 'folderId required' }, { status: 400 });
+
+  try {
+    await requireFolderAccess(parsed.data.folderId, session, 'download');
+  } catch {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   try {
     // Fetch files with uploader email via join, newest first
