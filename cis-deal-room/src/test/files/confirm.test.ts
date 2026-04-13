@@ -37,7 +37,7 @@ describe('POST /api/files/confirm', () => {
 
   it('creates file record and returns 201 on success', async () => {
     vi.mocked(verifySession).mockResolvedValue(mockSession);
-    vi.mocked(checkDuplicate).mockResolvedValue(null);
+    vi.mocked(checkDuplicate).mockResolvedValue(null as any);
     const newFile = { id: 'file-1', name: 'x.pdf', version: 1 };
     vi.mocked(createFile).mockResolvedValue(newFile as any);
 

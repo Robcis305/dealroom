@@ -45,7 +45,7 @@ describe('GET /api/files/[id]/presign-download', () => {
 
   it('returns 404 when file does not exist', async () => {
     vi.mocked(verifySession).mockResolvedValue(mockSession);
-    vi.mocked(getFileById).mockResolvedValue(null);
+    vi.mocked(getFileById).mockResolvedValue(null as any);
     const res = await GET(makeRequest('nope'), { params: Promise.resolve({ id: 'nope' }) });
     expect(res.status).toBe(404);
   });
