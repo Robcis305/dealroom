@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronDown, ArrowLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { Logo } from '@/components/ui/Logo';
 import { FolderSidebar } from './FolderSidebar';
 import { DealOverview } from './DealOverview';
 import { RightPanel } from './RightPanel';
@@ -75,20 +77,21 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#0D0D0D] overflow-hidden">
+    <div className="flex flex-col h-screen bg-bg overflow-hidden">
       {/* Header bar */}
-      <header className="h-14 bg-[#141414] border-b border-[#2A2A2A] flex items-center px-4 gap-4 shrink-0 z-10">
-        {/* TODO: Replace with CIS Partners logo asset */}
-        <div
-          className="w-8 h-8 bg-[#1F1F1F] border border-[#2A2A2A] rounded flex items-center
-            justify-center shrink-0"
-          aria-label="CIS Partners logo placeholder"
+      <header className="h-14 bg-surface border-b border-border flex items-center px-4 gap-4 shrink-0 z-10">
+        {/* Back to deals + Logo */}
+        <Link
+          href="/deals"
+          className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors"
+          aria-label="Back to deal rooms"
         >
-          <span className="text-xs font-bold text-[#E10600]">CIS</span>
-        </div>
+          <ArrowLeft size={16} />
+          <Logo size="sm" />
+        </Link>
 
         {/* Deal name */}
-        <span className="text-sm font-semibold text-white truncate min-w-0 flex-1">
+        <span className="text-sm font-semibold text-text-primary truncate min-w-0 flex-1">
           {workspace.name}
         </span>
 
@@ -98,13 +101,13 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
             <button
               onClick={() => setStatusDropdownOpen((prev) => !prev)}
               className="flex items-center gap-1.5 focus:outline-none focus:ring-2
-                focus:ring-[#E10600] rounded cursor-pointer"
+                focus:ring-accent rounded cursor-pointer"
               aria-label="Change workspace status"
               aria-expanded={statusDropdownOpen}
               aria-haspopup="listbox"
             >
               <Badge status={status} />
-              <ChevronDown size={12} className="text-neutral-400" />
+              <ChevronDown size={12} className="text-text-muted" />
             </button>
             {statusDropdownOpen && (
               <>
@@ -115,8 +118,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
                 />
                 {/* Dropdown */}
                 <div
-                  className="absolute right-0 top-full mt-1.5 z-20 bg-[#1A1A1A] border
-                    border-[#2A2A2A] rounded-lg shadow-xl overflow-hidden min-w-[140px]"
+                  className="absolute right-0 top-full mt-1.5 z-20 bg-surface border
+                    border-border rounded-lg shadow-md overflow-hidden min-w-[140px]"
                   role="listbox"
                   aria-label="Select workspace status"
                 >
@@ -130,8 +133,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
                         duration-100 cursor-pointer
                         ${
                           status === opt.value
-                            ? 'text-[#E10600] bg-[#E10600]/10'
-                            : 'text-neutral-300 hover:text-white hover:bg-[#2A2A2A]'
+                            ? 'text-accent bg-accent-subtle'
+                            : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
                         }`}
                     >
                       {opt.label}
@@ -149,7 +152,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
       {/* Three-panel body */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left: Folder sidebar — 240px */}
-        <div className="w-[240px] shrink-0 overflow-y-auto">
+        <div className="w-[240px] shrink-0 bg-surface border-r border-border overflow-y-auto">
           <FolderSidebar
             folders={folders}
             workspaceId={workspace.id}
@@ -161,7 +164,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
         </div>
 
         {/* Center: flex-1 main area */}
-        <main className="flex-1 min-w-0 overflow-y-auto bg-[#0D0D0D] border-x border-[#2A2A2A]">
+        <main className="flex-1 min-w-0 overflow-y-auto bg-surface-elevated border-x border-border">
           {selectedFolderId === null ? (
             <DealOverview
               workspace={workspace}
@@ -180,7 +183,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
         </main>
 
         {/* Right: RightPanel — 320px */}
-        <div className="w-[320px] shrink-0 overflow-y-auto">
+        <div className="w-[320px] shrink-0 bg-surface border-l border-border overflow-y-auto">
           <RightPanel
                 workspaceId={workspace.id}
                 cisAdvisorySide={workspace.cisAdvisorySide}
