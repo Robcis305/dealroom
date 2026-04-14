@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   users,
@@ -34,7 +34,7 @@ export async function getParticipants(workspaceId: string) {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
 
-  return db
+  const rows = await db
     .select({
       id: workspaceParticipants.id,
       userId: workspaceParticipants.userId,
@@ -43,10 +43,23 @@ export async function getParticipants(workspaceId: string) {
       status: workspaceParticipants.status,
       invitedAt: workspaceParticipants.invitedAt,
       activatedAt: workspaceParticipants.activatedAt,
+      folderIds: sql<string[]>`coalesce(array_agg(${folderAccess.folderId}) filter (where ${folderAccess.folderId} is not null), '{}')`,
     })
     .from(workspaceParticipants)
     .innerJoin(users, eq(users.id, workspaceParticipants.userId))
-    .where(eq(workspaceParticipants.workspaceId, workspaceId));
+    .leftJoin(folderAccess, eq(folderAccess.participantId, workspaceParticipants.id))
+    .where(eq(workspaceParticipants.workspaceId, workspaceId))
+    .groupBy(
+      workspaceParticipants.id,
+      workspaceParticipants.userId,
+      users.email,
+      workspaceParticipants.role,
+      workspaceParticipants.status,
+      workspaceParticipants.invitedAt,
+      workspaceParticipants.activatedAt,
+    );
+
+  return rows;
 }
 
 /**

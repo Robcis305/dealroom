@@ -20,6 +20,7 @@ interface ParticipantRow {
   status: string;
   invitedAt: string | Date;
   activatedAt: string | Date | null;
+  folderIds: string[];
 }
 
 interface ParticipantListProps {
@@ -71,8 +72,6 @@ export function ParticipantList({
       toast.error('Failed to remove participant');
     }
   }
-
-  const editingFolderIds = useEditingFolderIds(editing?.id, rows.length === 0 ? [] : rows);
 
   return (
     <div className="space-y-3">
@@ -164,7 +163,7 @@ export function ParticipantList({
             id: editing.id,
             email: editing.email,
             role: editing.role,
-            folderIds: editingFolderIds,
+            folderIds: editing.folderIds,
           }}
         />
       )}
@@ -172,17 +171,3 @@ export function ParticipantList({
   );
 }
 
-/**
- * Placeholder — folder access for the edit form is derived from the server in
- * the participant row (v1 of this API returns only the participant, not folder
- * access). Future enhancement: fetch folder access for the participant when
- * opening the edit modal. For v1 we open the modal with an empty set and the
- * admin re-selects.
- */
-function useEditingFolderIds(_participantId: string | undefined, _rows: ParticipantRow[]) {
-  // V1 limitation: the GET /participants response does not include folderIds,
-  // so the Edit modal starts with an empty selection. Admins must reselect the
-  // folder access set when editing. A future task can extend the GET response
-  // to include folder access and populate this.
-  return [] as string[];
-}

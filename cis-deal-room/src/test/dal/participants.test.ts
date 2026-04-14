@@ -43,7 +43,14 @@ vi.mock('@/db', () => ({
     },
     select: () => ({
       from: () => ({
-        innerJoin: () => ({ where: () => makeWhereResult() }),
+        innerJoin: () => ({
+          where: () => makeWhereResult(),
+          leftJoin: () => ({
+            where: () => ({
+              groupBy: () => makeWhereResult(),
+            }),
+          }),
+        }),
         where: () => ({ limit: mockSelectChain }),
       }),
     }),
@@ -110,7 +117,7 @@ describe('getParticipants', () => {
     // getParticipants uses db.select().from().innerJoin().where() — awaited directly (no .limit())
     // makeWhereResult delegates .then() to mockSelectChain(), so setting mockSelectChain here works.
     const rows = [
-      { id: 'p1', userId: 'u1', email: 'a@b.com', role: 'client', status: 'active' },
+      { id: 'p1', userId: 'u1', email: 'a@b.com', role: 'client', status: 'active', folderIds: [] },
     ];
     mockSelectChain.mockResolvedValue(rows);
 
