@@ -50,7 +50,7 @@ export function DealOverview({ workspace, status, folders, fileCounts, onFolderS
   return (
     <div className="p-8 max-w-3xl">
       {/* Deal name heading */}
-      <h1 className="text-3xl font-semibold text-text-primary mb-3">{workspace.name}</h1>
+      <h1 className="text-2xl md:text-3xl font-semibold text-text-primary mb-3">{workspace.name}</h1>
 
       {/* Metadata row */}
       <div className="flex flex-wrap items-center gap-3 mb-8">

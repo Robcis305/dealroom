@@ -43,6 +43,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
           clsx(
             'bg-surface border border-border rounded-xl p-6 shadow-2xl',
             'w-full max-w-lg mx-4',
+            'max-sm:rounded-none max-sm:mx-0 max-sm:min-h-screen max-sm:max-w-none',
             'transition-all duration-200',
             className
           )

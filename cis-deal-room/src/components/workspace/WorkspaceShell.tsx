@@ -177,7 +177,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
       {/* Three-panel body */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left: Folder sidebar — 240px */}
-        <div className="w-[240px] shrink-0 bg-surface border-r border-border overflow-y-auto">
+        <div className="w-[240px] shrink-0 bg-surface border-r border-border overflow-y-auto hidden lg:flex lg:flex-col">
           <FolderSidebar
             folders={folders}
             workspaceId={workspace.id}
@@ -211,7 +211,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
         </main>
 
         {/* Right: RightPanel — 320px */}
-        <div className="w-[320px] shrink-0 bg-surface border-l border-border overflow-y-auto">
+        <div className="w-[320px] shrink-0 bg-surface border-l border-border overflow-y-auto hidden lg:flex lg:flex-col">
           <RightPanel
                 workspaceId={workspace.id}
                 cisAdvisorySide={workspace.cisAdvisorySide}
