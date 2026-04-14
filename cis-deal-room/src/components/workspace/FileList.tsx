@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FileText, Sheet, Presentation, Image, Film, File, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { displayName } from '@/lib/users/display';
 
 interface FileRow {
   id: string;
@@ -11,6 +12,8 @@ interface FileRow {
   mimeType: string;
   version: number;
   uploadedByEmail?: string;
+  uploadedByFirstName?: string | null;
+  uploadedByLastName?: string | null;
   createdAt: string | Date;
 }
 
@@ -178,7 +181,15 @@ export function FileList({ folderId, folderName, isAdmin, onUpload, uploadRevisi
               <span className="text-xs text-text-secondary">{formatDate(file.createdAt)}</span>
 
               {/* Uploader */}
-              <span className="text-xs text-text-secondary truncate">{file.uploadedByEmail ?? '—'}</span>
+              <span className="text-xs text-text-secondary truncate">
+                {file.uploadedByEmail
+                  ? displayName({
+                      firstName: file.uploadedByFirstName ?? null,
+                      lastName: file.uploadedByLastName ?? null,
+                      email: file.uploadedByEmail,
+                    })
+                  : '—'}
+              </span>
 
               {/* Actions */}
               <div className="flex items-center gap-1">

@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pencil, X, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { clsx } from 'clsx';
 import { roleLabel } from '@/lib/participants/roles';
+import { displayName } from '@/lib/users/display';
 import { ParticipantFormModal } from './ParticipantFormModal';
 import type { CisAdvisorySide, ParticipantRole } from '@/types';
 
@@ -16,11 +18,14 @@ interface ParticipantRow {
   id: string;
   userId: string;
   email: string;
+  firstName: string | null;
+  lastName: string | null;
   role: ParticipantRole;
   status: string;
   invitedAt: string | Date;
   activatedAt: string | Date | null;
   folderIds: string[];
+  lastSeen: string | Date | null;
 }
 
 interface ParticipantListProps {
@@ -98,20 +103,31 @@ export function ParticipantList({
               className="flex items-center justify-between gap-2 bg-surface border border-border rounded-md px-3 py-2"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-text-primary truncate font-medium">{row.email}</p>
-                <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-sm text-text-primary truncate font-medium">
+                  {displayName(row)}
+                </p>
+                {isAdmin && displayName(row) !== row.email && (
+                  <p className="text-xs text-text-muted truncate">{row.email}</p>
+                )}
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {/* Inline status badge — Badge component only accepts WorkspaceStatus values */}
-                  <span
-                    className={
-                      row.status === 'active'
-                        ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success-subtle text-success border border-success/30'
-                        : 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-sunken text-text-secondary border border-border'
-                    }
-                  >
+                  <span className={clsx(
+                    'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border',
+                    row.status === 'active'
+                      ? 'bg-success-subtle text-success border-success/30'
+                      : 'bg-surface-sunken text-text-secondary border-border'
+                  )}>
                     {row.status === 'active' ? 'Active' : 'Invited'}
                   </span>
                   <span className="text-xs text-text-muted">
                     {roleLabel(row.role, cisAdvisorySide)}
+                  </span>
+                  <span className="text-xs text-text-muted">
+                    {row.status === 'active' && row.lastSeen
+                      ? `last seen ${formatRelative(row.lastSeen)}`
+                      : row.status === 'invited'
+                        ? 'not yet accepted'
+                        : null}
                   </span>
                 </div>
               </div>
@@ -169,5 +185,18 @@ export function ParticipantList({
       )}
     </div>
   );
+}
+
+function formatRelative(ts: string | Date): string {
+  const then = new Date(ts).getTime();
+  const diff = Date.now() - then;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(ts).toLocaleDateString();
 }
 
