@@ -32,14 +32,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               'focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent',
               'transition-colors duration-150',
               'disabled:opacity-40 disabled:cursor-not-allowed',
-              error && 'border-error focus:ring-error',
+              error && 'border-danger focus:ring-danger',
               className
             )
           )}
           {...props}
         />
         {error && (
-          <p className="text-xs text-error">{error}</p>
+          <p className="text-xs text-danger">{error}</p>
         )}
       </div>
     );
