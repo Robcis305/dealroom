@@ -13,6 +13,9 @@ interface WorkspacePageProps {
   params: Promise<{ workspaceId: string }>;
 }
 
+// Never cache this page — session-aware and data changes frequently
+export const dynamic = 'force-dynamic';
+
 /**
  * Workspace page — Server Component.
  * Next.js 15: params is a Promise, must be awaited.

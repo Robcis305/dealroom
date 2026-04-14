@@ -173,7 +173,7 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
                 {file.version > 1 && (
                   <button
                     onClick={() => setVersionsFile(file)}
-                    className="shrink-0 text-[10px] font-mono bg-surface-sunken text-text-muted px-1.5 py-0.5 rounded hover:bg-border-subtle"
+                    className="shrink-0 text-[11px] font-semibold bg-accent-subtle text-accent border border-accent/30 px-2 py-0.5 rounded-md hover:bg-accent hover:text-text-inverse transition-colors"
                   >
                     v{file.version}
                   </button>
