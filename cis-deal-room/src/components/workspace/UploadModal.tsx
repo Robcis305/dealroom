@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
@@ -59,6 +59,15 @@ export function UploadModal({
   const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId ?? folders[0]?.id ?? '');
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  // UX fix #2b: clear queue when modal closes via any path (Done, Cancel, or
+  // automatic close-after-upload via onUploadComplete).
+  useEffect(() => {
+    if (!open) {
+      setQueue([]);
+      setUploading(false);
+    }
+  }, [open]);
 
   const onDrop = useCallback((accepted: File[]) => {
     setQueue((prev) => [
@@ -198,39 +207,52 @@ export function UploadModal({
   return (
     <Modal open={open} onClose={handleClose} title="Upload Documents">
       <div className="space-y-4">
-        {/* Folder selector */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-1.5">
-            Upload to folder
-          </label>
-          <select
-            value={selectedFolderId}
-            onChange={(e) => setSelectedFolderId(e.target.value)}
-            disabled={uploading}
-            className="w-full bg-[#1F1F1F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm
-              text-white focus:outline-none focus:ring-2 focus:ring-[#E10600]"
-          >
-            {folders.map((f) => (
-              <option key={f.id} value={f.id}>{f.name}</option>
-            ))}
-          </select>
-        </div>
+        {/* Folder selector — UX fix #2a: show read-only label when folder is
+            pre-selected (opened from within a folder), full select otherwise */}
+        {initialFolderId ? (
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">
+              Uploading to
+            </label>
+            <div className="px-3 py-2 bg-surface-sunken border border-border rounded-md text-sm text-text-primary">
+              {folders.find((f) => f.id === initialFolderId)?.name ?? 'Folder'}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label htmlFor="upload-folder" className="block text-sm font-medium text-text-secondary mb-1.5">
+              Upload to folder
+            </label>
+            <select
+              id="upload-folder"
+              value={selectedFolderId}
+              onChange={(e) => setSelectedFolderId(e.target.value)}
+              disabled={uploading}
+              className="w-full bg-surface-sunken border border-border rounded-md px-3 py-2 text-sm
+                text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Drop zone */}
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
             isDragActive
-              ? 'border-[#E10600] bg-[#E10600]/5'
-              : 'border-[#2A2A2A] hover:border-[#3A3A3A] bg-[#141414]'
+              ? 'border-accent bg-accent-subtle'
+              : 'border-border hover:border-border bg-bg'
           }`}
         >
           <input {...getInputProps()} />
-          <Upload size={28} className="mx-auto mb-2 text-neutral-500" />
-          <p className="text-sm font-medium text-neutral-300">
+          <Upload size={28} className="mx-auto mb-2 text-text-muted" />
+          <p className="text-sm font-medium text-text-secondary">
             {isDragActive ? 'Drop files here' : 'Drag & drop files, or click to browse'}
           </p>
-          <p className="text-xs text-neutral-500 mt-1">
+          <p className="text-xs text-text-muted mt-1">
             PDF, DOCX, XLSX, PPTX, CSV, JPG, PNG, MP4 — max 500 MB each
           </p>
         </div>
@@ -239,24 +261,24 @@ export function UploadModal({
         {queue.length > 0 && (
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {queue.map((qf, i) => (
-              <div key={i} className="flex items-center gap-3 bg-[#1A1A1A] rounded-lg px-3 py-2">
+              <div key={i} className="flex items-center gap-3 bg-surface rounded-lg px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white truncate font-medium">{qf.file.name}</span>
-                    <span className="text-xs text-neutral-500 shrink-0">{formatBytes(qf.file.size)}</span>
+                    <span className="text-sm text-text-primary truncate font-medium">{qf.file.name}</span>
+                    <span className="text-xs text-text-muted shrink-0">{formatBytes(qf.file.size)}</span>
                   </div>
 
                   {qf.status === 'uploading' && (
-                    <div className="mt-1.5 h-1 bg-[#2A2A2A] rounded-full overflow-hidden">
+                    <div className="mt-1.5 h-1 bg-border-subtle rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#E10600] transition-all duration-150"
+                        className="h-full bg-accent transition-all duration-150"
                         style={{ width: `${qf.progress}%` }}
                       />
                     </div>
                   )}
 
                   {qf.status === 'duplicate' && (
-                    <p className="text-xs text-yellow-400 mt-1">
+                    <p className="text-xs text-warning mt-1">
                       File exists (v{qf.duplicateVersion}) —{' '}
                       <button
                         onClick={() => updateFile(i, { status: 'pending', confirmedVersioning: true })}
@@ -272,17 +294,17 @@ export function UploadModal({
                   )}
 
                   {qf.status === 'error' && (
-                    <p className="text-xs text-[#E10600] mt-1">{qf.error}</p>
+                    <p className="text-xs text-danger mt-1">{qf.error}</p>
                   )}
                 </div>
 
                 {/* Status icon */}
                 <div className="shrink-0">
-                  {qf.status === 'done' && <CheckCircle size={16} className="text-green-400" />}
-                  {qf.status === 'uploading' && <Loader2 size={16} className="text-[#E10600] animate-spin" />}
-                  {qf.status === 'error' && <AlertCircle size={16} className="text-[#E10600]" />}
+                  {qf.status === 'done' && <CheckCircle size={16} className="text-success" />}
+                  {qf.status === 'uploading' && <Loader2 size={16} className="text-accent animate-spin" />}
+                  {qf.status === 'error' && <AlertCircle size={16} className="text-danger" />}
                   {(qf.status === 'pending' || qf.status === 'duplicate') && !uploading && (
-                    <button onClick={() => removeFile(i)} className="text-neutral-500 hover:text-white">
+                    <button onClick={() => removeFile(i)} className="text-text-muted hover:text-text-primary">
                       <X size={16} />
                     </button>
                   )}
@@ -297,8 +319,8 @@ export function UploadModal({
           <button
             onClick={handleClose}
             disabled={uploading}
-            className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#1F1F1F] text-neutral-300
-              hover:bg-[#2A2A2A] transition-colors disabled:opacity-50"
+            className="flex-1 py-2 rounded-lg text-sm font-medium bg-surface-sunken text-text-secondary
+              hover:bg-border-subtle transition-colors disabled:opacity-50"
           >
             {allDone ? 'Done' : 'Cancel'}
           </button>
@@ -306,8 +328,8 @@ export function UploadModal({
             <button
               onClick={handleUpload}
               disabled={uploading || queue.length === 0 || queue.every((f) => f.status === 'done')}
-              className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#E10600] text-white
-                hover:bg-[#C10500] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-accent text-text-inverse
+                hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {uploading && <Loader2 size={14} className="animate-spin" />}
               {uploading ? 'Uploading…' : `Upload ${queue.filter((f) => f.status === 'pending').length || ''} file${queue.length !== 1 ? 's' : ''}`}
