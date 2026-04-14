@@ -66,7 +66,7 @@ export async function inviteParticipant(input: InviteInput) {
   const rawToken = generateToken();
   const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + INVITATION_EXPIRY_MS);
-  const redirectTo = `/deals/${input.workspaceId}`;
+  const redirectTo = `/workspace/${input.workspaceId}`;
 
   const result = await db.transaction(async (tx) => {
     // 1. Find-or-create user by email
