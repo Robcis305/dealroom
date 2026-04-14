@@ -60,14 +60,14 @@ export function LoginForm() {
   if (state === 'sent') {
     return (
       <div className="flex flex-col items-center gap-4 text-center">
-        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#E10600]/10 text-[#E10600]">
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-accent-subtle text-accent">
           <Mail size={24} />
         </div>
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-white">Check your email</h2>
-          <p className="text-sm text-neutral-400">
+          <h2 className="text-lg font-semibold text-text-primary">Check your email</h2>
+          <p className="text-sm text-text-muted">
             We sent a link to{' '}
-            <span className="text-white font-medium">{submittedEmail}</span>
+            <span className="text-text-primary font-medium">{submittedEmail}</span>
           </p>
         </div>
         <Button
