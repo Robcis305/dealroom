@@ -22,6 +22,7 @@ This document captures Phase 4 scope and design decisions after the Phase 3 brai
 8. Graceful mobile read-only responsive (UI-06)
 9. Toast system via sonner; replace existing `alert()` calls
 10. Empty-state polish (inline with other components, no separate task)
+11. **Display names** — collect first + last name on first login; use "First Last" in place of email across every user-visible surface; admin contexts show both (name primary, email secondary)
 
 ### Out of scope (explicitly deferred)
 
@@ -41,8 +42,12 @@ This document captures Phase 4 scope and design decisions after the Phase 3 brai
 
 | Table | Column | Notes |
 |---|---|---|
+| `users` | `first_name text` | Collected on first login; nullable for backward compat with pre-Phase-4 users |
+| `users` | `last_name text` | Same |
 | `users` | `notification_digest boolean not null default false` | User's preference for digest vs. real-time email |
 | `sessions` | `absolute_expires_at timestamp not null default (now() + interval '4 hours')` | Hard cap; set on session creation, never refreshed |
+
+Both `first_name` and `last_name` are nullable at the DB level (migration-safe for existing users who pre-date Phase 4), but the UX enforces filling them in on next login — see §6 "Complete-profile gate".
 
 ### New table
 
@@ -94,6 +99,47 @@ export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit
 Every client component that currently calls `fetch(...)` directly swaps to `fetchWithAuth(...)`. Server components are untouched.
 
 On the login page, the `returnTo` query param is read after successful verify: magic link redirect target uses `returnTo` if it's a same-origin path; otherwise falls back to `/deals`.
+
+---
+
+## 3A. Display names
+
+### Complete-profile gate
+
+- After `/api/auth/verify` creates a session, a new server-side check reads `user.first_name` and `user.last_name`
+- If either is null → redirect to `/complete-profile` instead of the normal post-verify destination
+- `/complete-profile` is a minimal form: First name (required), Last name (required) → `POST /api/user/profile` → redirect to the original post-verify target
+- The original target is preserved through the gate via sessionStorage (same mechanism as the login `returnTo` flow described in §3)
+- The gate applies to both new users (first-ever login) and existing pre-Phase-4 users on next login — neither can skip
+
+### Display-name helper
+
+New utility `src/lib/users/display.ts`:
+
+```typescript
+export function displayName(user: { firstName: string | null; lastName: string | null; email: string }): string {
+  if (user.firstName && user.lastName) return `${user.firstName} ${user.lastName}`;
+  return user.email;
+}
+```
+
+Every surface that currently shows a user's email for display purposes migrates to call `displayName(user)`. Auth identity (sessions, email-keyed rate limits, invitation tokens) continues to use `email` — the display helper is strictly for UI strings.
+
+### Admin contexts show both
+
+The participant list for admins renders `displayName(user)` as the primary row text with `user.email` beneath as small muted secondary text. Non-admins see `displayName(user)` only. Activity feed, deal list last-activity, file list "uploaded by" column, and deal overview "created by" show display names only regardless of viewer role.
+
+### Invitation email personalization
+
+`InvitationEmail` template accepts an optional `inviteeName` prop. The invitation route passes `displayName(inviteeUser)` if the user already exists in the DB at invite time (repeat invitee — we know their name); omits it for brand-new users (admin hasn't met them yet). Greeting: "Hi {name}," when present, "Hi," when not.
+
+### DAL consumer updates
+
+- `getParticipants` return rows gain `firstName`, `lastName` fields (already returning email; just joining additional user columns)
+- `getWorkspacesForUser` last-activity subquery joins `users` to get the actor's name for the summary line
+- `getFilesForFolder` (currently returns `uploadedByEmail`) gains `uploadedByFirstName`, `uploadedByLastName`; consumer uses `displayName({firstName, lastName, email})` pattern
+- `getFileVersions` same as `getFilesForFolder`
+- Activity feed route returns actor name + email per row
 
 ---
 
@@ -157,6 +203,13 @@ No other new runtime dependencies.
 - Reads `returnTo` from URL params, stores in `sessionStorage` under `loginReturnTo`
 - The login flow (existing) continues unchanged until post-verify redirect
 - The verify route redirects to `/deals` (or `tokenRow.redirectTo` for invites); we add logic: after redirect lands, client reads `sessionStorage.loginReturnTo`, if present, navigates there instead
+
+### `/complete-profile` page
+- Server component at `src/app/(app)/complete-profile/page.tsx`
+- Renders only if the session user's `firstName` or `lastName` is null; otherwise redirects to `/deals`
+- Form with two required inputs (First name, Last name) calling `<ProfileForm />` client component
+- On successful submit, client reads sessionStorage to find any `loginReturnTo` or `tokenRedirectTo` target and navigates there; falls back to `/deals`
+- No header, no shell — a minimal gate page (like `/login`)
 
 ---
 
@@ -255,6 +308,12 @@ No other new runtime dependencies.
 - Updates `users.notification_digest` for `session.userId`
 - Returns 200 with updated user row; 401 if no session
 
+### `POST /api/user/profile`
+
+- Body: `{ firstName: string, lastName: string }` — Zod validates both non-empty, 1-64 chars each after trim
+- Updates `users.first_name` and `users.last_name` for `session.userId`
+- Returns 200 with updated user row; 401 if no session; 400 on validation failure
+
 ### `GET /api/workspaces/[id]/files/[fileId]/versions`
 
 - Auth: `requireFolderAccess(file.folderId, 'download')`
@@ -288,6 +347,7 @@ No other new runtime dependencies.
 - Idle check uses new `SESSION_IDLE_MS`
 - Also checks `absoluteExpiresAt` on the resolved session before issuing the cookie
 - On absolute-expired session (user already authenticated previously but session cap hit): behave as if no session — redirect to login
+- After session cookie is set, if the user's `first_name` OR `last_name` is null, override the redirect target to `/complete-profile` (the original target is preserved in sessionStorage on the client and honored after profile completion)
 
 ### `/api/workspaces/[id]/notify-upload-batch`
 
@@ -357,17 +417,20 @@ All via Tailwind `md:` / `lg:` prefixes — no JS layout switching, no new route
 ### Unit tests for DAL additions
 
 - `getFileVersions` — fetches versions correctly; hides other-folder files with the same name
-- `getWorkspacesForUser` extended fields — counts, last-activity row
-- `getParticipants` — folderIds aggregation returns array (empty array, not null)
+- `getWorkspacesForUser` extended fields — counts, last-activity row (including actor's name)
+- `getParticipants` — folderIds aggregation returns array (empty array, not null); first/last name included
 - `countActiveClientParticipants` — counts only `role='client' AND status='active'`
 - `getLastSeen` — returns max lastActiveAt; returns null when no sessions
+- `displayName` helper — returns "First Last" when both set; returns email when either is null
 
 ### Route tests
 
 - `POST /api/user/preferences` — 401 unauth; 200 updates user row
+- `POST /api/user/profile` — 401 unauth; 400 when firstName/lastName empty or too long; 200 updates user row
 - `GET /files/[id]/versions` — 401 unauth; 403 without folder access; 200 returns versions array
 - `POST /api/cron/digest` — 401 without valid QStash signature; 200 drains queue; `processed_at` timestamped; empty queue returns `{processed: 0}` without erroring
 - `PATCH /workspaces/[id]/status` — new test: engagement → active_dd with 0 clients returns 400
+- `/api/auth/verify` — verify route redirects to `/complete-profile` when user.firstName IS NULL after successful auth
 
 ### Component tests
 
@@ -430,8 +493,11 @@ Work can be split into three natural groups, but all ship as Phase 4 per decisio
 - No-Client banner + status-transition guard
 - Search + filter on deal list (client-side)
 
-**Group 2 — Structural changes:**
-- Schema migration: `users.notification_digest`, `sessions.absolute_expires_at`, `notification_queue`
+**Group 2 — Structural changes (single schema migration):**
+- Schema migration: `users.first_name`, `users.last_name`, `users.notification_digest`, `sessions.absolute_expires_at`, `notification_queue`
+- Display-name helper + DAL consumer updates (getParticipants, getFilesForFolder, getFileVersions, activity feed, deal list last-activity)
+- `/complete-profile` page + `POST /api/user/profile` + verify-route gate
+- Migrate every surface currently showing email for display to use `displayName(user)`
 - Session policy (idle + absolute + 401 interceptor)
 - Deal list tile cards + extended `getWorkspacesForUser`
 - Activity feed UI
