@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Building2 } from 'lucide-react';
+import { Plus, Building2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { NewDealModal } from './NewDealModal';
@@ -30,6 +30,20 @@ const ADVISORY_LABELS: Record<'buyer_side' | 'seller_side', string> = {
 export function DealList({ workspaces, isAdmin }: DealListProps) {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<WorkspaceStatus | 'all'>('all');
+
+  const filtered = useMemo(() => {
+    const lower = search.toLowerCase();
+    return workspaces.filter((w) => {
+      const matchesSearch =
+        lower === '' ||
+        w.name.toLowerCase().includes(lower) ||
+        (w.clientName && w.clientName.toLowerCase().includes(lower));
+      const matchesStatus = statusFilter === 'all' || w.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [workspaces, search, statusFilter]);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -83,10 +97,48 @@ export function DealList({ workspaces, isAdmin }: DealListProps) {
         </div>
       )}
 
-      {/* Workspace list */}
+      {/* Filters bar */}
       {workspaces.length > 0 && (
+        <div className="flex items-center gap-3 mb-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="text"
+              placeholder="Search deals..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm bg-surface-sunken border border-border rounded-lg
+                text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as WorkspaceStatus | 'all')}
+            className="px-3 py-2 text-sm bg-surface-sunken border border-border rounded-lg
+              text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+          >
+            <option value="all">All statuses</option>
+            <option value="engagement">Engagement</option>
+            <option value="active_dd">Active DD</option>
+            <option value="ioi_stage">IOI Stage</option>
+            <option value="closing">Closing</option>
+            <option value="closed">Closed</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+      )}
+
+      {/* No filter results state */}
+      {filtered.length === 0 && workspaces.length > 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-sm text-text-muted">No deals match your filters</p>
+        </div>
+      )}
+
+      {/* Workspace list */}
+      {filtered.length > 0 && (
         <div className="space-y-2">
-          {workspaces.map((workspace) => (
+          {filtered.map((workspace) => (
             <button
               key={workspace.id}
               onClick={() => router.push(`/workspace/${workspace.id}`)}
