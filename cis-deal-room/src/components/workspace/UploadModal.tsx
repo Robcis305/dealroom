@@ -69,6 +69,15 @@ export function UploadModal({
     }
   }, [open]);
 
+  // Sync selectedFolderId to the current initialFolderId whenever the modal
+  // opens. useState() only honors the initial value once at first mount, so
+  // without this sync the modal remembers the folder from its first open.
+  useEffect(() => {
+    if (open) {
+      setSelectedFolderId(initialFolderId ?? folders[0]?.id ?? '');
+    }
+  }, [open, initialFolderId, folders]);
+
   const onDrop = useCallback((accepted: File[]) => {
     setQueue((prev) => [
       ...prev,
