@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       target: users.email,
       set: { updatedAt: new Date() },
     })
-    .returning({ id: users.id });
+    .returning({ id: users.id, firstName: users.firstName, lastName: users.lastName });
 
   // 7. If invitation token, flip matching participant rows for this user to active
   if (tokenRow.purpose === 'invitation') {
@@ -72,15 +72,18 @@ export async function GET(request: NextRequest) {
 
   // 8. Create database session and set cookie
   const sessionId = await createSession(user.id);
-  const redirectTarget =
-    tokenRow.purpose === 'invitation' && tokenRow.redirectTo
-      ? `${appUrl}${tokenRow.redirectTo}`
-      : `${appUrl}/deals`;
+
+  const needsProfile = !user.firstName || !user.lastName;
+  const redirectPath = needsProfile
+    ? '/complete-profile'
+    : tokenRow.purpose === 'invitation' && tokenRow.redirectTo
+      ? tokenRow.redirectTo
+      : '/deals';
 
   // Use NextResponse (mutable cookies API) instead of Response.redirect —
   // the Fetch spec's Response.redirect() returns an immutable-headers
   // response, so .headers.append('Set-Cookie', ...) throws TypeError.
-  const response = NextResponse.redirect(new URL(redirectTarget));
+  const response = NextResponse.redirect(new URL(`${appUrl}${redirectPath}`));
   setSessionCookie(response, sessionId);
 
   return response;
