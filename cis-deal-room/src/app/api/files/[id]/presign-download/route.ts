@@ -27,16 +27,24 @@ export async function GET(
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Resolve workspaceId for activity log (required by uuid column, even in stub mode)
+  const [folder] = await db
+    .select()
+    .from(folders)
+    .where(eq(folders.id, file.folderId))
+    .limit(1);
+
+  if (!folder) return Response.json({ error: 'Folder not found' }, { status: 404 });
+
   // S3 stub — return placeholder URL when bucket is not configured.
-  // Skip the folder lookup in stub mode; activity log uses 'stub' workspaceId.
   if (!S3_BUCKET) {
     await logActivity(db, {
-      workspaceId: 'stub',
+      workspaceId: folder.workspaceId,
       userId: session.userId,
       action: 'downloaded',
       targetType: 'file',
       targetId: file.id,
-      metadata: { fileName: file.name },
+      metadata: { fileName: file.name, stub: true },
     });
 
     return Response.json({
@@ -44,13 +52,6 @@ export async function GET(
       fileName: file.name,
     });
   }
-
-  // Real path — resolve workspaceId for activity log
-  const [folder] = await db
-    .select()
-    .from(folders)
-    .where(eq(folders.id, file.folderId))
-    .limit(1);
 
   const url = await getSignedUrl(
     getS3Client(),

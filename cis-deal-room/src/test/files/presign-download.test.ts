@@ -25,7 +25,14 @@ vi.mock('@/lib/dal/activity', () => ({
   logActivity: vi.fn(),
 }));
 
-vi.mock('@/db', () => ({ db: {} }));
+const mockFolderQuery = vi.fn();
+vi.mock('@/db', () => ({
+  db: {
+    select: () => ({
+      from: () => ({ where: () => ({ limit: mockFolderQuery }) }),
+    }),
+  },
+}));
 
 import { verifySession } from '@/lib/dal/index';
 import { getFileById } from '@/lib/dal/files';
@@ -57,6 +64,9 @@ describe('GET /api/files/[id]/presign-download', () => {
   it('returns stub download URL when AWS_S3_BUCKET is not set', async () => {
     vi.mocked(verifySession).mockResolvedValue(mockSession);
     vi.mocked(getFileById).mockResolvedValue(mockFile as any);
+    mockFolderQuery.mockResolvedValue([
+      { id: 'folder-1', workspaceId: '550e8400-e29b-41d4-a716-446655440000', name: 'Financials', sortOrder: 0 },
+    ]);
     const res = await GET(makeRequest('file-1'), { params: Promise.resolve({ id: 'file-1' }) });
     expect(res.status).toBe(200);
     const body = await res.json();
