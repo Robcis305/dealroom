@@ -10,6 +10,9 @@
 *.swp
 *.swo
 
+# Claude Code local state
+.claude/
+
 # Environment / secrets
 .env
 .env.local

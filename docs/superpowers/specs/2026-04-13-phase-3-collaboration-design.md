@@ -236,14 +236,16 @@ If a future threat model requires stronger revocation, a single-line `DELETE FRO
 
 ## 8. Activity log writes (new for Phase 3)
 
-New actions, all using the existing `logActivity()` DAL:
+New actions, all using the existing `logActivity()` DAL. The `activity_action` enum reuses short, context-free verbs — the (action × target_type) pair is what disambiguates (e.g. `invited` + `participant` = "participant invited"; `invited` + `folder` would mean "folder shared with a participant" if ever needed):
 
-| Action | Target | Metadata |
+| Action enum | Target | Metadata |
 |---|---|---|
-| `participant_invited` | `participant` (pid) | `{ email, role, folderIds[] }` |
+| `invited` | `participant` (pid) | `{ email, role, folderIds[] }` |
 | `participant_updated` | `participant` (pid) | `{ beforeRole, afterRole, beforeFolderIds, afterFolderIds }` |
-| `participant_removed` | `participant` (pid) | `{ email, role }` |
-| `files_notified_batch` | `folder` (folderId) | `{ fileIds[], recipientCount }` |
+| `removed` | `participant` (pid) | `{ email, role }` |
+| `notified_batch` | `folder` (folderId) | `{ fileIds[], recipientCount }` |
+
+(`invited` and `removed` were added to the enum in Phase 1 for this purpose; `participant_updated` and `notified_batch` are added in the Phase 3.1 schema migration.)
 
 Writes are in the same transaction as the data mutation wherever the DAL currently uses a transaction; otherwise best-effort after the mutation succeeds (same pattern as Phase 2).
 
