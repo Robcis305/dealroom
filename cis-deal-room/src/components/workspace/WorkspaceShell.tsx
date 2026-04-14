@@ -181,7 +181,13 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
 
         {/* Right: RightPanel — 320px */}
         <div className="w-[320px] shrink-0 overflow-y-auto">
-          <RightPanel workspaceId={workspace.id} />
+          <RightPanel
+                workspaceId={workspace.id}
+                cisAdvisorySide={workspace.cisAdvisorySide}
+                folders={folders}
+                isAdmin={isAdmin}
+                participantsRefreshToken={0}
+              />
         </div>
       </div>
 

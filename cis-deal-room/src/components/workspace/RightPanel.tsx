@@ -2,30 +2,44 @@
 
 import { useState } from 'react';
 import { Activity, Users } from 'lucide-react';
+import { ParticipantList } from './ParticipantList';
+import type { CisAdvisorySide } from '@/types';
+
+interface Folder {
+  id: string;
+  name: string;
+}
 
 interface RightPanelProps {
   workspaceId: string;
+  cisAdvisorySide: CisAdvisorySide;
+  folders: Folder[];
+  isAdmin: boolean;
+  /** Parent increments to force a participant refetch */
+  participantsRefreshToken: number;
 }
 
 type Tab = 'activity' | 'participants';
 
-export function RightPanel({ workspaceId: _workspaceId }: RightPanelProps) {
-  // Activity tab is default on workspace entry (per CONTEXT.md)
+export function RightPanel({
+  workspaceId,
+  cisAdvisorySide,
+  folders,
+  isAdmin,
+  participantsRefreshToken,
+}: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('activity');
 
   return (
     <div className="flex flex-col h-full bg-[#141414]">
-      {/* Tab bar */}
       <div className="flex border-b border-[#2A2A2A] shrink-0">
         <TabButton
-          id="activity"
           label="Activity"
           icon={<Activity size={14} />}
           active={activeTab === 'activity'}
           onClick={() => setActiveTab('activity')}
         />
         <TabButton
-          id="participants"
           label="Participants"
           icon={<Users size={14} />}
           active={activeTab === 'participants'}
@@ -33,22 +47,24 @@ export function RightPanel({ workspaceId: _workspaceId }: RightPanelProps) {
         />
       </div>
 
-      {/* Tab content */}
       <div className="flex-1 overflow-y-auto p-4">
         {activeTab === 'activity' ? (
           <ActivityPlaceholder />
         ) : (
-          <ParticipantsPlaceholder />
+          <ParticipantList
+            workspaceId={workspaceId}
+            cisAdvisorySide={cisAdvisorySide}
+            folders={folders}
+            isAdmin={isAdmin}
+            refreshToken={participantsRefreshToken}
+          />
         )}
       </div>
     </div>
   );
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
 interface TabButtonProps {
-  id: Tab;
   label: string;
   icon: React.ReactNode;
   active: boolean;
@@ -83,21 +99,7 @@ function ActivityPlaceholder() {
       </div>
       <p className="text-sm font-medium text-neutral-400">Activity feed</p>
       <p className="text-xs text-neutral-600 mt-1 leading-relaxed max-w-[180px]">
-        Activity history will appear here. Available in a future release.
-      </p>
-    </div>
-  );
-}
-
-function ParticipantsPlaceholder() {
-  return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center">
-      <div className="w-10 h-10 rounded-full bg-[#1F1F1F] flex items-center justify-center mb-3">
-        <Users size={18} className="text-neutral-600" />
-      </div>
-      <p className="text-sm font-medium text-neutral-400">Participants</p>
-      <p className="text-xs text-neutral-600 mt-1 leading-relaxed max-w-[180px]">
-        Participant management will be available in a future release.
+        Activity history will appear here. Phase 4 builds the feed.
       </p>
     </div>
   );
