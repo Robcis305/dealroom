@@ -55,6 +55,19 @@ does not.
 - [ ] Invitation link used twice → second click returns "already used" error page.
 - [ ] Invitation link after 3 days → returns "expired" error.
 
+### Visual verification (Phase 3.5)
+
+- [ ] Login page: white background, CIS Partners logo centered above the form, red "Send magic link" button, no stray dark-theme artifacts.
+- [ ] Verify error page: same light background + real logo.
+- [ ] Deal list: rows on white cards, status badges are color-coded (green Active DD, yellow IOI, red Closing, neutral others), "New Deal" button is red.
+- [ ] Inside a workspace: top-left shows arrow + CIS logo that links back to /deals; clicking it navigates home.
+- [ ] Folder sidebar: "Deal overview" entry is above the folder list; clicking it clears the folder selection and shows the DealOverview center panel.
+- [ ] File list: white rows, red accents only on the Upload button and version chips.
+- [ ] Upload modal: when opened from a folder, shows "Uploading to: <folder name>" (no dropdown); when opened from Deal overview, the dropdown returns.
+- [ ] Upload modal: after upload completes and you reopen, the queue is empty (no stale done files).
+- [ ] Participants tab: "Active" rows have a green status pill; "Invited" rows have a neutral pill. Edit/Remove icons only visible for admins.
+- [ ] Emails: inspect server stub logs for three email types; the HTML previews (saved in your inbox if live Resend is configured) show the real logo and match the app palette.
+
 ## Sign-off
 
 | Area | Status | Notes |
