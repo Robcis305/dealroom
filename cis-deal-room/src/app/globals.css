@@ -5,44 +5,41 @@
    CSS variables that @theme picks up. */
 
 @theme {
-  /* Brand colors */
-  --color-brand: #E10600;
-  --color-brand-hover: #C40500;
-  --color-brand-subtle: #E10600;
+  /* ─── Surfaces ─────────────────────────────────────────────────────────── */
+  --color-bg:                #FFFFFF;
+  --color-surface:           #FFFFFF;
+  --color-surface-elevated:  #FAFAFA;
+  --color-surface-sunken:    #F4F4F5;
 
-  /* Background layers */
-  --color-bg-base: #000000;
-  --color-bg-surface: #0D0D0D;
-  --color-bg-elevated: #141414;
-  --color-bg-input: #1F1F1F;
+  /* ─── Borders ──────────────────────────────────────────────────────────── */
+  --color-border:            #E4E4E7;
+  --color-border-subtle:     #F4F4F5;
 
-  /* Borders */
-  --color-border: #2A2A2A;
-  --color-border-subtle: #1A1A1A;
+  /* ─── Text ─────────────────────────────────────────────────────────────── */
+  --color-text-primary:      #0D0D0D;
+  --color-text-secondary:    #52525B;
+  --color-text-muted:        #A1A1AA;
+  --color-text-inverse:      #FFFFFF;
 
-  /* Text */
-  --color-text-primary: #FFFFFF;
-  --color-text-secondary: #A3A3A3;
-  --color-text-muted: #6B6B6B;
+  /* ─── Brand accent ─────────────────────────────────────────────────────── */
+  --color-accent:            #E10600;
+  --color-accent-hover:      #C40500;
+  --color-accent-subtle:     #FEE2E2;
 
-  /* Fonts */
-  --font-sans: 'DM Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* ─── Status ───────────────────────────────────────────────────────────── */
+  --color-success:           #16A34A;
+  --color-success-subtle:    #DCFCE7;
+  --color-warning:           #CA8A04;
+  --color-warning-subtle:    #FEF9C3;
+  --color-danger:            #DC2626;
+  --color-danger-hover:      #B91C1C;
+  --color-danger-subtle:     #FEE2E2;
+}
 
-  /* Spacing */
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2rem;
-  --space-2xl: 3rem;
-  --space-3xl: 4rem;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+/* Ensure html/body inherit the bg token so full-viewport surfaces paint correctly */
+html, body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
 }
 
 *,
@@ -56,9 +53,7 @@ html {
 }
 
 body {
-  background-color: #0D0D0D;
-  color: #FFFFFF;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
   min-height: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
