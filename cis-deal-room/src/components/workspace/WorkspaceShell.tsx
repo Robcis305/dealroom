@@ -200,6 +200,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
             />
           ) : (
             <FileList
+              workspaceId={workspace.id}
               folderId={selectedFolderId}
               folderName={folders.find((f) => f.id === selectedFolderId)?.name ?? 'Files'}
               isAdmin={isAdmin}

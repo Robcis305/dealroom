@@ -5,6 +5,7 @@ import { FileText, Sheet, Presentation, Image, Film, File, Download } from 'luci
 import { toast } from 'sonner';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { displayName } from '@/lib/users/display';
+import { VersionHistoryDrawer } from './VersionHistoryDrawer';
 
 interface FileRow {
   id: string;
@@ -19,6 +20,7 @@ interface FileRow {
 }
 
 interface FileListProps {
+  workspaceId: string;
   folderId: string;
   folderName: string;
   isAdmin: boolean;
@@ -47,11 +49,12 @@ function formatDate(dateStr: string | Date): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export function FileList({ folderId, folderName, isAdmin, onUpload, uploadRevision = 0 }: FileListProps) {
+export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload, uploadRevision = 0 }: FileListProps) {
   const [files, setFiles] = useState<FileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [versionsFile, setVersionsFile] = useState<FileRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -168,10 +171,12 @@ export function FileList({ folderId, folderName, isAdmin, onUpload, uploadRevisi
                 {mimeToIcon(file.mimeType)}
                 <span className="text-sm text-text-primary truncate font-medium">{file.name}</span>
                 {file.version > 1 && (
-                  <span className="shrink-0 text-[10px] font-mono bg-surface-sunken text-text-muted
-                    px-1.5 py-0.5 rounded">
+                  <button
+                    onClick={() => setVersionsFile(file)}
+                    className="shrink-0 text-[10px] font-mono bg-surface-sunken text-text-muted px-1.5 py-0.5 rounded hover:bg-border-subtle"
+                  >
                     v{file.version}
-                  </span>
+                  </button>
                 )}
               </div>
 
@@ -205,6 +210,17 @@ export function FileList({ folderId, folderName, isAdmin, onUpload, uploadRevisi
             </div>
           ))}
         </div>
+      )}
+      {versionsFile && (
+        <VersionHistoryDrawer
+          workspaceId={workspaceId}
+          fileId={versionsFile.id}
+          fileName={versionsFile.name}
+          isAdmin={isAdmin}
+          open={!!versionsFile}
+          onClose={() => setVersionsFile(null)}
+          onVersionDeleted={load}
+        />
       )}
     </div>
   );

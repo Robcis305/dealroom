@@ -80,6 +80,39 @@ export async function getFileById(fileId: string) {
 }
 
 /**
+ * Returns all versions of a file (matched by folderId + name) ordered newest-first.
+ */
+export async function getFileVersions(fileId: string) {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+
+  const [anchor] = await db
+    .select({ folderId: files.folderId, name: files.name })
+    .from(files)
+    .where(eq(files.id, fileId))
+    .limit(1);
+
+  if (!anchor) return [];
+
+  return db
+    .select({
+      id: files.id,
+      version: files.version,
+      sizeBytes: files.sizeBytes,
+      mimeType: files.mimeType,
+      s3Key: files.s3Key,
+      createdAt: files.createdAt,
+      uploadedByEmail: users.email,
+      uploadedByFirstName: users.firstName,
+      uploadedByLastName: users.lastName,
+    })
+    .from(files)
+    .innerJoin(users, eq(users.id, files.uploadedBy))
+    .where(and(eq(files.folderId, anchor.folderId), eq(files.name, anchor.name)))
+    .orderBy(desc(files.version));
+}
+
+/**
  * Returns the most recent existing file with the same name in the folder, or null.
  * Used for duplicate detection before issuing a presigned upload URL.
  */
