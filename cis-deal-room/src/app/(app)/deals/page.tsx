@@ -22,7 +22,7 @@ export default async function DealsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D]">
+    <div className="min-h-screen bg-bg">
       <DealList workspaces={workspaces} isAdmin={session.isAdmin} />
     </div>
   );

@@ -36,8 +36,8 @@ export function DealList({ workspaces, isAdmin }: DealListProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Deal Rooms</h1>
-          <p className="text-sm text-neutral-400 mt-1">
+          <h1 className="text-2xl font-semibold text-text-primary">Deal Rooms</h1>
+          <p className="text-sm text-text-muted mt-1">
             {workspaces.length === 0
               ? 'No deal rooms yet'
               : `${workspaces.length} deal room${workspaces.length === 1 ? '' : 's'}`}
@@ -58,13 +58,13 @@ export function DealList({ workspaces, isAdmin }: DealListProps) {
       {/* Empty state */}
       {workspaces.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-12 h-12 rounded-full bg-[#1F1F1F] flex items-center justify-center mb-4">
-            <Building2 size={24} className="text-neutral-500" />
+          <div className="w-12 h-12 rounded-full bg-surface-elevated flex items-center justify-center mb-4">
+            <Building2 size={24} className="text-text-muted" />
           </div>
-          <h3 className="text-base font-medium text-white mb-1">
+          <h3 className="text-base font-medium text-text-primary mb-1">
             No deal rooms
           </h3>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-text-muted">
             {isAdmin
               ? 'Create your first deal room to get started.'
               : 'You have not been assigned to any deal rooms yet.'}
@@ -90,19 +90,19 @@ export function DealList({ workspaces, isAdmin }: DealListProps) {
             <button
               key={workspace.id}
               onClick={() => router.push(`/workspace/${workspace.id}`)}
-              className="w-full text-left bg-[#141414] hover:bg-[#1A1A1A] border border-[#2A2A2A]
-                hover:border-[#3A3A3A] rounded-xl px-5 py-4 transition-colors duration-150
-                focus:outline-none focus:ring-2 focus:ring-[#E10600] cursor-pointer"
+              className="w-full text-left bg-surface hover:bg-surface-elevated border border-border
+                hover:border-border rounded-xl px-5 py-4 transition-colors duration-150
+                focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer"
             >
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3 mb-1">
-                    <span className="text-base font-medium text-white truncate">
+                    <span className="text-base font-medium text-text-primary truncate">
                       {workspace.name}
                     </span>
                     <Badge status={workspace.status} />
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-neutral-400">
+                  <div className="flex items-center gap-4 text-xs text-text-muted">
                     {isAdmin && (
                       <span>{workspace.clientName}</span>
                     )}

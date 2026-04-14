@@ -132,7 +132,7 @@ export function NewDealModal({ open, onClose }: NewDealModalProps) {
 
         {/* CIS Advisory Side — radio group */}
         <fieldset>
-          <legend className="block text-sm font-medium text-neutral-300 mb-2">
+          <legend className="block text-sm font-medium text-text-secondary mb-2">
             CIS Advisory Side
           </legend>
           <div className="flex gap-4">
@@ -149,16 +149,16 @@ export function NewDealModal({ open, onClose }: NewDealModalProps) {
                   onChange={() =>
                     setFormData((prev) => ({ ...prev, cisAdvisorySide: side }))
                   }
-                  className="accent-[#E10600] w-4 h-4 cursor-pointer"
+                  className="accent-accent w-4 h-4 cursor-pointer"
                 />
-                <span className="text-sm text-white">
+                <span className="text-sm text-text-primary">
                   {side === 'buyer_side' ? 'Buyer-side' : 'Seller-side'}
                 </span>
               </label>
             ))}
           </div>
           {errors.cisAdvisorySide && (
-            <p className="mt-1 text-xs text-[#E10600]">{errors.cisAdvisorySide}</p>
+            <p className="mt-1 text-xs text-accent">{errors.cisAdvisorySide}</p>
           )}
         </fieldset>
 
@@ -166,7 +166,7 @@ export function NewDealModal({ open, onClose }: NewDealModalProps) {
         <div>
           <label
             htmlFor="deal-status"
-            className="block text-sm font-medium text-neutral-300 mb-1.5"
+            className="block text-sm font-medium text-text-secondary mb-1.5"
           >
             Initial Status
           </label>
@@ -179,8 +179,8 @@ export function NewDealModal({ open, onClose }: NewDealModalProps) {
                 status: e.target.value as WorkspaceStatus,
               }))
             }
-            className="w-full bg-[#1F1F1F] border border-[#2A2A2A] rounded-lg px-3 py-2
-              text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#E10600]
+            className="w-full bg-surface-sunken border border-border rounded-lg px-3 py-2
+              text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent
               focus:border-transparent cursor-pointer"
           >
             {STATUS_OPTIONS.map((opt) => (
@@ -190,13 +190,13 @@ export function NewDealModal({ open, onClose }: NewDealModalProps) {
             ))}
           </select>
           {errors.status && (
-            <p className="mt-1 text-xs text-[#E10600]">{errors.status}</p>
+            <p className="mt-1 text-xs text-accent">{errors.status}</p>
           )}
         </div>
 
         {/* Server error */}
         {serverError && (
-          <p className="text-xs text-[#E10600] bg-[#E10600]/10 border border-[#E10600]/20
+          <p className="text-xs text-accent bg-accent-subtle border border-accent/20
             rounded-lg px-3 py-2">
             {serverError}
           </p>
