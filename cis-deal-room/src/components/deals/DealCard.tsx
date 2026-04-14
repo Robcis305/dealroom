@@ -68,13 +68,13 @@ export function DealCard({
       <div className="flex flex-col gap-1 text-xs text-text-muted">
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1">
-            <FileText size={12} /> {docCount} docs
+            <FileText size={12} /> {docCount} {docCount === 1 ? 'doc' : 'docs'}
           </span>
           <span className="flex items-center gap-1">
-            <Users size={12} /> {participantCount} participants
+            <Users size={12} /> {participantCount} {participantCount === 1 ? 'participant' : 'participants'}
           </span>
         </div>
-        <span className="font-mono">{actionSummary(lastActivityAction, lastActivityAt)}</span>
+        <span>{actionSummary(lastActivityAction, lastActivityAt)}</span>
       </div>
     </Link>
   );
