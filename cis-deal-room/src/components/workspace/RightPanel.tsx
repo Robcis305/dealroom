@@ -31,8 +31,8 @@ export function RightPanel({
   const [activeTab, setActiveTab] = useState<Tab>('activity');
 
   return (
-    <div className="flex flex-col h-full bg-[#141414]">
-      <div className="flex border-b border-[#2A2A2A] shrink-0">
+    <div className="flex flex-col h-full bg-surface">
+      <div className="flex border-b border-border shrink-0">
         <TabButton
           label="Activity"
           icon={<Activity size={14} />}
@@ -79,8 +79,8 @@ function TabButton({ label, icon, active, onClick }: TabButtonProps) {
         border-b-2 transition-colors duration-150 cursor-pointer focus:outline-none
         ${
           active
-            ? 'text-[#E10600] border-[#E10600]'
-            : 'text-neutral-400 border-transparent hover:text-white hover:border-[#2A2A2A]'
+            ? 'text-accent border-accent'
+            : 'text-text-secondary border-transparent hover:text-text-primary'
         }`}
       aria-selected={active}
       role="tab"
@@ -94,11 +94,11 @@ function TabButton({ label, icon, active, onClick }: TabButtonProps) {
 function ActivityPlaceholder() {
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center">
-      <div className="w-10 h-10 rounded-full bg-[#1F1F1F] flex items-center justify-center mb-3">
-        <Activity size={18} className="text-neutral-600" />
+      <div className="w-10 h-10 rounded-full bg-surface-elevated flex items-center justify-center mb-3">
+        <Activity size={18} className="text-text-muted" />
       </div>
-      <p className="text-sm font-medium text-neutral-400">Activity feed</p>
-      <p className="text-xs text-neutral-600 mt-1 leading-relaxed max-w-[180px]">
+      <p className="text-sm font-medium text-text-muted">Activity feed</p>
+      <p className="text-xs text-text-muted mt-1 leading-relaxed max-w-[180px]">
         Activity history will appear here. Phase 4 builds the feed.
       </p>
     </div>

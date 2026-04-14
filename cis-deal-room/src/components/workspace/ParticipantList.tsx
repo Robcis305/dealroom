@@ -74,8 +74,8 @@ export function ParticipantList({
       {isAdmin && (
         <button
           onClick={() => setShowInvite(true)}
-          className="w-full flex items-center justify-center gap-2 bg-[#E10600] hover:bg-[#C10500]
-            text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors"
+          className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover
+            text-text-inverse text-sm font-medium px-3 py-2 rounded-lg transition-colors"
         >
           <UserPlus size={14} />
           Invite Participant
@@ -83,30 +83,30 @@ export function ParticipantList({
       )}
 
       {loading ? (
-        <p className="text-xs text-neutral-500">Loading…</p>
+        <p className="text-xs text-text-muted">Loading…</p>
       ) : rows.length === 0 ? (
-        <p className="text-xs text-neutral-500">No participants yet.</p>
+        <p className="text-xs text-text-muted">No participants yet.</p>
       ) : (
         <ul className="space-y-2">
           {rows.map((row) => (
             <li
               key={row.id}
-              className="flex items-center justify-between gap-2 bg-[#1A1A1A] rounded-lg px-3 py-2"
+              className="flex items-center justify-between gap-2 bg-surface border border-border rounded-md px-3 py-2"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-white truncate font-medium">{row.email}</p>
+                <p className="text-sm text-text-primary truncate font-medium">{row.email}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   {/* Inline status badge — Badge component only accepts WorkspaceStatus values */}
                   <span
                     className={
                       row.status === 'active'
-                        ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20'
-                        : 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-500/10 text-neutral-400 border border-neutral-500/20'
+                        ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success-subtle text-success border border-success/30'
+                        : 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-sunken text-text-secondary border border-border'
                     }
                   >
                     {row.status === 'active' ? 'Active' : 'Invited'}
                   </span>
-                  <span className="text-xs text-neutral-400">
+                  <span className="text-xs text-text-muted">
                     {roleLabel(row.role, cisAdvisorySide)}
                   </span>
                 </div>
@@ -116,14 +116,14 @@ export function ParticipantList({
                   <button
                     aria-label={`Edit ${row.email}`}
                     onClick={() => setEditing(row)}
-                    className="p-1 text-neutral-500 hover:text-white transition-colors"
+                    className="p-1 text-text-muted hover:text-text-primary transition-colors"
                   >
                     <Pencil size={14} />
                   </button>
                   <button
                     aria-label={`Remove ${row.email}`}
                     onClick={() => handleRemove(row.id, row.email)}
-                    className="p-1 text-neutral-500 hover:text-[#E10600] transition-colors"
+                    className="p-1 text-text-muted hover:text-danger transition-colors"
                   >
                     <X size={14} />
                   </button>

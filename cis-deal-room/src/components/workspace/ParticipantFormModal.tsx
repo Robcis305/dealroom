@@ -126,7 +126,7 @@ export function ParticipantFormModal({
     <Modal open={open} onClose={handleClose} title={title}>
       <div className="space-y-4">
         <div>
-          <label htmlFor="participant-email" className="block text-sm font-medium text-neutral-300 mb-1.5">
+          <label htmlFor="participant-email" className="block text-sm font-medium text-text-secondary mb-1.5">
             Email
           </label>
           <input
@@ -135,13 +135,13 @@ export function ParticipantFormModal({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={mode === 'edit' || submitting}
-            className="w-full bg-[#1F1F1F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm
-              text-white focus:outline-none focus:ring-2 focus:ring-[#E10600] disabled:opacity-60"
+            className="w-full bg-surface-sunken border border-border rounded-lg px-3 py-2 text-sm
+              text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
           />
         </div>
 
         <div>
-          <label htmlFor="participant-role" className="block text-sm font-medium text-neutral-300 mb-1.5">
+          <label htmlFor="participant-role" className="block text-sm font-medium text-text-secondary mb-1.5">
             Role
           </label>
           <select
@@ -149,8 +149,8 @@ export function ParticipantFormModal({
             value={role}
             onChange={(e) => setRole(e.target.value as ParticipantRole)}
             disabled={submitting}
-            className="w-full bg-[#1F1F1F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm
-              text-white focus:outline-none focus:ring-2 focus:ring-[#E10600]"
+            className="w-full bg-surface-sunken border border-border rounded-lg px-3 py-2 text-sm
+              text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
           >
             {roleOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -161,17 +161,17 @@ export function ParticipantFormModal({
         </div>
 
         <div>
-          <p className="block text-sm font-medium text-neutral-300 mb-1.5">Folder access</p>
+          <p className="block text-sm font-medium text-text-secondary mb-1.5">Folder access</p>
           <div className="space-y-1.5 max-h-40 overflow-y-auto">
             {folders.map((folder) => (
-              <label key={folder.id} className="flex items-center gap-2 text-sm text-neutral-300 cursor-pointer">
+              <label key={folder.id} className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
                 <input
                   type="checkbox"
                   aria-label={folder.name}
                   checked={selectedFolderIds.has(folder.id)}
                   onChange={() => toggleFolder(folder.id)}
                   disabled={submitting}
-                  className="rounded bg-[#1F1F1F] border-[#2A2A2A] accent-[#E10600]"
+                  className="rounded bg-surface-sunken border-border accent-accent"
                 />
                 {folder.name}
               </label>
@@ -179,22 +179,22 @@ export function ParticipantFormModal({
           </div>
         </div>
 
-        {error && <p className="text-xs text-[#E10600]">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
 
         <div className="flex gap-3 pt-1">
           <button
             onClick={handleClose}
             disabled={submitting}
-            className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#1F1F1F] text-neutral-300
-              hover:bg-[#2A2A2A] transition-colors disabled:opacity-50"
+            className="flex-1 py-2 rounded-lg text-sm font-medium bg-surface-sunken text-text-secondary
+              hover:bg-surface-elevated transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex-1 py-2 rounded-lg text-sm font-medium bg-[#E10600] text-white
-              hover:bg-[#C10500] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-2 rounded-lg text-sm font-medium bg-accent text-text-inverse
+              hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {submitting && <Loader2 size={14} className="animate-spin" />}
             {submitLabel}
