@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Activity, Users } from 'lucide-react';
 import { ParticipantList } from './ParticipantList';
+import { ActivityFeed } from './ActivityFeed';
 import type { CisAdvisorySide } from '@/types';
 
 interface Folder {
@@ -49,7 +50,7 @@ export function RightPanel({
 
       <div className="flex-1 overflow-y-auto p-4">
         {activeTab === 'activity' ? (
-          <ActivityPlaceholder />
+          <ActivityFeed workspaceId={workspaceId} />
         ) : (
           <ParticipantList
             workspaceId={workspaceId}
@@ -91,16 +92,3 @@ function TabButton({ label, icon, active, onClick }: TabButtonProps) {
   );
 }
 
-function ActivityPlaceholder() {
-  return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center">
-      <div className="w-10 h-10 rounded-full bg-surface-elevated flex items-center justify-center mb-3">
-        <Activity size={18} className="text-text-muted" />
-      </div>
-      <p className="text-sm font-medium text-text-muted">Activity feed</p>
-      <p className="text-xs text-text-muted mt-1 leading-relaxed max-w-[180px]">
-        Activity history will appear here. Phase 4 builds the feed.
-      </p>
-    </div>
-  );
-}
