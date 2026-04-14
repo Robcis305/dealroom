@@ -42,6 +42,8 @@ interface WorkspaceShellProps {
   fileCounts: Record<string, number>;
   isAdmin: boolean;
   activeClientCount: number;
+  notificationDigest: boolean;
+  userEmail: string;
 }
 
 const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
@@ -53,7 +55,7 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts, isAdmin, activeClientCount }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts, isAdmin, activeClientCount, notificationDigest, userEmail }: WorkspaceShellProps) {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -153,6 +155,9 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
         ) : (
           <Badge status={status} />
         )}
+
+        {/* User avatar menu — far right */}
+        <UserMenu notificationDigest={notificationDigest} userEmail={userEmail} />
       </header>
 
       {activeClientCount === 0 && (
@@ -227,6 +232,57 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
           setUploadRevision((n) => n + 1);
         }}
       />
+    </div>
+  );
+}
+
+function UserMenu({ notificationDigest, userEmail }: { notificationDigest: boolean; userEmail: string }) {
+  const [open, setOpen] = useState(false);
+  const [digest, setDigest] = useState(notificationDigest);
+  const [saving, setSaving] = useState(false);
+
+  async function toggle() {
+    const newValue = !digest;
+    setSaving(true);
+    setDigest(newValue); // optimistic
+    try {
+      const res = await fetchWithAuth('/api/user/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationDigest: newValue }),
+      });
+      if (!res.ok) {
+        setDigest(!newValue); // revert
+        toast.error('Failed to update preference');
+      } else {
+        toast.success(`Email notifications set to ${newValue ? 'Daily digest' : 'Instant'}`);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-8 h-8 rounded-full bg-surface-sunken border border-border text-text-primary text-xs font-semibold flex items-center justify-center"
+        aria-label="User menu"
+      >
+        {userEmail.charAt(0).toUpperCase()}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1.5 z-20 bg-surface border border-border rounded-lg shadow-md min-w-[220px] p-3">
+            <p className="text-xs text-text-muted mb-2">{userEmail}</p>
+            <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
+              <input type="checkbox" checked={digest} onChange={toggle} disabled={saving} />
+              Daily digest (vs. instant)
+            </label>
+          </div>
+        </>
+      )}
     </div>
   );
 }

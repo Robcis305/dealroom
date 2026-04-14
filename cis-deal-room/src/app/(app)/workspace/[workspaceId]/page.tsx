@@ -1,4 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
+import { eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { users } from '@/db/schema';
 import { getWorkspace } from '@/lib/dal/workspaces';
 import { getFoldersForWorkspace } from '@/lib/dal/folders';
 import { getFileCountsByFolder } from '@/lib/dal/files';
@@ -23,10 +26,15 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
     redirect('/login');
   }
 
-  const [workspace, folders, activeClientCount] = await Promise.all([
+  const [workspace, folders, activeClientCount, userRows] = await Promise.all([
     getWorkspace(workspaceId),
     getFoldersForWorkspace(workspaceId),
     countActiveClientParticipants(workspaceId),
+    db
+      .select({ notificationDigest: users.notificationDigest })
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1),
   ]);
 
   if (!workspace) {
@@ -42,6 +50,8 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       fileCounts={fileCounts}
       isAdmin={session.isAdmin}
       activeClientCount={activeClientCount}
+      notificationDigest={userRows[0]?.notificationDigest ?? false}
+      userEmail={session.userEmail}
     />
   );
 }
