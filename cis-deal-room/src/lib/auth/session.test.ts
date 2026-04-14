@@ -38,11 +38,11 @@ describe('createSession()', () => {
 describe('getSession()', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('returns a Session object when row exists and lastActiveAt is within 24h', async () => {
+  it('returns a Session object when row exists and lastActiveAt is within idle window', async () => {
     const now = new Date();
     mockSelectLimit.mockResolvedValue([
       {
-        session: { id: 's1', userId: 'u1', lastActiveAt: now },
+        session: { id: 's1', userId: 'u1', lastActiveAt: now, absoluteExpiresAt: new Date(now.getTime() + 4 * 60 * 60 * 1000) },
         user: { id: 'u1', email: 'a@b.com', isAdmin: false },
       },
     ]);
@@ -61,9 +61,9 @@ describe('getSession()', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null when lastActiveAt is older than 24h (expired)', async () => {
-    // The DB query filters out expired rows via gt(lastActiveAt, cutoff),
-    // so an expired session surfaces to the caller as an empty result set.
+  it('returns null when lastActiveAt is older than idle window (expired)', async () => {
+    // The DB query filters out expired rows via gt(lastActiveAt, idleCutoff) and
+    // gt(absoluteExpiresAt, now), so an expired session surfaces as an empty result set.
     mockSelectLimit.mockResolvedValue([]);
     const result = await getSession('s-old');
     expect(result).toBeNull();
@@ -73,7 +73,7 @@ describe('getSession()', () => {
     const now = new Date();
     mockSelectLimit.mockResolvedValue([
       {
-        session: { id: 's1', userId: 'u1', lastActiveAt: now },
+        session: { id: 's1', userId: 'u1', lastActiveAt: now, absoluteExpiresAt: new Date(now.getTime() + 4 * 60 * 60 * 1000) },
         user: { id: 'u1', email: 'a@b.com', isAdmin: false },
       },
     ]);

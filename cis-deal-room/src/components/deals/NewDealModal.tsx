@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { WorkspaceStatus, CisAdvisorySide } from '@/types';
 
 const newDealSchema = z.object({
@@ -84,7 +85,7 @@ export function NewDealModal({ open, onClose }: NewDealModalProps) {
 
     setSubmitting(true);
     try {
-      const response = await fetch('/api/workspaces', {
+      const response = await fetchWithAuth('/api/workspaces', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(result.data),

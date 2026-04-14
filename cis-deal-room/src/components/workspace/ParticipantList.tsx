@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { clsx } from 'clsx';
 import { roleLabel } from '@/lib/participants/roles';
 import { displayName } from '@/lib/users/display';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { ParticipantFormModal } from './ParticipantFormModal';
 import type { CisAdvisorySide, ParticipantRole } from '@/types';
 
@@ -53,7 +54,7 @@ export function ParticipantList({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/participants`);
+      const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/participants`);
       if (res.ok) setRows(await res.json());
     } finally {
       setLoading(false);
@@ -66,7 +67,7 @@ export function ParticipantList({
 
   async function handleRemove(participantId: string, email: string) {
     if (!confirm(`Remove ${email} from this workspace?`)) return;
-    const res = await fetch(
+    const res = await fetchWithAuth(
       `/api/workspaces/${workspaceId}/participants/${participantId}`,
       { method: 'DELETE' }
     );

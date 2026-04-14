@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Folder, FolderOpen, Plus, Trash2, LayoutGrid } from 'lucide-react';
 import clsx from 'clsx';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 interface FolderItem {
   id: string;
@@ -75,7 +76,7 @@ export function FolderSidebar({
     setRenamingId(null);
 
     try {
-      const res = await fetch(`/api/folders/${folderId}`, {
+      const res = await fetchWithAuth(`/api/folders/${folderId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),
@@ -104,7 +105,7 @@ export function FolderSidebar({
     }
 
     try {
-      const res = await fetch(`/api/folders/${folderId}`, { method: 'DELETE' });
+      const res = await fetchWithAuth(`/api/folders/${folderId}`, { method: 'DELETE' });
       if (!res.ok) {
         onFoldersChange(previous);
       }
@@ -122,7 +123,7 @@ export function FolderSidebar({
     if (!trimmed) return;
 
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/folders`, {
+      const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/folders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),

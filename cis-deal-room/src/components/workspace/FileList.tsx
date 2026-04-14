@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FileText, Sheet, Presentation, Image, Film, File, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { displayName } from '@/lib/users/display';
 
 interface FileRow {
@@ -55,7 +56,7 @@ export function FileList({ folderId, folderName, isAdmin, onUpload, uploadRevisi
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/files?folderId=${folderId}`);
+      const res = await fetchWithAuth(`/api/files?folderId=${folderId}`);
       if (res.ok) setFiles(await res.json());
     } finally {
       setLoading(false);
@@ -65,7 +66,7 @@ export function FileList({ folderId, folderName, isAdmin, onUpload, uploadRevisi
   useEffect(() => { load(); }, [load, uploadRevision]);
 
   async function handleDownload(file: FileRow) {
-    const res = await fetch(`/api/files/${file.id}/presign-download`);
+    const res = await fetchWithAuth(`/api/files/${file.id}/presign-download`);
     if (!res.ok) return;
     const { url } = await res.json();
     if (url.startsWith('stub://')) {
@@ -84,7 +85,7 @@ export function FileList({ folderId, folderName, isAdmin, onUpload, uploadRevisi
     if (!confirm('Delete this file? This cannot be undone.')) return;
     setDeletingId(fileId);
     try {
-      const res = await fetch(`/api/files/${fileId}`, { method: 'DELETE' });
+      const res = await fetchWithAuth(`/api/files/${fileId}`, { method: 'DELETE' });
       if (res.ok) setFiles((prev) => prev.filter((f) => f.id !== fileId));
     } finally {
       setDeletingId(null);

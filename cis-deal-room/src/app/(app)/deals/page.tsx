@@ -1,6 +1,7 @@
 import { getWorkspacesForUser } from '@/lib/dal/workspaces';
 import { verifySession } from '@/lib/dal';
 import { DealList } from '@/components/deals/DealList';
+import { ReturnToHandler } from '@/components/auth/ReturnToHandler';
 import { redirect } from 'next/navigation';
 
 /**
@@ -23,6 +24,7 @@ export default async function DealsPage() {
 
   return (
     <div className="min-h-screen bg-bg">
+      <ReturnToHandler />
       <DealList workspaces={workspaces} isAdmin={session.isAdmin} />
     </div>
   );

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 export function ProfileForm() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export function ProfileForm() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await fetch('/api/user/profile', {
+      const res = await fetchWithAuth('/api/user/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName, lastName }),

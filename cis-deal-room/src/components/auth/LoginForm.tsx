@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Mail } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,6 +10,13 @@ type LoginState = 'input' | 'sent';
 
 export function LoginForm() {
   const [state, setState] = useState<LoginState>('input');
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const returnTo = searchParams.get('returnTo');
+    if (returnTo && returnTo.startsWith('/')) {
+      sessionStorage.setItem('loginReturnTo', returnTo);
+    }
+  }, [searchParams]);
   const [email, setEmail] = useState('');
   const [submittedEmail, setSubmittedEmail] = useState('');
   const [loading, setLoading] = useState(false);

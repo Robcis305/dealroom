@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 interface Folder {
   id: string;
@@ -104,7 +105,7 @@ export function UploadModal({
     const { file, confirmedVersioning } = qf;
 
     // 1. Request presigned URL
-    const presignRes = await fetch('/api/files/presign-upload', {
+    const presignRes = await fetchWithAuth('/api/files/presign-upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -149,7 +150,7 @@ export function UploadModal({
     }
 
     // 4. Confirm with the API
-    const confirmRes = await fetch('/api/files/confirm', {
+    const confirmRes = await fetchWithAuth('/api/files/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -191,7 +192,7 @@ export function UploadModal({
     // here don't fail the upload flow (notification is best-effort).
     if (succeededIds.length > 0) {
       try {
-        await fetch(`/api/workspaces/${workspaceId}/notify-upload-batch`, {
+        await fetchWithAuth(`/api/workspaces/${workspaceId}/notify-upload-batch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ folderId: selectedFolderId, fileIds: succeededIds }),

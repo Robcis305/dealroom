@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Logo } from '@/components/ui/Logo';
@@ -67,7 +68,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
     setStatusDropdownOpen(false);
 
     try {
-      const res = await fetch(`/api/workspaces/${workspace.id}/status`, {
+      const res = await fetchWithAuth(`/api/workspaces/${workspace.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),

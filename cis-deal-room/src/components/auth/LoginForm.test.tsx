@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { LoginForm } from './LoginForm';
 
+// Mock next/navigation — useSearchParams returns a null-safe stub
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => ({ get: () => null }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}));
+
 // Mock fetch globally
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn());

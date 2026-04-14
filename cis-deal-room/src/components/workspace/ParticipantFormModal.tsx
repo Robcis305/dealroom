@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { assignableRolesFor } from '@/lib/participants/roles';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { CisAdvisorySide, ParticipantRole } from '@/types';
 
 interface Folder {
@@ -83,7 +84,7 @@ export function ParticipantFormModal({
         : { role, folderIds: Array.from(selectedFolderIds) };
 
     try {
-      const res = await fetch(url, {
+      const res = await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
