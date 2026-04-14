@@ -21,6 +21,13 @@ vi.mock('@upstash/ratelimit', () => {
   return { Ratelimit: MockRatelimit };
 });
 
+// Env vars must be set before rate-limit.ts is first evaluated.
+// vi.hoisted() runs before the module imports below.
+vi.hoisted(() => {
+  process.env.UPSTASH_REDIS_REST_URL = 'https://test.upstash.io';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
+});
+
 import { authSendLimiter, authVerifyLimiter } from './rate-limit';
 
 describe('authSendLimiter', () => {
@@ -48,5 +55,18 @@ describe('authVerifyLimiter', () => {
     const opts = (authVerifyLimiter as unknown as { opts: { limiter: { requests: number; window: string }; prefix: string } }).opts;
     expect(opts.limiter).toEqual({ requests: 10, window: '15 m' });
     expect(opts.prefix).toBe('rl:auth:verify');
+  });
+});
+
+describe('stub mode (Upstash env absent)', () => {
+  it('returns a permissive stub limiter when env vars are unset', async () => {
+    // Clear env + reset modules + dynamic import to get a fresh module load
+    // that takes the stub branch.
+    vi.resetModules();
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    const mod = await import('./rate-limit');
+    const result = await mod.authSendLimiter.limit('any@example.com');
+    expect(result.success).toBe(true);
   });
 });
