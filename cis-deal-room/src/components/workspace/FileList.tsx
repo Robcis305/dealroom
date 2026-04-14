@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FileText, Sheet, Presentation, Image, Film, File, Download } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface FileRow {
   id: string;
@@ -65,7 +66,9 @@ export function FileList({ folderId, folderName, isAdmin, onUpload, uploadRevisi
     if (!res.ok) return;
     const { url } = await res.json();
     if (url.startsWith('stub://')) {
-      alert(`[Stub] Would download: ${file.name}`);
+      toast.info(`Stub mode — real download requires AWS_S3_BUCKET set`, {
+        description: file.name,
+      });
       return;
     }
     const a = document.createElement('a');

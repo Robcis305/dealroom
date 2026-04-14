@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Pencil, X, UserPlus } from 'lucide-react';
+import { toast } from 'sonner';
 import { roleLabel } from '@/lib/participants/roles';
 import { ParticipantFormModal } from './ParticipantFormModal';
 import type { CisAdvisorySide, ParticipantRole } from '@/types';
@@ -63,8 +64,12 @@ export function ParticipantList({
       `/api/workspaces/${workspaceId}/participants/${participantId}`,
       { method: 'DELETE' }
     );
-    if (res.ok) setBump((n) => n + 1);
-    else alert('Failed to remove participant');
+    if (res.ok) {
+      setBump((n) => n + 1);
+      toast.success('Participant removed');
+    } else {
+      toast.error('Failed to remove participant');
+    }
   }
 
   const editingFolderIds = useEditingFolderIds(editing?.id, rows.length === 0 ? [] : rows);

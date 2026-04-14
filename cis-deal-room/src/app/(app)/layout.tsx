@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { verifySession } from '@/lib/dal';
 import type { ReactNode } from 'react';
+import { Toaster } from 'sonner';
 
 /**
  * Auth-gated layout for the main app route group.
@@ -13,5 +14,20 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect('/login');
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <Toaster
+        position="top-right"
+        theme="light"
+        toastOptions={{
+          style: {
+            background: 'var(--color-surface)',
+            color: 'var(--color-text-primary)',
+            border: '1px solid var(--color-border)',
+          },
+        }}
+      />
+      {children}
+    </>
+  );
 }
