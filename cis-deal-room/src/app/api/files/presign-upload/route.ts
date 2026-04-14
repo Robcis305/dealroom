@@ -78,6 +78,10 @@ export async function POST(request: Request) {
 
   const s3Key = `workspaces/${workspaceId}/folders/${folderId}/${crypto.randomUUID()}-${fileName}`;
 
+  // Note: no explicit ServerSideEncryption — new S3 buckets (post-Jan 2023)
+  // encrypt all objects at rest by default. Signing it into the presigned
+  // URL forces the browser to echo the header back, which our XHR doesn't
+  // do, yielding a 403 signature mismatch.
   const presignedUrl = await getSignedUrl(
     getS3Client(),
     new PutObjectCommand({
@@ -85,7 +89,6 @@ export async function POST(request: Request) {
       Key: s3Key,
       ContentType: mimeType,
       ContentLength: sizeBytes,
-      ServerSideEncryption: 'AES256',
     }),
     { expiresIn: 15 * 60 } // 15 minutes
   );
