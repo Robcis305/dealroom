@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { Plus, Building2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { NewDealModal } from './NewDealModal';
+import { DealCard } from './DealCard';
 import type { WorkspaceStatus } from '@/types';
+
 
 interface Workspace {
   id: string;
@@ -15,6 +15,11 @@ interface Workspace {
   status: WorkspaceStatus;
   cisAdvisorySide: 'buyer_side' | 'seller_side';
   createdAt: Date | string;
+  updatedAt: Date | string;
+  docCount: number;
+  participantCount: number;
+  lastActivityAction: string | null;
+  lastActivityAt: Date | string | null;
 }
 
 interface DealListProps {
@@ -22,13 +27,7 @@ interface DealListProps {
   isAdmin: boolean;
 }
 
-const ADVISORY_LABELS: Record<'buyer_side' | 'seller_side', string> = {
-  buyer_side: 'Buyer-side',
-  seller_side: 'Seller-side',
-};
-
 export function DealList({ workspaces, isAdmin }: DealListProps) {
-  const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<WorkspaceStatus | 'all'>('all');
@@ -128,50 +127,30 @@ export function DealList({ workspaces, isAdmin }: DealListProps) {
         </div>
       )}
 
-      {/* No filter results state */}
-      {filtered.length === 0 && workspaces.length > 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-sm text-text-muted">No deals match your filters</p>
-        </div>
-      )}
-
-      {/* Workspace list */}
-      {filtered.length > 0 && (
-        <div className="space-y-2">
-          {filtered.map((workspace) => (
-            <button
-              key={workspace.id}
-              onClick={() => router.push(`/workspace/${workspace.id}`)}
-              className="w-full text-left bg-surface hover:bg-surface-elevated border border-border
-                hover:border-border rounded-xl px-5 py-4 transition-colors duration-150
-                focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="text-base font-medium text-text-primary truncate">
-                      {workspace.name}
-                    </span>
-                    <Badge status={workspace.status} />
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-text-muted">
-                    {isAdmin && (
-                      <span>{workspace.clientName}</span>
-                    )}
-                    <span>{ADVISORY_LABELS[workspace.cisAdvisorySide]} Advisory</span>
-                    <span className="font-mono">
-                      {new Date(workspace.createdAt).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
+      {/* Card grid / empty states */}
+      {workspaces.length > 0 && (
+        filtered.length === 0 ? (
+          <div className="text-center py-16 text-text-muted">
+            No deals match your filters.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((w) => (
+              <DealCard
+                key={w.id}
+                id={w.id}
+                name={w.name}
+                clientName={w.clientName}
+                status={w.status}
+                docCount={w.docCount}
+                participantCount={w.participantCount}
+                lastActivityAction={w.lastActivityAction}
+                lastActivityAt={w.lastActivityAt}
+                isAdmin={isAdmin}
+              />
+            ))}
+          </div>
+        )
       )}
 
       {/* New Deal Modal */}
