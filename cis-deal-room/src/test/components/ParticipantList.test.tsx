@@ -26,7 +26,6 @@ const rows = [
 ];
 
 beforeEach(() => {
-  // @ts-expect-error — patch global fetch for jsdom
   global.fetch = vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
