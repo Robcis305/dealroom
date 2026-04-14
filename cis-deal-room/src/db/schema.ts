@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   pgEnum,
@@ -65,7 +66,10 @@ export const activityTargetTypeEnum = pgEnum('activity_target_type', [
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
+  firstName: text('first_name'),
+  lastName: text('last_name'),
   isAdmin: boolean('is_admin').notNull().default(false),
+  notificationDigest: boolean('notification_digest').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -76,6 +80,7 @@ export const sessions = pgTable('sessions', {
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   lastActiveAt: timestamp('last_active_at').notNull().defaultNow(),
+  absoluteExpiresAt: timestamp('absolute_expires_at').notNull().default(sql`now() + interval '4 hours'`),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -169,4 +174,16 @@ export const activityLogs = pgTable('activity_logs', {
   targetId: uuid('target_id'),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const notificationQueue = pgTable('notification_queue', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  action: activityActionEnum('action').notNull(),
+  targetType: activityTargetTypeEnum('target_type').notNull(),
+  targetId: uuid('target_id'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  processedAt: timestamp('processed_at'),
 });

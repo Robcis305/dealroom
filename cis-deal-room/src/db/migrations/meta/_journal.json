@@ -15,6 +15,13 @@
       "when": 1776103706490,
       "tag": "0001_familiar_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776190503944,
+      "tag": "0002_wealthy_frank_castle",
+      "breakpoints": true
     }
   ]
 }
