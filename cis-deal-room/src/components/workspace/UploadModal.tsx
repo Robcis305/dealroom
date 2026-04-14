@@ -82,7 +82,7 @@ export function UploadModal({
     setQueue((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function uploadOne(qf: QueuedFile, index: number, folderId: string): Promise<boolean> {
+  async function uploadOne(qf: QueuedFile, index: number, folderId: string): Promise<string | null> {
     const { file, confirmedVersioning } = qf;
 
     // 1. Request presigned URL
@@ -102,13 +102,13 @@ export function UploadModal({
 
     if (!presignRes.ok) {
       updateFile(index, { status: 'error', error: presignData.error ?? 'Upload failed' });
-      return false;
+      return null;
     }
 
     // 2. Duplicate detected and not yet confirmed
     if (presignData.duplicate && !confirmedVersioning) {
       updateFile(index, { status: 'duplicate', duplicateVersion: presignData.existingVersion });
-      return false;
+      return null;
     }
 
     const { presignedUrl, s3Key } = presignData;
@@ -148,28 +148,43 @@ export function UploadModal({
     if (!confirmRes.ok) {
       const body = await confirmRes.json();
       updateFile(index, { status: 'error', error: body.error ?? 'Confirm failed' });
-      return false;
+      return null;
     }
 
+    const confirmed = (await confirmRes.json()) as { id: string };
     updateFile(index, { status: 'done', progress: 100 });
-    return true;
+    return confirmed.id;
   }
 
   async function handleUpload() {
     if (!selectedFolderId || queue.length === 0) return;
     setUploading(true);
 
-    let anySuccess = false;
+    const succeededIds: string[] = [];
     for (let i = 0; i < queue.length; i++) {
       const qf = queue[i];
       if (qf.status === 'done' || qf.status === 'error') continue;
       updateFile(i, { status: 'uploading', progress: 0 });
-      const ok = await uploadOne(qf, i, selectedFolderId);
-      if (ok) anySuccess = true;
+      const fileId = await uploadOne(qf, i, selectedFolderId);
+      if (fileId) succeededIds.push(fileId);
+    }
+
+    // Fire the batch-notify call once, after all uploads resolve. Failures
+    // here don't fail the upload flow (notification is best-effort).
+    if (succeededIds.length > 0) {
+      try {
+        await fetch(`/api/workspaces/${workspaceId}/notify-upload-batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folderId: selectedFolderId, fileIds: succeededIds }),
+        });
+      } catch (err) {
+        console.warn('[UploadModal] notify-batch failed:', err);
+      }
     }
 
     setUploading(false);
-    if (anySuccess) onUploadComplete();
+    if (succeededIds.length > 0) onUploadComplete();
   }
 
   function handleClose() {
