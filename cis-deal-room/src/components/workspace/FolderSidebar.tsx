@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Folder, FolderOpen, Plus, Trash2 } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Trash2, LayoutGrid } from 'lucide-react';
+import clsx from 'clsx';
 
 interface FolderItem {
   id: string;
@@ -136,15 +137,31 @@ export function FolderSidebar({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#141414] pt-4 pb-2">
+    <div className="flex flex-col h-full bg-surface pt-4 pb-2">
       <div className="px-3 mb-2">
-        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+        <p className="text-xs font-medium text-text-muted uppercase tracking-wider">
           Folders
         </p>
       </div>
 
       {/* Folder list */}
       <div className="flex-1 overflow-y-auto">
+        {/* Deal overview entry */}
+        <div className="mx-1 mb-1">
+          <button
+            onClick={() => onFolderSelect(null)}
+            className={clsx(
+              'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
+              selectedFolderId === null
+                ? 'bg-accent-subtle text-accent'
+                : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
+            )}
+          >
+            <LayoutGrid size={15} />
+            Deal overview
+          </button>
+        </div>
+
         {folders.map((folder) => {
           const isSelected = folder.id === selectedFolderId;
           const isRenaming = renamingId === folder.id;
@@ -153,14 +170,13 @@ export function FolderSidebar({
           return (
             <div
               key={folder.id}
-              className={`group flex items-center gap-2 px-3 py-2 mx-1 rounded-lg
-                transition-colors duration-100
-                ${
-                  isSelected
-                    ? 'bg-[#E10600]/10 text-[#E10600]'
-                    : 'text-neutral-300 hover:bg-[#1F1F1F] hover:text-white'
-                }
-                ${isDeleting ? 'opacity-40' : ''}`}
+              className={clsx(
+                'group flex items-center gap-2 px-3 py-2 mx-1 rounded-lg transition-colors duration-100',
+                isSelected
+                  ? 'bg-accent-subtle text-accent'
+                  : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary',
+                isDeleting && 'opacity-40'
+              )}
             >
               {/* Folder icon */}
               <span className="shrink-0">
@@ -182,8 +198,8 @@ export function FolderSidebar({
                     if (e.key === 'Enter') commitRename(folder.id);
                     if (e.key === 'Escape') setRenamingId(null);
                   }}
-                  className="flex-1 min-w-0 bg-[#1F1F1F] border border-[#E10600]/40 rounded
-                    px-1.5 py-0.5 text-sm text-white focus:outline-none focus:border-[#E10600]"
+                  className="flex-1 min-w-0 bg-surface-sunken border border-accent/40 rounded
+                    px-1.5 py-0.5 text-sm text-text-primary focus:outline-none focus:border-accent"
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
@@ -206,7 +222,7 @@ export function FolderSidebar({
                       e.stopPropagation();
                       startRename(folder);
                     }}
-                    className="p-1 text-neutral-500 hover:text-white rounded transition-colors
+                    className="p-1 text-text-muted hover:text-text-primary rounded transition-colors
                       focus:outline-none cursor-pointer"
                     aria-label={`Rename ${folder.name}`}
                     title="Rename folder"
@@ -233,7 +249,7 @@ export function FolderSidebar({
                       e.stopPropagation();
                       handleDelete(folder.id);
                     }}
-                    className="p-1 text-neutral-500 hover:text-[#E10600] rounded
+                    className="p-1 text-text-muted hover:text-accent rounded
                       transition-colors focus:outline-none cursor-pointer"
                     aria-label={`Delete ${folder.name}`}
                     title="Delete folder"
@@ -250,7 +266,7 @@ export function FolderSidebar({
         {/* Add folder inline input */}
         {addingFolder && (
           <div className="flex items-center gap-2 px-3 py-2 mx-1">
-            <Folder size={15} className="text-neutral-500 shrink-0" />
+            <Folder size={15} className="text-text-muted shrink-0" />
             <input
               ref={addInputRef}
               value={newFolderName}
@@ -264,9 +280,9 @@ export function FolderSidebar({
                 }
               }}
               placeholder="Folder name"
-              className="flex-1 min-w-0 bg-[#1F1F1F] border border-[#E10600]/40 rounded
-                px-1.5 py-0.5 text-sm text-white placeholder-neutral-600
-                focus:outline-none focus:border-[#E10600]"
+              className="flex-1 min-w-0 bg-surface-sunken border border-accent/40 rounded
+                px-1.5 py-0.5 text-sm text-text-primary placeholder-text-muted
+                focus:outline-none focus:border-accent"
             />
           </div>
         )}
@@ -274,11 +290,11 @@ export function FolderSidebar({
 
       {/* Admin: add folder button */}
       {isAdmin && !addingFolder && (
-        <div className="px-2 pt-2 border-t border-[#1F1F1F] mt-2">
+        <div className="px-2 pt-2 border-t border-border-subtle mt-2">
           <button
             onClick={() => setAddingFolder(true)}
-            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-neutral-500
-              hover:text-white hover:bg-[#1F1F1F] rounded-lg transition-colors duration-100
+            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-text-muted
+              hover:text-text-primary hover:bg-surface-elevated rounded-lg transition-colors duration-100
               focus:outline-none cursor-pointer"
           >
             <Plus size={14} />
