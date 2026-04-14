@@ -23,6 +23,10 @@ interface DealOverviewProps {
   /** Current status (may be updated optimistically by WorkspaceShell). */
   status: WorkspaceStatus;
   folders: FolderItem[];
+  /** folderId → number of files */
+  fileCounts: Record<string, number>;
+  /** Select a folder (navigate the center panel to its FileList) */
+  onFolderSelect: (folderId: string) => void;
 }
 
 const ADVISORY_LABELS: Record<'buyer_side' | 'seller_side', string> = {
@@ -30,7 +34,7 @@ const ADVISORY_LABELS: Record<'buyer_side' | 'seller_side', string> = {
   seller_side: 'Seller-side Advisory',
 };
 
-export function DealOverview({ workspace, status, folders }: DealOverviewProps) {
+export function DealOverview({ workspace, status, folders, fileCounts, onFolderSelect }: DealOverviewProps) {
   const createdDate = new Date(workspace.createdAt);
   const formattedDate = createdDate.toLocaleDateString('en-US', {
     month: 'long',
@@ -66,19 +70,26 @@ export function DealOverview({ workspace, status, folders }: DealOverviewProps) 
           Folders
         </h2>
         <div className="grid grid-cols-2 gap-3">
-          {folders.map((folder) => (
-            <div
-              key={folder.id}
-              className="bg-surface border border-border rounded-xl px-4 py-3
-                flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <Folder size={15} className="text-text-muted shrink-0" />
-                <span className="text-sm text-text-secondary truncate">{folder.name}</span>
-              </div>
-              <span className="text-xs font-mono text-text-muted shrink-0 ml-2">0</span>
-            </div>
-          ))}
+          {folders.map((folder) => {
+            const fileCount = fileCounts[folder.id] ?? 0;
+            return (
+              <button
+                key={folder.id}
+                onClick={() => onFolderSelect(folder.id)}
+                className="bg-surface border border-border rounded-xl px-4 py-3
+                  flex items-center justify-between w-full text-left
+                  hover:border-accent hover:bg-accent-subtle/40 transition-colors
+                  focus:outline-none focus:ring-2 focus:ring-accent"
+                aria-label={`Open ${folder.name} folder`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Folder size={15} className="text-text-muted shrink-0" />
+                  <span className="text-sm text-text-secondary truncate">{folder.name}</span>
+                </div>
+                <span className="text-xs font-mono text-text-muted shrink-0 ml-2">{fileCount}</span>
+              </button>
+            );
+          })}
         </div>
         {folders.length === 0 && (
           <p className="text-sm text-text-muted text-center py-8">

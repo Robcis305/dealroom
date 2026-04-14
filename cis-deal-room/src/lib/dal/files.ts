@@ -1,10 +1,39 @@
-import { desc, eq, and } from 'drizzle-orm';
+import { desc, eq, and, count, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { files, folders } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns a map of folderId → file count for the given folder IDs.
+ * Folders with zero files are included in the result with count 0.
+ */
+export async function getFileCountsByFolder(
+  folderIds: string[]
+): Promise<Record<string, number>> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+
+  if (folderIds.length === 0) return {};
+
+  const rows = await db
+    .select({
+      folderId: files.folderId,
+      count: count(files.id),
+    })
+    .from(files)
+    .where(inArray(files.folderId, folderIds))
+    .groupBy(files.folderId);
+
+  // Seed every requested folder with 0 so the UI can render consistently
+  const counts: Record<string, number> = Object.fromEntries(
+    folderIds.map((id) => [id, 0])
+  );
+  for (const row of rows) counts[row.folderId] = Number(row.count);
+  return counts;
+}
 
 /**
  * Returns all files for a folder ordered newest-first.

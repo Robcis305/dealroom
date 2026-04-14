@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { getWorkspace } from '@/lib/dal/workspaces';
 import { getFoldersForWorkspace } from '@/lib/dal/folders';
+import { getFileCountsByFolder } from '@/lib/dal/files';
 import { verifySession } from '@/lib/dal';
 import { WorkspaceShell } from '@/components/workspace/WorkspaceShell';
 
@@ -30,10 +31,13 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
     notFound();
   }
 
+  const fileCounts = await getFileCountsByFolder(folders.map((f) => f.id));
+
   return (
     <WorkspaceShell
       workspace={workspace}
       folders={folders}
+      fileCounts={fileCounts}
       isAdmin={session.isAdmin}
     />
   );

@@ -35,6 +35,8 @@ interface Folder {
 interface WorkspaceShellProps {
   workspace: Workspace;
   folders: Folder[];
+  /** folderId → number of files (server-rendered at page load) */
+  fileCounts: Record<string, number>;
   isAdmin: boolean;
 }
 
@@ -47,7 +49,7 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts, isAdmin }: WorkspaceShellProps) {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -170,6 +172,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, isAdmin }: 
               workspace={workspace}
               status={status}
               folders={folders}
+              fileCounts={fileCounts}
+              onFolderSelect={setSelectedFolderId}
             />
           ) : (
             <FileList
