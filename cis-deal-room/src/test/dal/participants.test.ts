@@ -51,7 +51,7 @@ vi.mock('@/db', () => ({
             }),
           }),
         }),
-        where: () => ({ limit: mockSelectChain }),
+        where: () => makeWhereResult(),
       }),
     }),
     delete: () => ({ where: mockDeleteWhere }),
@@ -98,6 +98,7 @@ import {
   inviteParticipant,
   updateParticipant,
   removeParticipant,
+  countActiveClientParticipants,
 } from '@/lib/dal/participants';
 
 const adminSession = { sessionId: 's1', userId: 'admin-u', userEmail: 'admin@cis.com', isAdmin: true };
@@ -247,6 +248,29 @@ describe('removeParticipant', () => {
     ]);
     await removeParticipant(PARTICIPANT_ID);
     expect(mockDeleteWhere).toHaveBeenCalled();
+  });
+});
+
+describe('countActiveClientParticipants', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('throws Unauthorized when no session', async () => {
+    vi.mocked(verifySession).mockResolvedValue(null);
+    await expect(countActiveClientParticipants(WORKSPACE_ID)).rejects.toThrow('Unauthorized');
+  });
+
+  it('returns 0 when no active client participants', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    mockSelectChain.mockResolvedValue([{ count: 0 }]);
+    const result = await countActiveClientParticipants(WORKSPACE_ID);
+    expect(result).toBe(0);
+  });
+
+  it('returns the count of active client participants', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    mockSelectChain.mockResolvedValue([{ count: 3 }]);
+    const result = await countActiveClientParticipants(WORKSPACE_ID);
+    expect(result).toBe(3);
   });
 });
 

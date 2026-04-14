@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, count, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   users,
@@ -245,6 +245,28 @@ export async function updateParticipant(participantId: string, input: UpdateInpu
       afterFolderIds: input.folderIds,
     },
   });
+}
+
+/**
+ * Returns the number of active Client participants in a workspace.
+ * Used to guard the Engagement → Active DD status transition.
+ */
+export async function countActiveClientParticipants(workspaceId: string): Promise<number> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+
+  const [row] = await db
+    .select({ count: count() })
+    .from(workspaceParticipants)
+    .where(
+      and(
+        eq(workspaceParticipants.workspaceId, workspaceId),
+        eq(workspaceParticipants.role, 'client'),
+        eq(workspaceParticipants.status, 'active')
+      )
+    );
+
+  return Number(row?.count ?? 0);
 }
 
 /**

@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/Badge';
+import { Banner } from '@/components/ui/Banner';
 import { Logo } from '@/components/ui/Logo';
 import { FolderSidebar } from './FolderSidebar';
 import { DealOverview } from './DealOverview';
@@ -38,6 +40,7 @@ interface WorkspaceShellProps {
   /** folderId → number of files (server-rendered at page load) */
   fileCounts: Record<string, number>;
   isAdmin: boolean;
+  activeClientCount: number;
 }
 
 const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
@@ -49,7 +52,7 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts, isAdmin }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts, isAdmin, activeClientCount }: WorkspaceShellProps) {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -150,6 +153,20 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
           <Badge status={status} />
         )}
       </header>
+
+      {activeClientCount === 0 && (
+        <Banner
+          variant="warning"
+          action={{
+            label: 'Invite Client',
+            onClick: () => {
+              toast.info('Click Participants tab → Invite Participant → select Client');
+            },
+          }}
+        >
+          No active Client participant. Invite one to progress the deal.
+        </Banner>
+      )}
 
       {/* Three-panel body */}
       <div className="flex flex-1 min-h-0 overflow-hidden">

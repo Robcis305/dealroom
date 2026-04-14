@@ -7,6 +7,7 @@ vi.mock('@/lib/dal/participants', () => ({
   inviteParticipant: vi.fn(),
   updateParticipant: vi.fn(),
   removeParticipant: vi.fn(),
+  countActiveClientParticipants: vi.fn(),
 }));
 vi.mock('@/lib/dal/workspaces', () => ({
   getWorkspace: vi.fn(),
