@@ -32,7 +32,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-text-primary/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -41,7 +41,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
       <div
         className={twMerge(
           clsx(
-            'bg-[#141414] border border-[#2A2A2A] rounded-xl p-6 shadow-2xl',
+            'bg-surface border border-border rounded-xl p-6 shadow-2xl',
             'w-full max-w-lg mx-4',
             'transition-all duration-200',
             className
@@ -51,11 +51,11 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
       >
         {title && (
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-white">{title}</h2>
+            <h2 className="text-base font-semibold text-text-primary">{title}</h2>
             <button
               onClick={onClose}
-              className="text-neutral-400 hover:text-white transition-colors duration-150 cursor-pointer
-                focus:outline-none focus:ring-2 focus:ring-[#E10600] rounded"
+              className="text-text-muted hover:text-text-primary transition-colors duration-150 cursor-pointer
+                focus:outline-none focus:ring-2 focus:ring-accent rounded"
               aria-label="Close modal"
             >
               <X size={18} />

@@ -11,12 +11,12 @@ type WorkspaceStatus =
   | 'archived';
 
 const STATUS_STYLES: Record<WorkspaceStatus, string> = {
-  engagement: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
-  active_dd: 'bg-green-500/10 text-green-400 border border-green-500/20',
-  ioi_stage: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
-  closing: 'bg-orange-500/10 text-orange-400 border border-orange-500/20',
-  closed: 'bg-neutral-500/10 text-neutral-400 border border-neutral-500/20',
-  archived: 'bg-neutral-500/10 text-neutral-500 border border-neutral-500/20',
+  engagement: 'bg-surface-sunken text-text-secondary border border-border',
+  active_dd: 'bg-success-subtle text-success border border-success/30',
+  ioi_stage: 'bg-warning-subtle text-warning border border-warning/30',
+  closing: 'bg-accent-subtle text-accent border border-accent/30',
+  closed: 'bg-surface-sunken text-text-muted border border-border',
+  archived: 'bg-surface-sunken text-text-muted border border-border',
 };
 
 const STATUS_LABELS: Record<WorkspaceStatus, string> = {

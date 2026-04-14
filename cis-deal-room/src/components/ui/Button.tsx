@@ -13,16 +13,16 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-[#E10600] hover:bg-[#C40500] text-white ' +
-    'focus:ring-2 focus:ring-[#E10600] focus:ring-offset-2 focus:ring-offset-[#0D0D0D]',
+    'bg-accent hover:bg-accent-hover text-text-inverse ' +
+    'focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
   ghost:
-    'bg-transparent hover:bg-[#1F1F1F] text-neutral-300 hover:text-white ' +
-    'border border-[#2A2A2A] hover:border-[#3A3A3A] ' +
-    'focus:ring-2 focus:ring-[#E10600] focus:ring-offset-2 focus:ring-offset-[#0D0D0D]',
+    'bg-transparent hover:bg-surface-sunken text-text-primary hover:text-text-primary ' +
+    'border border-border hover:border-border ' +
+    'focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
   destructive:
-    'bg-[#E10600]/10 hover:bg-[#E10600]/20 text-[#E10600] hover:text-[#FF1A17] ' +
-    'border border-[#E10600]/20 ' +
-    'focus:ring-2 focus:ring-[#E10600] focus:ring-offset-2 focus:ring-offset-[#0D0D0D]',
+    'bg-accent-subtle hover:bg-accent/20 text-accent hover:text-accent ' +
+    'border border-accent/30 ' +
+    'focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
