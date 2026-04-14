@@ -25,6 +25,12 @@ const schema = z.object({
   mimeType: z.string().min(1),
   sizeBytes: z.number().int().positive(),
   workspaceId: z.string().min(1),
+  /**
+   * When true, the caller already saw the duplicate warning and chose to
+   * upload as a new version — skip the duplicate short-circuit and issue
+   * the presigned URL.
+   */
+  confirmedVersioning: z.boolean().optional().default(false),
 });
 
 export async function POST(request: Request) {
@@ -41,7 +47,7 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid request' }, { status: 400 });
   }
 
-  const { folderId, fileName, mimeType, sizeBytes, workspaceId } = parsed;
+  const { folderId, fileName, mimeType, sizeBytes, workspaceId, confirmedVersioning } = parsed;
 
   // Validate file type
   if (!ALLOWED_MIME_TYPES.has(mimeType)) {
@@ -60,14 +66,18 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Duplicate detection — let the caller decide whether to version or cancel
-  const existing = await checkDuplicate(folderId, fileName);
-  if (existing) {
-    return Response.json({
-      duplicate: true,
-      existingFileId: existing.id,
-      existingVersion: existing.version,
-    });
+  // Duplicate detection — let the caller decide whether to version or cancel.
+  // When caller has already acknowledged the duplicate (confirmedVersioning),
+  // skip the short-circuit and proceed to issue the presigned URL below.
+  if (!confirmedVersioning) {
+    const existing = await checkDuplicate(folderId, fileName);
+    if (existing) {
+      return Response.json({
+        duplicate: true,
+        existingFileId: existing.id,
+        existingVersion: existing.version,
+      });
+    }
   }
 
   // S3 stub — return fake key when bucket is not configured

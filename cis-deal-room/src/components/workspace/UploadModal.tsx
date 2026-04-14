@@ -127,6 +127,7 @@ export function UploadModal({
         fileName: file.name,
         mimeType: file.type,
         sizeBytes: file.size,
+        confirmedVersioning: confirmedVersioning ?? false,
         workspaceId,
       }),
     });
