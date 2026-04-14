@@ -80,7 +80,7 @@ export async function POST(
   });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const inviteLink = `${appUrl}/auth/verify?token=${rawToken}&email=${encodeURIComponent(parsed.email)}`;
+  const inviteLink = `${appUrl}/api/auth/verify?token=${rawToken}&email=${encodeURIComponent(parsed.email)}`;
 
   // Dev-mode convenience: surface the invite URL in the server log when
   // Resend is stubbed.

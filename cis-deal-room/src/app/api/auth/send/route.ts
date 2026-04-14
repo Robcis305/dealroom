@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
   // 6. Build the magic link URL
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const magicLink = `${appUrl}/auth/verify?token=${rawToken}&email=${encodeURIComponent(email)}`;
+  const magicLink = `${appUrl}/api/auth/verify?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
   // Dev-mode convenience: when Resend is stubbed, surface the link in the
   // server log so a developer can copy/paste it directly.
