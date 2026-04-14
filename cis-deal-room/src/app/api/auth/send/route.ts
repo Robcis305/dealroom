@@ -47,6 +47,12 @@ export async function POST(request: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   const magicLink = `${appUrl}/auth/verify?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
+  // Dev-mode convenience: when Resend is stubbed, surface the link in the
+  // server log so a developer can copy/paste it directly.
+  if (!process.env.RESEND_API_KEY) {
+    console.log('[auth:login-link]', magicLink);
+  }
+
   // 7. Send email via Resend using React Email template
   await sendEmail({
     to: email,

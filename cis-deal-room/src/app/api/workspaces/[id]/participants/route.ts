@@ -82,6 +82,12 @@ export async function POST(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   const inviteLink = `${appUrl}/auth/verify?token=${rawToken}&email=${encodeURIComponent(parsed.email)}`;
 
+  // Dev-mode convenience: surface the invite URL in the server log when
+  // Resend is stubbed.
+  if (!process.env.RESEND_API_KEY) {
+    console.log('[auth:invite-link]', parsed.email, '→', inviteLink);
+  }
+
   // Resolve role label with contextual Rep naming
   let roleLabel = ROLE_LABELS[parsed.role];
   if (parsed.role === 'seller_rep') roleLabel = 'Seller Rep';
