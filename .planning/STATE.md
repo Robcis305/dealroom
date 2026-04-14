@@ -141,6 +141,8 @@ None yet.
 - [v1.1 backlog]: File version restore ("make v2 the current")
 - [v1.1 backlog]: Dark-mode toggle (tokens make it a one-file swap)
 - [v1.1 backlog]: Per-file comments / annotations
+- [v1.1 backlog]: **Document preview** — inline viewer for uploaded files. Ship in three slices: (A) PDF/image/video via native browser render on the presigned URL — covers ~60-80% of M&A files; (B) CSV + XLSX via SheetJS/papaparse tabular render; (C) DOCX/PPTX via paid viewer or server-side LibreOffice conversion (defer until usage data justifies). Private-URL constraint rules out MSFT/Google public viewer services.
+- [v1.1 backlog]: **Due-diligence checklist / request tracker** — per-workspace list of outstanding vs. received items with status, timestamps, optional linked file. Recommended shape: structured table (new `requests` table: id, workspace_id, description, status, requested_at, received_at, assigned_to?, linked_file_id?) rendered as a third tab in RightPanel alongside Activity and Participants. Admin edit + participant read-only. Auditable via activity log.
 - [v1.1 backlog]: QStash scheduled message needs to be created in the Upstash dashboard before digest actually fires in production (route + verification already wired)
 - [Production readiness]: AWS credentials currently in .env.local are dev-scoped; production deploy must use a separate IAM user (cis-deal-room-prod) with keys stored in the hosting platform's secrets manager, never on-disk.
 - [Production readiness]: Neon DATABASE_URL similarly must be a separate prod branch/project at deploy time.
@@ -151,5 +153,11 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-14
-Stopped at: v1.0 milestone complete. Phase 4 human checkpoint signed off. 149/149 tests passing, 0 TS errors. Ready to plan v1.1 or next milestone.
+Stopped at: v1.0 milestone complete, pushed to origin (https://github.com/Robcis305/dealroom). 149/149 tests passing, 0 TS errors. Phase 4 checkpoint signed off. Two new v1.1 backlog items captured: document preview + DD checklist/request tracker.
+
+**Next session resume — planned sequence:**
+1. **Production credentials setup** (must-do before real deploy): create separate prod IAM user `cis-deal-room-prod` with same scoped S3 policy; spin up production Neon branch/project; provision `RESEND_API_KEY`, `UPSTASH_REDIS_REST_URL/TOKEN`, `QSTASH_TOKEN` + signing keys; set `NEXT_PUBLIC_APP_URL` to prod origin; create QStash scheduled message for daily digest. Rotate any dev keys that touched .env.local.
+2. **Choose a deploy target** — Vercel recommended (no config change needed for Next.js 16), Railway, Fly, or self-hosted. Consider production behavior under S3 CORS for the deployed origin (current CORS allows only http://localhost:3000).
+3. **After deploy:** brainstorm v1.1. Top candidates in backlog: document preview (slice A ships quickly), DD checklist, pre-expiry session warning, dark-mode toggle.
+
 Resume file: None
