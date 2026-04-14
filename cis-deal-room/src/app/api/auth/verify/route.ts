@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
 import { magicLinkTokens, users, workspaceParticipants } from '@/db/schema';
@@ -76,7 +76,11 @@ export async function GET(request: NextRequest) {
     tokenRow.purpose === 'invitation' && tokenRow.redirectTo
       ? `${appUrl}${tokenRow.redirectTo}`
       : `${appUrl}/deals`;
-  const response = Response.redirect(redirectTarget);
+
+  // Use NextResponse (mutable cookies API) instead of Response.redirect —
+  // the Fetch spec's Response.redirect() returns an immutable-headers
+  // response, so .headers.append('Set-Cookie', ...) throws TypeError.
+  const response = NextResponse.redirect(new URL(redirectTarget));
   setSessionCookie(response, sessionId);
 
   return response;

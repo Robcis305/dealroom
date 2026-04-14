@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 interface VerifyPageProps {
-  searchParams: { error?: string };
+  searchParams: Promise<{ error?: string }>;
 }
 
 function getErrorContent(error: string | undefined): {
@@ -30,8 +30,9 @@ function getErrorContent(error: string | undefined): {
   }
 }
 
-export default function VerifyPage({ searchParams }: VerifyPageProps) {
-  const { heading, description } = getErrorContent(searchParams.error);
+export default async function VerifyPage({ searchParams }: VerifyPageProps) {
+  const { error } = await searchParams;
+  const { heading, description } = getErrorContent(error);
 
   return (
     <main className="min-h-screen bg-black flex items-center justify-center p-4">
