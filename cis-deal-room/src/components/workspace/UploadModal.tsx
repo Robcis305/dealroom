@@ -44,6 +44,20 @@ interface QueuedFile {
   confirmedVersioning?: boolean;
 }
 
+/**
+ * Normalizes an API error payload to a display string.
+ * Server error responses may be `{ error: "msg" }` or `{ error: [...zodIssues] }`;
+ * rendering the raw array in JSX throws "Objects are not valid as a React child".
+ */
+function toErrorString(err: unknown, fallback = 'Upload failed'): string {
+  if (typeof err === 'string') return err;
+  if (Array.isArray(err) && err.length > 0) {
+    const first = err[0] as { message?: unknown };
+    if (typeof first?.message === 'string') return first.message;
+  }
+  return fallback;
+}
+
 function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -120,7 +134,7 @@ export function UploadModal({
     const presignData = await presignRes.json();
 
     if (!presignRes.ok) {
-      updateFile(index, { status: 'error', error: presignData.error ?? 'Upload failed' });
+      updateFile(index, { status: 'error', error: toErrorString(presignData.error) });
       return null;
     }
 
@@ -166,7 +180,7 @@ export function UploadModal({
 
     if (!confirmRes.ok) {
       const body = await confirmRes.json();
-      updateFile(index, { status: 'error', error: body.error ?? 'Confirm failed' });
+      updateFile(index, { status: 'error', error: toErrorString(body.error) });
       return null;
     }
 
