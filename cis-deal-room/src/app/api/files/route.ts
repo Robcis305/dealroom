@@ -34,6 +34,8 @@ export async function GET(request: Request) {
         version: files.version,
         createdAt: files.createdAt,
         uploadedByEmail: users.email,
+        uploadedByFirstName: users.firstName,
+        uploadedByLastName: users.lastName,
       })
       .from(files)
       .innerJoin(users, eq(files.uploadedBy, users.id))

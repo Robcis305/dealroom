@@ -50,7 +50,7 @@ describe('getFilesForFolder', () => {
   it('queries files for the given folderId ordered by createdAt desc', async () => {
     vi.mocked(verifySession).mockResolvedValue(mockSession);
     const rows = [{ id: 'f1', name: 'report.pdf', version: 1 }];
-    const chain = { from: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), orderBy: vi.fn().mockResolvedValue(rows) };
+    const chain = { from: vi.fn().mockReturnThis(), innerJoin: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), orderBy: vi.fn().mockResolvedValue(rows) };
     mockSelect.mockReturnValue(chain);
     const result = await getFilesForFolder('folder-1');
     expect(result).toEqual(rows);

@@ -5,6 +5,7 @@ import {
   workspaceParticipants,
   folderAccess,
   magicLinkTokens,
+  sessions,
 } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
@@ -39,11 +40,14 @@ export async function getParticipants(workspaceId: string) {
       id: workspaceParticipants.id,
       userId: workspaceParticipants.userId,
       email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
       role: workspaceParticipants.role,
       status: workspaceParticipants.status,
       invitedAt: workspaceParticipants.invitedAt,
       activatedAt: workspaceParticipants.activatedAt,
       folderIds: sql<string[]>`coalesce(array_agg(${folderAccess.folderId}) filter (where ${folderAccess.folderId} is not null), '{}')`,
+      lastSeen: sql<Date | null>`(select max(${sessions.lastActiveAt}) from ${sessions} where ${sessions.userId} = ${users.id})`,
     })
     .from(workspaceParticipants)
     .innerJoin(users, eq(users.id, workspaceParticipants.userId))
@@ -52,7 +56,10 @@ export async function getParticipants(workspaceId: string) {
     .groupBy(
       workspaceParticipants.id,
       workspaceParticipants.userId,
+      users.id,
       users.email,
+      users.firstName,
+      users.lastName,
       workspaceParticipants.role,
       workspaceParticipants.status,
       workspaceParticipants.invitedAt,

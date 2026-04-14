@@ -14,6 +14,8 @@ vi.mock('@/db/schema', () => ({
   workspaces: {},
   workspaceParticipants: {},
   folders: {},
+  files: {},
+  activityLogs: {},
 }));
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -55,7 +57,7 @@ describe('getWorkspacesForUser()', () => {
   });
 
   it('returns only joined workspaces for non-admin users', async () => {
-    const mockRows = [{ workspace: { id: 'ws-1', name: 'Deal Alpha' } }];
+    const mockRows = [{ id: 'ws-1', name: 'Deal Alpha' }];
 
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({
@@ -82,7 +84,7 @@ describe('getWorkspacesForUser()', () => {
 
     const { getWorkspacesForUser } = await import('./workspaces');
     const result = await getWorkspacesForUser();
-    expect(result).toEqual(mockRows.map((r) => r.workspace));
+    expect(result).toEqual(mockRows);
   });
 
   it('throws Unauthorized when session is null', async () => {

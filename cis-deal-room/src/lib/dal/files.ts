@@ -1,6 +1,6 @@
 import { desc, eq, and, count, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { files, folders } from '@/db/schema';
+import { files, folders, users } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
 
@@ -44,8 +44,21 @@ export async function getFilesForFolder(folderId: string) {
   if (!session) throw new Error('Unauthorized');
 
   return db
-    .select()
+    .select({
+      id: files.id,
+      folderId: files.folderId,
+      name: files.name,
+      s3Key: files.s3Key,
+      sizeBytes: files.sizeBytes,
+      mimeType: files.mimeType,
+      version: files.version,
+      createdAt: files.createdAt,
+      uploadedByEmail: users.email,
+      uploadedByFirstName: users.firstName,
+      uploadedByLastName: users.lastName,
+    })
     .from(files)
+    .innerJoin(users, eq(users.id, files.uploadedBy))
     .where(eq(files.folderId, folderId))
     .orderBy(desc(files.createdAt));
 }

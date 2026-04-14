@@ -1,6 +1,6 @@
-import { desc, eq, and } from 'drizzle-orm';
+import { desc, eq, and, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { workspaces, workspaceParticipants, folders } from '@/db/schema';
+import { workspaces, workspaceParticipants, folders, files, activityLogs } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
 import type { WorkspaceStatus, CisAdvisorySide } from '@/types';
@@ -28,21 +28,44 @@ export async function getWorkspacesForUser() {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
 
+  const baseSelect = {
+    id: workspaces.id,
+    name: workspaces.name,
+    clientName: workspaces.clientName,
+    status: workspaces.status,
+    cisAdvisorySide: workspaces.cisAdvisorySide,
+    createdAt: workspaces.createdAt,
+    updatedAt: workspaces.updatedAt,
+    docCount: sql<number>`(
+      select count(*)::int from ${files}
+      inner join ${folders} on ${folders.id} = ${files.folderId}
+      where ${folders.workspaceId} = ${workspaces.id}
+    )`,
+    participantCount: sql<number>`(
+      select count(*)::int from ${workspaceParticipants}
+      where ${workspaceParticipants.workspaceId} = ${workspaces.id}
+        and ${workspaceParticipants.status} = 'active'
+    )`,
+    lastActivityAction: sql<string | null>`(
+      select action from ${activityLogs}
+      where ${activityLogs.workspaceId} = ${workspaces.id}
+      order by ${activityLogs.createdAt} desc limit 1
+    )`,
+    lastActivityAt: sql<Date | null>`(
+      select ${activityLogs.createdAt} from ${activityLogs}
+      where ${activityLogs.workspaceId} = ${workspaces.id}
+      order by ${activityLogs.createdAt} desc limit 1
+    )`,
+  };
+
   if (session.isAdmin) {
-    return db
-      .select()
-      .from(workspaces)
-      .orderBy(desc(workspaces.createdAt));
+    return db.select(baseSelect).from(workspaces).orderBy(desc(workspaces.createdAt));
   }
 
-  // Non-admin: join through workspace_participants
-  const rows = await db
-    .select({ workspace: workspaces })
+  return db
+    .select(baseSelect)
     .from(workspaces)
-    .innerJoin(
-      workspaceParticipants,
-      eq(workspaceParticipants.workspaceId, workspaces.id)
-    )
+    .innerJoin(workspaceParticipants, eq(workspaceParticipants.workspaceId, workspaces.id))
     .where(
       and(
         eq(workspaceParticipants.userId, session.userId),
@@ -50,8 +73,6 @@ export async function getWorkspacesForUser() {
       )
     )
     .orderBy(desc(workspaces.createdAt));
-
-  return rows.map((r) => r.workspace);
 }
 
 /**

@@ -43,6 +43,8 @@ export async function GET(
       metadata: activityLogs.metadata,
       createdAt: activityLogs.createdAt,
       actorEmail: users.email,
+      actorFirstName: users.firstName,
+      actorLastName: users.lastName,
     })
     .from(activityLogs)
     .innerJoin(users, eq(users.id, activityLogs.userId))
