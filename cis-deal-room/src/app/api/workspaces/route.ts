@@ -53,6 +53,7 @@ export async function POST(request: Request) {
         return Response.json({ error: 'Admin required' }, { status: 403 });
       }
     }
+    console.error('[workspaces:POST] unexpected error:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
