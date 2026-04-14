@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-stopped_at: "Phase 3 complete (backend + UI + visual refresh + S3 live). 129/129 tests pass, 0 TS errors. Ready for Phase 4."
-last_updated: "2026-04-14T11:55:00.000Z"
-last_activity: 2026-04-14 -- Phase 3 fully complete (Plan 3.1 backend, Plan 3.2 UI, Phase 3.5 visual refresh, real AWS S3 integration). ~45 commits ahead of origin.
+status: complete
+stopped_at: "v1.0 complete. Phase 4 signed off through human checkpoint. 149/149 tests pass, 0 TS errors."
+last_updated: "2026-04-14T15:45:00.000Z"
+last_activity: 2026-04-14 -- Phase 4 (Interface & Polish) complete. v1.0 milestone shipped end-to-end.
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 87
+  completed_phases: 4
+  total_plans: 9
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -21,21 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-12)
 
 **Core value:** One organized, permission-controlled workspace per deal -- so both CIS Partners and clients always know where to find documents and exactly what happened to them.
-**Current focus:** Phase 4: Interface and Polish (next)
+**Current focus:** v1.0 shipped. Next milestone TBD (v1.1 backlog or v2 planning).
 
 ## Current Position
 
-Phase: 3 of 4 (Collaboration) -- COMPLETE
-Plan: 3 of 3 plans in Phase 3 complete (3.1 backend, 3.2 UI, 3.5 visual refresh); human checkpoint signed off; real S3 uploads/downloads working.
-Status: Ready to brainstorm + plan Phase 4
-Last activity: 2026-04-14 -- Phase 3 collaboration fully live end-to-end. Invited participant accepts magic link and lands in workspace. Folder-scoped upload/download verified with real S3 (us-east-2). Email stub flow surfaces links via server console. Visual refresh migrated every component to semantic design tokens; CIS Partners brand logo integrated across all surfaces.
+Phase: 4 of 4 (Interface & Polish) -- COMPLETE
+Plan: 1 of 1 plan in Phase 4 complete (18 tasks); human checkpoint signed off.
+Status: v1.0 milestone done. Ready to plan v1.1 or next milestone.
+Last activity: 2026-04-14 -- Phase 4 shipped. Deal-list tile cards with counts + search/filter, activity feed with polling+grouping+load-more, display names everywhere, complete-profile gate on first login, 2h/4h session cap with 401 interceptor + returnTo flow, no-Client banner + status-transition guard, notification digest via Upstash QStash, version history drawer, sonner toasts, graceful mobile responsive, explicit Sign out. 149/149 tests passing.
 
-Progress: [████████░░] 87%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8 (Phase 1: 4, Phase 2: 1, Phase 3: 3)
+- Total plans completed: 9 (Phase 1: 4, Phase 2: 1, Phase 3: 3, Phase 4: 1)
 - Average duration: -
 - Total execution time: - hours
 
@@ -46,10 +46,10 @@ Progress: [████████░░] 87%
 | 01-foundation | 4 | - | - |
 | 02-file-operations | 1 | - | - |
 | 03-collaboration | 3 | - | - |
+| 04-polish | 1 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-04, 02 (file ops), 03-1 (backend+IDOR), 03-2 (UI+E2E), 03-5 (visual refresh)
-- Trend: -
+- Last 5 plans: 02 (file ops), 03-1 (backend+IDOR), 03-2 (UI+E2E), 03-5 (visual refresh), 04 (polish)
 
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 5 | 2 tasks | 30 files |
@@ -60,6 +60,7 @@ Progress: [████████░░] 87%
 | Phase 03-collaboration P1 | 15 tasks | 22 files | - |
 | Phase 03-collaboration P2 | 6 tasks | 7 files | - |
 | Phase 03-collaboration P5 (visual) | 11 tasks | ~20 files | - |
+| Phase 04-polish | 18 tasks | ~30 files | - |
 
 ## Accumulated Context
 
@@ -113,6 +114,18 @@ Recent decisions affecting current work:
 - [Phase 03-5 UX fixes]: UploadModal resets queue on close via useEffect on [open]; folder dropdown hides when modal opened from a folder context
 - [Phase 03 integration]: Real AWS S3 live (us-east-2) — upload + download + delete all round-trip through real bucket; presign PUT drops explicit ServerSideEncryption (bucket default handles it; signing SSE would force browser to echo the matching header and 403 signature mismatches)
 - [Phase 03 integration]: IAM user cis-deal-room-app scoped to PutObject/GetObject/DeleteObject on bucket/* only; no bucket-level permissions
+- [Phase 04 polish]: Display names — users.first_name/last_name; /complete-profile gate enforced on first login; displayName(user) falls back to email for missing names; admin participant rows show email as muted secondary
+- [Phase 04 polish]: Session policy — idle 2h (down from 24h), absolute cap 4h via new sessions.absolute_expires_at column; global fetchWithAuth 401 interceptor toasts + redirects to /login?returnTo=… ; sessionStorage returnTo survives the magic-link flow
+- [Phase 04 polish]: Deal list rebuilt as DealCard tile grid — docCount/participantCount/last-activity summary computed via correlated subqueries in getWorkspacesForUser (no new API); client-side search (name+client) + status filter
+- [Phase 04 polish]: ActivityFeed polls every 60s while tab visible (pauses on blur); groups consecutive same-actor/same-action rows within 10-min window; "load more" paginates 50/page
+- [Phase 04 polish]: No-Client banner renders whenever activeClientCount === 0 regardless of stage; server blocks only Engagement→Active DD transition (other transitions remain open)
+- [Phase 04 polish]: Notification digest via Upstash QStash — per-user opt-in toggle in UserMenu; enqueueOrSend helper routes immediate vs queue based on user.notification_digest; invitation emails always send immediately regardless of preference (link is time-sensitive)
+- [Phase 04 polish]: File version history drawer — anyone with folder download access sees history and can download any version; admin can delete specific versions (reuses DELETE /api/files/[id] per-row); clicking vN chip opens the drawer
+- [Phase 04 polish]: Responsive — "graceful mobile read-only": side panels hide below 1024px, modals full-screen below 768px; active deal work requires desktop; no new routes or layouts
+- [Phase 04 polish]: Sonner toasts replace alert(); Toaster mounted once in (app)/layout.tsx with semantic-token style overrides
+- [Phase 04 polish]: Workspace and deal-list pages marked `export const dynamic = 'force-dynamic'` to bypass Next.js 16 server-component caching that was serving stale fileCounts
+- [Phase 04 polish]: Explicit Sign out — POST /api/auth/logout destroys session + clears cookie; UserMenu shared component mounts on both deal list and workspace headers
+- [Phase 04 bug fix]: Versioned re-upload — presign-upload route now accepts confirmedVersioning flag to skip the duplicate short-circuit; previously the second presign on a duplicate returned no s3Key and the confirm call failed Zod validation
 
 ### Pending Todos
 
@@ -120,14 +133,23 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Research]: Multipart upload library choice (lib-storage vs. Uppy) -- not adopted in Phase 2/3; plain XHR + presigned PUT used instead. Revisit if >500MB uploads become a requirement.
-- [Phase 03 v1 limitation]: Presigned download URLs issued within 15-minute window remain valid after access is revoked. Documented trade-off; revisit if threat model tightens.
-- [Phase 03 v1 limitation]: GET /participants response does not include folderIds — ParticipantFormModal edit mode starts with empty folder-access checkboxes; admins must re-select. Cheap fix for Phase 4 backlog.
-- [Phase 03 v1 limitation]: Online/offline indicator (last active < 5 min) from spec section 5 was deferred to Phase 4 — participant status badge (Invited/Active) replaces it for v1.
+- [Research]: Multipart upload library choice (lib-storage vs. Uppy) -- not adopted in v1; plain XHR + presigned PUT used instead. Revisit if >500MB uploads become a requirement.
+- [v1 limitation]: Presigned download URLs issued within 15-minute window remain valid after access is revoked. Documented trade-off; revisit if threat model tightens.
+- [v1 limitation]: Activity feed actor names in the daily digest email use placeholder "Someone" — queue rows don't capture actor at enqueue time. Follow-up: add actor_user_id to notification_queue and populate the name in the cron drain.
+- [v1.1 backlog]: Pre-expiry session warning ("your session expires in 2 min — click to extend")
+- [v1.1 backlog]: Digest email rich formatting (links, avatars)
+- [v1.1 backlog]: File version restore ("make v2 the current")
+- [v1.1 backlog]: Dark-mode toggle (tokens make it a one-file swap)
+- [v1.1 backlog]: Per-file comments / annotations
+- [v1.1 backlog]: QStash scheduled message needs to be created in the Upstash dashboard before digest actually fires in production (route + verification already wired)
 - [Production readiness]: AWS credentials currently in .env.local are dev-scoped; production deploy must use a separate IAM user (cis-deal-room-prod) with keys stored in the hosting platform's secrets manager, never on-disk.
+- [Production readiness]: Neon DATABASE_URL similarly must be a separate prod branch/project at deploy time.
+- [Production readiness]: RESEND_API_KEY currently unset (stub mode); production must provision and set for real email delivery.
+- [Production readiness]: UPSTASH_REDIS_REST_URL/TOKEN + QSTASH_* keys currently unset (stub mode); production must provision.
+- [Production readiness]: NEXT_PUBLIC_APP_URL must point at the production origin for magic-link and email-embedded logo URLs to work.
 
 ## Session Continuity
 
 Last session: 2026-04-14
-Stopped at: Phase 3 fully signed off. Real S3 integration verified (upload + download + folder-correct uploads after useState initializer bug fix). Access key rotated; chat-leaked credential deactivated. Ready to brainstorm Phase 4.
+Stopped at: v1.0 milestone complete. Phase 4 human checkpoint signed off. 149/149 tests passing, 0 TS errors. Ready to plan v1.1 or next milestone.
 Resume file: None
