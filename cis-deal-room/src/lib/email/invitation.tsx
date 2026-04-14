@@ -5,6 +5,7 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Preview,
   Section,
   Text,
@@ -35,7 +36,12 @@ export function InvitationEmail({
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
           <Section style={logoSectionStyle}>
-            <Text style={logoPlaceholderStyle}>CIS Partners</Text>
+            <Img
+              src={`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/cis-partners-logo.svg`}
+              alt="CIS Partners"
+              width="160"
+              style={{ display: 'block', marginBottom: '32px' }}
+            />
           </Section>
 
           <Heading style={headingStyle}>You&apos;re invited to {workspaceName}</Heading>
@@ -85,14 +91,6 @@ const logoSectionStyle: React.CSSProperties = {
   marginBottom: '32px',
 };
 
-const logoPlaceholderStyle: React.CSSProperties = {
-  color: '#E10600',
-  fontSize: '20px',
-  fontWeight: '700',
-  letterSpacing: '-0.5px',
-  margin: '0',
-};
-
 const headingStyle: React.CSSProperties = {
   color: '#0D0D0D',
   fontSize: '24px',
@@ -101,7 +99,7 @@ const headingStyle: React.CSSProperties = {
 };
 
 const textStyle: React.CSSProperties = {
-  color: '#3f3f46',
+  color: '#52525B',
   fontSize: '16px',
   lineHeight: '1.6',
   margin: '0 0 24px',
@@ -124,7 +122,7 @@ const buttonStyle: React.CSSProperties = {
 };
 
 const smallTextStyle: React.CSSProperties = {
-  color: '#71717a',
+  color: '#A1A1AA',
   fontSize: '13px',
   lineHeight: '1.5',
   margin: '0 0 16px',
