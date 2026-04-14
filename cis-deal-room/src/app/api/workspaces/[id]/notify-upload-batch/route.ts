@@ -12,7 +12,7 @@ import {
 import { verifySession } from '@/lib/dal/index';
 import { requireFolderAccess } from '@/lib/dal/access';
 import { logActivity } from '@/lib/dal/activity';
-import { sendEmail } from '@/lib/email/send';
+import { enqueueOrSend } from '@/lib/notifications/enqueue-or-send';
 import { UploadBatchNotificationEmail } from '@/lib/email/upload-batch';
 import { canPerform, type ParticipantRole } from '@/lib/dal/permissions';
 
@@ -101,15 +101,28 @@ export async function POST(
   // Send emails, tolerant of individual failures
   for (const recipient of recipients) {
     try {
-      await sendEmail({
-        to: recipient.email,
-        subject: `${fileRows.length} new file${fileRows.length === 1 ? '' : 's'} in ${folder.name}`,
-        react: UploadBatchNotificationEmail({
-          workspaceName: workspace.name,
+      await enqueueOrSend({
+        userId: recipient.userId,
+        workspaceId,
+        action: 'notified_batch',
+        targetType: 'folder',
+        targetId: folderId,
+        metadata: {
           folderName: folder.name,
+          workspaceName: workspace.name,
           files: fileRows.map((f) => ({ fileName: f.name, sizeBytes: f.sizeBytes })),
-          workspaceLink,
           uploaderEmail: session.userEmail,
+        },
+        immediateEmail: async () => ({
+          to: recipient.email,
+          subject: `${fileRows.length} new file${fileRows.length === 1 ? '' : 's'} in ${folder.name}`,
+          react: UploadBatchNotificationEmail({
+            workspaceName: workspace.name,
+            folderName: folder.name,
+            files: fileRows.map((f) => ({ fileName: f.name, sizeBytes: f.sizeBytes })),
+            workspaceLink,
+            uploaderEmail: session.userEmail,
+          }),
         }),
       });
     } catch (err) {

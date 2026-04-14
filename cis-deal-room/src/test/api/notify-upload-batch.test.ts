@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/dal/index', () => ({ verifySession: vi.fn() }));
 vi.mock('@/lib/dal/access', () => ({ requireFolderAccess: vi.fn() }));
-vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn().mockResolvedValue({ id: 'stub' }) }));
+vi.mock('@/lib/notifications/enqueue-or-send', () => ({ enqueueOrSend: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('@/lib/dal/activity', () => ({ logActivity: vi.fn() }));
 
 const mockFetchBatch = vi.fn();
@@ -24,7 +24,7 @@ vi.mock('@/db', () => ({
 
 import { verifySession } from '@/lib/dal/index';
 import { requireFolderAccess } from '@/lib/dal/access';
-import { sendEmail } from '@/lib/email/send';
+import { enqueueOrSend } from '@/lib/notifications/enqueue-or-send';
 import { POST } from '@/app/api/workspaces/[id]/notify-upload-batch/route';
 
 const adminSession = { sessionId: 's1', userId: 'admin-u', userEmail: 'admin@cis.com', isAdmin: true };
@@ -88,7 +88,7 @@ describe('POST /api/workspaces/[id]/notify-upload-batch', () => {
       { params: Promise.resolve({ id: WORKSPACE_ID }) }
     );
     expect(res.status).toBe(200);
-    expect(vi.mocked(sendEmail)).not.toHaveBeenCalled();
+    expect(vi.mocked(enqueueOrSend)).not.toHaveBeenCalled();
   });
 
   it('sends one email per eligible recipient', async () => {
@@ -107,6 +107,6 @@ describe('POST /api/workspaces/[id]/notify-upload-batch', () => {
       { params: Promise.resolve({ id: WORKSPACE_ID }) }
     );
     expect(res.status).toBe(200);
-    expect(vi.mocked(sendEmail)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(enqueueOrSend)).toHaveBeenCalledTimes(2);
   });
 });
