@@ -13,6 +13,7 @@
 # Claude Code local state
 .claude/
 .superpowers/
+.worktrees/
 
 # Environment / secrets
 .env
