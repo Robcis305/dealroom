@@ -56,6 +56,7 @@ export function PreviewModal({ file, open, onClose }: PreviewModalProps) {
         if (res.status === 404) return setState({ status: 'error', kind: 'notfound' });
         if (!res.ok) return setState({ status: 'error', kind: 'network' });
         const { url } = (await res.json()) as { url: string };
+        if (aborted) return;
         setState({ status: 'ready', url });
         fetchWithAuth(`/api/files/${file.id}/log-preview`, { method: 'POST' }).catch(() => {
           /* silent */

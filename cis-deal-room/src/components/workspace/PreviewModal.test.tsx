@@ -103,7 +103,7 @@ describe('PreviewModal', () => {
     expect(await screen.findByText(/no longer exists/i)).toBeInTheDocument();
   });
 
-  it('calls log-preview after successful render', async () => {
+  it('calls log-preview with POST after successful render', async () => {
     render(<PreviewModal file={fixture} open={true} onClose={() => {}} />);
     await screen.findByText(fixture.name);
     await vi.waitFor(() => {
@@ -111,6 +111,7 @@ describe('PreviewModal', () => {
         typeof url === 'string' && url.endsWith('/log-preview')
       );
       expect(logCall).toBeTruthy();
+      expect(logCall?.[1]?.method).toBe('POST');
     });
   });
 });
