@@ -7,3 +7,10 @@ vi.mock('@/db', () => ({ db: {} }));
 vi.mock('iron-session', () => ({
   getIronSession: vi.fn(),
 }));
+
+// ResizeObserver is not implemented in jsdom
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};

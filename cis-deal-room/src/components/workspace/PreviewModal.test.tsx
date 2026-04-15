@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
@@ -6,6 +7,17 @@ import { PreviewModal } from './PreviewModal';
 vi.mock('@/lib/fetch-with-auth', () => ({
   fetchWithAuth: vi.fn(),
 }));
+
+vi.mock('react-pdf', () => ({
+  Document: ({ children }: { children?: React.ReactNode }) => <div data-testid="pdf-document">{children}</div>,
+  Page: () => <div data-testid="pdf-page" />,
+}));
+vi.mock('pdfjs-dist', () => ({
+  GlobalWorkerOptions: { workerSrc: '' },
+  version: '4.0.0',
+}));
+vi.mock('react-pdf/dist/Page/TextLayer.css', () => ({}));
+vi.mock('react-pdf/dist/Page/AnnotationLayer.css', () => ({}));
 
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
@@ -61,10 +73,10 @@ describe('PreviewModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('renders a <object> for PDF MIME', async () => {
-    const { container } = render(<PreviewModal file={fixture} open={true} onClose={() => {}} />);
+  it('renders a pdf document for PDF MIME', async () => {
+    render(<PreviewModal file={fixture} open={true} onClose={() => {}} />);
     await screen.findByText(fixture.name);
-    expect(container.querySelector('object')).not.toBeNull();
+    expect(await screen.findByTestId('pdf-document')).toBeInTheDocument();
   });
 
   it('renders a <img> for image MIME', async () => {
