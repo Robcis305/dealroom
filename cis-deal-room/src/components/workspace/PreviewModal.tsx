@@ -50,7 +50,7 @@ export function PreviewModal({ file, open, onClose }: PreviewModalProps) {
 
     (async () => {
       try {
-        const res = await fetchWithAuth(`/api/files/${file.id}/presign-download`);
+        const res = await fetchWithAuth(`/api/files/${file.id}/presign-download?disposition=inline`);
         if (aborted) return;
         if (res.status === 403) return setState({ status: 'error', kind: 'forbidden' });
         if (res.status === 404) return setState({ status: 'error', kind: 'notfound' });

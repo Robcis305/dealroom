@@ -10,13 +10,15 @@ import { eq } from 'drizzle-orm';
 import { requireFolderAccess } from '@/lib/dal/access';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await verifySession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id: fileId } = await params;
+  const url = new URL(request.url);
+  const disposition = url.searchParams.get('disposition') === 'inline' ? 'inline' : 'attachment';
 
   const file = await getFileById(fileId);
   if (!file) return Response.json({ error: 'File not found' }, { status: 404 });
@@ -38,14 +40,16 @@ export async function GET(
 
   // S3 stub — return placeholder URL when bucket is not configured.
   if (!S3_BUCKET) {
-    await logActivity(db, {
-      workspaceId: folder.workspaceId,
-      userId: session.userId,
-      action: 'downloaded',
-      targetType: 'file',
-      targetId: file.id,
-      metadata: { fileName: file.name, stub: true },
-    });
+    if (disposition === 'attachment') {
+      await logActivity(db, {
+        workspaceId: folder.workspaceId,
+        userId: session.userId,
+        action: 'downloaded',
+        targetType: 'file',
+        targetId: file.id,
+        metadata: { fileName: file.name, stub: true },
+      });
+    }
 
     return Response.json({
       url: `stub://download/${file.s3Key}`,
@@ -53,24 +57,26 @@ export async function GET(
     });
   }
 
-  const url = await getSignedUrl(
+  const signedUrl = await getSignedUrl(
     getS3Client(),
     new GetObjectCommand({
       Bucket: S3_BUCKET,
       Key: file.s3Key,
-      ResponseContentDisposition: `attachment; filename="${file.name}"`,
+      ResponseContentDisposition: `${disposition}; filename="${file.name}"`,
     }),
     { expiresIn: 15 * 60 } // 15 minutes
   );
 
-  await logActivity(db, {
-    workspaceId: folder.workspaceId,
-    userId: session.userId,
-    action: 'downloaded',
-    targetType: 'file',
-    targetId: file.id,
-    metadata: { fileName: file.name },
-  });
+  if (disposition === 'attachment') {
+    await logActivity(db, {
+      workspaceId: folder.workspaceId,
+      userId: session.userId,
+      action: 'downloaded',
+      targetType: 'file',
+      targetId: file.id,
+      metadata: { fileName: file.name },
+    });
+  }
 
-  return Response.json({ url, fileName: file.name });
+  return Response.json({ url: signedUrl, fileName: file.name });
 }
