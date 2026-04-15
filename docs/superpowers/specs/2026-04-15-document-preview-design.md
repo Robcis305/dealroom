@@ -219,4 +219,13 @@ Feature is additive — no existing flow changes when the icon isn't clicked. Di
 
 ## 11. Open Questions
 
-None at spec-finalization time.
+None at spec-finalization time. See Section 12 for implementation deltas discovered during QA.
+
+## 12. Implementation Deltas
+
+- **PDF rendering** — spec called for native browser iframe. During QA, Chrome and Safari both refused to render cross-origin PDFs inline inside `<iframe>` or `<object>`. Shipped with `react-pdf` + `pdfjs-dist` instead — renders to canvas, reliable cross-browser. Worker script loaded from `cdn.jsdelivr.net` at runtime (v1.2 backlog: self-host under `/public` for CSP hardening). ~1.8 MB code-split chunk loads only on first PDF preview.
+- **Presign-download query parameter** — added `?disposition=inline` to `/api/files/[id]/presign-download`. Controls the `Content-Disposition` header on the signed S3 URL and gates the `downloaded` activity log. Modal uses `inline` (preview path); Download button and all other callers default to `attachment` (unchanged behavior). When `disposition=inline`, the route also sets `ResponseContentType: file.mimeType` on the GetObjectCommand to force Chrome to treat octet-stream uploads as their declared MIME.
+- **`next.config.ts`** — added `serverExternalPackages: ['pdfjs-dist']` and `experimental.optimizePackageImports: ['react-pdf']` to unblock Next.js 16 SSR bundling for the PDF renderer.
+- **`xlsx` install** — installed from the SheetJS CDN tarball (`https://cdn.sheetjs.com/xlsx-<VERSION>/xlsx-<VERSION>.tgz`) rather than npm, to avoid the npm-published 0.18.x prototype-pollution CVE. Code imports unchanged.
+- **`@tanstack/react-virtual`** — planned for XLSX virtualization but not needed at the 1,000-row cap. Removed before merge.
+- **E2E Playwright tests** — spec listed a `tests/e2e/preview.spec.ts`. Deferred to v1.2 (no Playwright setup in repo). Unit + component + API tests give strong coverage of the preview dispatch, guardrails, and logging paths; the gap is real-browser render verification.
