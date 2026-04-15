@@ -23,6 +23,19 @@ import { db } from '@/db';
 
 const session = { sessionId: 's1', userId: 'u1', userEmail: 'a@b.com', isAdmin: false };
 
+function mockFileLookup(row: { id: string; folderId: string; workspaceId: string } | null) {
+  const chain = {
+    from: () => ({
+      innerJoin: () => ({
+        where: () => ({
+          limit: async () => (row ? [row] : []),
+        }),
+      }),
+    }),
+  };
+  vi.mocked(db.select).mockReturnValue(chain as never);
+}
+
 describe('POST /api/files/[id]/log-preview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -42,10 +55,7 @@ describe('POST /api/files/[id]/log-preview', () => {
 
   it('returns 404 when file does not exist', async () => {
     vi.mocked(verifySession).mockResolvedValue(session as never);
-    const chain = {
-      from: () => ({ innerJoin: () => ({ where: () => ({ limit: async () => [] }) }) }),
-    };
-    vi.mocked(db.select).mockReturnValue(chain as never);
+    mockFileLookup(null);
     const res = await POST(makeRequest('22222222-2222-2222-2222-222222222222'), {
       params: Promise.resolve({ id: '22222222-2222-2222-2222-222222222222' }),
     });
@@ -54,16 +64,7 @@ describe('POST /api/files/[id]/log-preview', () => {
 
   it('returns 403 when user lacks folder access', async () => {
     vi.mocked(verifySession).mockResolvedValue(session as never);
-    const chain = {
-      from: () => ({
-        innerJoin: () => ({
-          where: () => ({
-            limit: async () => [{ id: 'f1', folderId: 'fd1', workspaceId: 'w1' }],
-          }),
-        }),
-      }),
-    };
-    vi.mocked(db.select).mockReturnValue(chain as never);
+    mockFileLookup({ id: 'f1', folderId: 'fd1', workspaceId: 'w1' });
     vi.mocked(requireFolderAccess).mockRejectedValue(new Error('forbidden'));
     const res = await POST(makeRequest('33333333-3333-3333-3333-333333333333'), {
       params: Promise.resolve({ id: '33333333-3333-3333-3333-333333333333' }),
@@ -73,16 +74,7 @@ describe('POST /api/files/[id]/log-preview', () => {
 
   it('returns 200 and calls logActivity with action=previewed', async () => {
     vi.mocked(verifySession).mockResolvedValue(session as never);
-    const chain = {
-      from: () => ({
-        innerJoin: () => ({
-          where: () => ({
-            limit: async () => [{ id: 'f1', folderId: 'fd1', workspaceId: 'w1' }],
-          }),
-        }),
-      }),
-    };
-    vi.mocked(db.select).mockReturnValue(chain as never);
+    mockFileLookup({ id: 'f1', folderId: 'fd1', workspaceId: 'w1' });
     vi.mocked(requireFolderAccess).mockResolvedValue(undefined as never);
     vi.mocked(logActivity).mockResolvedValue(undefined as never);
 
