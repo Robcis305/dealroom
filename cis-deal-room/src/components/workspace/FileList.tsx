@@ -217,7 +217,7 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
                     type="button"
                     aria-label={`Preview ${file.name}`}
                     onClick={() => setPreviewFile(file as PreviewFile)}
-                    className="w-8 h-8 border border-[#E4E4E7] rounded flex items-center justify-center hover:bg-[#FAFAFA] text-text-muted hover:text-text-primary transition-colors"
+                    className="w-8 h-8 border border-border rounded flex items-center justify-center hover:bg-surface-elevated text-text-muted hover:text-text-primary transition-colors"
                   >
                     <Eye size={16} />
                   </button>
