@@ -50,6 +50,7 @@ export const activityActionEnum = pgEnum('activity_action', [
   'status_changed',
   'participant_updated',
   'notified_batch',
+  'previewed',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
