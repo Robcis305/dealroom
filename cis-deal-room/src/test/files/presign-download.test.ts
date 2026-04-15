@@ -141,6 +141,11 @@ describe('GET /api/files/[id]/presign-download', () => {
         expect.anything()
       );
 
+      // ResponseContentType must NOT be set for attachment disposition
+      const attachmentCall = vi.mocked(getSignedUrl).mock.calls[0];
+      const attachmentCmd = attachmentCall[1] as { input: Record<string, unknown> };
+      expect(attachmentCmd.input).not.toHaveProperty('ResponseContentType');
+
       expect(vi.mocked(logActivity)).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ action: 'downloaded' })
@@ -160,6 +165,7 @@ describe('GET /api/files/[id]/presign-download', () => {
         expect.objectContaining({
           input: expect.objectContaining({
             ResponseContentDisposition: 'inline; filename="report.pdf"',
+            ResponseContentType: 'application/pdf',
           }),
         }),
         expect.anything()

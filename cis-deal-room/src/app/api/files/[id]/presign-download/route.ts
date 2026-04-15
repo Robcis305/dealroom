@@ -63,6 +63,7 @@ export async function GET(
       Bucket: S3_BUCKET,
       Key: file.s3Key,
       ResponseContentDisposition: `${disposition}; filename="${file.name}"`,
+      ...(disposition === 'inline' ? { ResponseContentType: file.mimeType } : {}),
     }),
     { expiresIn: 15 * 60 } // 15 minutes
   );

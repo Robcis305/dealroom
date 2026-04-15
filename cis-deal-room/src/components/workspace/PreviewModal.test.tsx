@@ -61,10 +61,10 @@ describe('PreviewModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('renders a <iframe> for PDF MIME', async () => {
+  it('renders a <object> for PDF MIME', async () => {
     const { container } = render(<PreviewModal file={fixture} open={true} onClose={() => {}} />);
     await screen.findByText(fixture.name);
-    expect(container.querySelector('iframe')).not.toBeNull();
+    expect(container.querySelector('object')).not.toBeNull();
   });
 
   it('renders a <img> for image MIME', async () => {
