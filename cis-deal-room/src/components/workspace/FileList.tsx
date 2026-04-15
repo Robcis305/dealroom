@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FileText, Sheet, Presentation, Image, Film, File, Download } from 'lucide-react';
+import { FileText, Sheet, Presentation, Image, Film, File, Download, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { displayName } from '@/lib/users/display';
 import { VersionHistoryDrawer } from './VersionHistoryDrawer';
+import { isPreviewable } from '@/lib/preview';
+import { PreviewModal, type PreviewFile } from './PreviewModal';
 
 interface FileRow {
   id: string;
@@ -55,6 +57,17 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
   const [search, setSearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [versionsFile, setVersionsFile] = useState<FileRow | null>(null);
+  const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
+  const [canPreview, setCanPreview] = useState(false);
+
+  useEffect(() => {
+    function check() {
+      setCanPreview(typeof window !== 'undefined' && window.innerWidth >= 1024);
+    }
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -199,6 +212,16 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
 
               {/* Actions */}
               <div className="flex items-center gap-1">
+                {canPreview && isPreviewable(file.mimeType) && (
+                  <button
+                    type="button"
+                    aria-label={`Preview ${file.name}`}
+                    onClick={() => setPreviewFile(file as PreviewFile)}
+                    className="w-8 h-8 border border-[#E4E4E7] rounded flex items-center justify-center hover:bg-[#FAFAFA] text-text-muted hover:text-text-primary transition-colors"
+                  >
+                    <Eye size={16} />
+                  </button>
+                )}
                 <button
                   onClick={() => handleDownload(file)}
                   title="Download"
@@ -220,6 +243,13 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
           open={!!versionsFile}
           onClose={() => setVersionsFile(null)}
           onVersionDeleted={load}
+        />
+      )}
+      {previewFile && (
+        <PreviewModal
+          file={previewFile}
+          open={true}
+          onClose={() => setPreviewFile(null)}
         />
       )}
     </div>
