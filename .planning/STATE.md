@@ -165,11 +165,38 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-15
-Stopped at: v1.1 (document preview) merged to local main as 785a394. 188/188 tests passing. Not yet pushed to origin. Worktree and feature branch cleaned up. Spec at docs/superpowers/specs/2026-04-15-document-preview-design.md (includes Section 12 implementation deltas). Plan at docs/superpowers/plans/2026-04-15-document-preview.md.
+Stopped at: v1.1 shipped + pushed to origin (785a394 + 8b59515 + e7d86f3). 188/188 tests passing. Dev environment upgraded from fully-stubbed to real integrations: Resend live (from `noreply@website.cispartners.co`; `cispartners.co` root is NOT verified, only `website.cispartners.co`), Upstash Redis live, QStash signing keys in place (digest cron endpoint ready to verify signatures, no scheduled message yet). send.ts sender domain fixed (.co not .com). Email flow tested end-to-end against Rob's real inbox.
 
-**Next session resume — options:**
-1. **Push v1.1 to origin** — `git push origin main`. Then decide whether to deploy or continue local work.
-2. **Production deploy prep** (from v1.0 resume plan, still pending): prod IAM user `cis-deal-room-prod`, prod Neon branch, RESEND/UPSTASH/QSTASH keys, `NEXT_PUBLIC_APP_URL`, QStash scheduled message, S3 CORS for prod origin. Vercel recommended as target. Note: v1.1 added a runtime dep on `cdn.jsdelivr.net` for the pdfjs worker — if prod CSP is strict, self-host the worker first (v1.2 backlog).
-3. **Start v1.2** — top candidates: Playwright E2E for preview, self-hosted pdfjs worker, DD checklist/request tracker, pre-expiry session warning, dark-mode toggle, file version restore, per-file comments.
+**Goal for next session (2026-04-16): deploy to production** so first users can hit it.
 
-Resume file: None
+**Deploy prep checklist (run through in this order):**
+1. **Prod AWS IAM user** — create `cis-deal-room-prod` with same scoped policy as dev (`s3:PutObject`, `s3:GetObject`, `s3:DeleteObject` on bucket/* only, no bucket-level). Store creds in the deploy platform's secrets manager, never on disk.
+2. **Prod S3 bucket** — either reuse `cis-deal-room-dev` or create `cis-deal-room-prod`. Update CORS to allow the production origin (currently allows only `http://localhost:3000`).
+3. **Prod Neon branch/project** — create a separate Neon project or branch for prod data isolation. Run `drizzle-kit migrate` against it once to apply all 4 migrations (0000 → 0003).
+4. **Prod Resend** — either use the same key (if Resend workspace is shared) or generate a separate prod API key. **Verify the root `cispartners.co` domain** (or pick a clean subdomain like `mail.cispartners.co`) so the from-address reads cleaner than `noreply@website.cispartners.co`.
+5. **Prod Upstash Redis + QStash** — create prod database + enable QStash for prod account. Separate keys from dev.
+6. **`NEXT_PUBLIC_APP_URL`** — point at the production origin (e.g. `https://dealroom.cispartners.co`).
+7. **Choose deploy target** — Vercel recommended (zero config for Next.js 16 + Turbopack). Alternatives: Railway, Fly, self-hosted.
+8. **QStash scheduled message** — create once in Upstash dashboard pointing at `https://<prod-origin>/api/cron/digest` on daily cron (e.g. 8am ET). Only needed after deploy.
+9. **Rotate all dev keys** that touched this session's `.env.local` (Resend, Upstash Redis, QStash) — they're in the transcript.
+
+**Known blockers for deploy:**
+- pdfjs worker loads from `cdn.jsdelivr.net` at runtime. If the deploy platform enforces a strict CSP, self-host the worker under `/public/` first (v1.2 backlog — elevate if CSP bites).
+- No Playwright E2E tests (v1.2 backlog). Manual QA sufficient for first launch.
+
+**Resume file:** None
+
+## v1.2 Backlog (deferred — after deploy)
+
+- Playwright E2E tests for the preview flow
+- Self-host pdfjs worker under `/public/` (CSP hardening)
+- DOCX/PPTX preview (Slice C)
+- Historical-version preview from the version drawer
+- Empty-sheet state message in SheetPreview
+- MIME sanitization at upload time
+- Pre-expiry session warning
+- Digest email rich formatting
+- File version restore ("make v2 the current")
+- Dark-mode toggle
+- Per-file comments / annotations
+- DD checklist / request tracker
