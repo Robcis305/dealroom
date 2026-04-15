@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
+milestone: v1.1
+milestone_name: document-preview
 status: complete
-stopped_at: "v1.0 complete. Phase 4 signed off through human checkpoint. 149/149 tests pass, 0 TS errors."
-last_updated: "2026-04-14T15:45:00.000Z"
-last_activity: 2026-04-14 -- Phase 4 (Interface & Polish) complete. v1.0 milestone shipped end-to-end.
+stopped_at: "v1.1 complete. Document preview shipped end-to-end via superpowers subagent-driven workflow. 188/188 tests pass, 0 TS errors. Merged to main as 785a394 (not pushed)."
+last_updated: "2026-04-15T13:23:00.000Z"
+last_activity: 2026-04-15 -- v1.1 document preview merged to main. 17 commits. Inline modal viewer for PDF/image/video/CSV/XLSX with guardrails and silent activity logging.
 progress:
   total_phases: 4
   completed_phases: 4
@@ -21,16 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-12)
 
 **Core value:** One organized, permission-controlled workspace per deal -- so both CIS Partners and clients always know where to find documents and exactly what happened to them.
-**Current focus:** v1.0 shipped. Next milestone TBD (v1.1 backlog or v2 planning).
+**Current focus:** v1.1 shipped (document preview). Next milestone TBD (v1.2 polish, v2 planning, or production deploy prep).
 
 ## Current Position
 
-Phase: 4 of 4 (Interface & Polish) -- COMPLETE
-Plan: 1 of 1 plan in Phase 4 complete (18 tasks); human checkpoint signed off.
-Status: v1.0 milestone done. Ready to plan v1.1 or next milestone.
-Last activity: 2026-04-14 -- Phase 4 shipped. Deal-list tile cards with counts + search/filter, activity feed with polling+grouping+load-more, display names everywhere, complete-profile gate on first login, 2h/4h session cap with 401 interceptor + returnTo flow, no-Client banner + status-transition guard, notification digest via Upstash QStash, version history drawer, sonner toasts, graceful mobile responsive, explicit Sign out. 149/149 tests passing.
+Milestone: v1.1 (document preview) -- COMPLETE
+Status: Merged to main via 17-commit `--no-ff` merge (785a394). Not yet pushed to origin.
+Last activity: 2026-04-15 -- v1.1 shipped via superpowers subagent-driven workflow (spec + plan + 11 tasks + per-task spec/quality reviews + manual QA + final branch review). Inline preview modal for PDF/image/video/CSV/XLSX. PDF via react-pdf + pdfjs-dist (code-split, CDN worker). CSV/XLSX via SheetJS CDN build (CVE-free) with 10MB/1000-row/first-sheet guardrails. Silent 'previewed' activity log, filtered from workspace feed. presign-download route gained ?disposition=inline + Content-Type override. 188/188 tests passing.
 
-Progress: [██████████] 100%
+Progress: [██████████] 100% (v1.1)
 
 ## Performance Metrics
 
@@ -126,6 +125,14 @@ Recent decisions affecting current work:
 - [Phase 04 polish]: Workspace and deal-list pages marked `export const dynamic = 'force-dynamic'` to bypass Next.js 16 server-component caching that was serving stale fileCounts
 - [Phase 04 polish]: Explicit Sign out — POST /api/auth/logout destroys session + clears cookie; UserMenu shared component mounts on both deal list and workspace headers
 - [Phase 04 bug fix]: Versioned re-upload — presign-upload route now accepts confirmedVersioning flag to skip the duplicate short-circuit; previously the second presign on a duplicate returned no s3Key and the confirm call failed Zod validation
+- [v1.1 preview]: PDF rendering via react-pdf + pdfjs-dist (code-split, worker from cdn.jsdelivr.net) — spec originally called for native iframe, but Chrome/Safari both refused cross-origin inline PDFs in iframe AND <object>. react-pdf renders to canvas, reliable cross-browser. ~1.8 MB chunk loads only on first PDF preview.
+- [v1.1 preview]: CSV/XLSX via SheetJS CDN tarball (xlsx 0.20.3 from cdn.sheetjs.com) — npm-published xlsx 0.18.5 has a prototype-pollution CVE; SheetJS publishes patched community builds via their own CDN only. Installed via `npm install https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`.
+- [v1.1 preview]: Guardrails — 10 MB size cap, 1,000-row render cap, first sheet only. Above cap shows "File too large" state without fetching. Above row cap shows "Showing first 1,000 of N rows" banner.
+- [v1.1 preview]: presign-download route gained `?disposition=inline` query param — modal uses it, Download button and all other callers default to `attachment`. When inline, route also forces `ResponseContentType: file.mimeType` on GetObjectCommand to override any octet-stream stored on S3 so Chrome renders inline.
+- [v1.1 preview]: Activity logging — new 'previewed' enum value, silent (logged to DB but filtered out of workspace feed query via `ne(action, 'previewed')`). One log per modal open, fire-and-forget from client after ready state.
+- [v1.1 preview]: Eye icon placement — dedicated lucide Eye button in FileList actions column, BEFORE the Download icon. Hidden below 1024px viewport (matches Phase 4 "graceful mobile read-only" policy). Hidden on MIME types not in the preview whitelist — the icon's presence IS the signal of previewability.
+- [v1.1 preview]: No prev/next file navigation, no historical-version preview, no E2E tests in v1.1 — explicitly deferred to keep scope tight.
+- [v1.1 workflow]: First feature shipped via superpowers subagent-driven-development. Per-task: spec-compliance review + code-quality review before marking done. Caught a race condition in PreviewModal's useEffect (missing `aborted` guard after res.json), duplicated test mock chains vs. repo convention, and raw-hex classNames instead of Tailwind v4 @theme tokens — all fixed in-flight.
 
 ### Pending Todos
 
@@ -136,14 +143,19 @@ None yet.
 - [Research]: Multipart upload library choice (lib-storage vs. Uppy) -- not adopted in v1; plain XHR + presigned PUT used instead. Revisit if >500MB uploads become a requirement.
 - [v1 limitation]: Presigned download URLs issued within 15-minute window remain valid after access is revoked. Documented trade-off; revisit if threat model tightens.
 - [v1 limitation]: Activity feed actor names in the daily digest email use placeholder "Someone" — queue rows don't capture actor at enqueue time. Follow-up: add actor_user_id to notification_queue and populate the name in the cron drain.
-- [v1.1 backlog]: Pre-expiry session warning ("your session expires in 2 min — click to extend")
-- [v1.1 backlog]: Digest email rich formatting (links, avatars)
-- [v1.1 backlog]: File version restore ("make v2 the current")
-- [v1.1 backlog]: Dark-mode toggle (tokens make it a one-file swap)
-- [v1.1 backlog]: Per-file comments / annotations
-- [v1.1 backlog]: **Document preview** — inline viewer for uploaded files. Ship in three slices: (A) PDF/image/video via native browser render on the presigned URL — covers ~60-80% of M&A files; (B) CSV + XLSX via SheetJS/papaparse tabular render; (C) DOCX/PPTX via paid viewer or server-side LibreOffice conversion (defer until usage data justifies). Private-URL constraint rules out MSFT/Google public viewer services.
-- [v1.1 backlog]: **Due-diligence checklist / request tracker** — per-workspace list of outstanding vs. received items with status, timestamps, optional linked file. Recommended shape: structured table (new `requests` table: id, workspace_id, description, status, requested_at, received_at, assigned_to?, linked_file_id?) rendered as a third tab in RightPanel alongside Activity and Participants. Admin edit + participant read-only. Auditable via activity log.
-- [v1.1 backlog]: QStash scheduled message needs to be created in the Upstash dashboard before digest actually fires in production (route + verification already wired)
+- [v1.2 backlog]: Pre-expiry session warning ("your session expires in 2 min — click to extend")
+- [v1.2 backlog]: Digest email rich formatting (links, avatars)
+- [v1.2 backlog]: File version restore ("make v2 the current")
+- [v1.2 backlog]: Dark-mode toggle (tokens make it a one-file swap)
+- [v1.2 backlog]: Per-file comments / annotations
+- [v1.2 backlog]: **Due-diligence checklist / request tracker** — per-workspace list of outstanding vs. received items with status, timestamps, optional linked file. Recommended shape: structured table (new `requests` table: id, workspace_id, description, status, requested_at, received_at, assigned_to?, linked_file_id?) rendered as a third tab in RightPanel alongside Activity and Participants. Admin edit + participant read-only. Auditable via activity log.
+- [v1.2 backlog]: QStash scheduled message needs to be created in the Upstash dashboard before digest actually fires in production (route + verification already wired)
+- [v1.2 backlog]: **Preview — Playwright E2E tests** — unit/component tests mock react-pdf, pdfjs, and xlsx at module boundary. Real-browser verification (PDF actually renders, jsdelivr worker loads, 10 MB XLSX hits the guard, DOCX shows no eye icon) is the first v1.2 ticket.
+- [v1.2 backlog]: **Preview — self-host the pdfjs worker** under `/public/` instead of loading from cdn.jsdelivr.net at runtime. CSP hardening; removes a third-party runtime dependency.
+- [v1.2 backlog]: **Preview — DOCX/PPTX (Slice C)** — either a paid viewer (Adobe Embed, Syncfusion) or server-side LibreOffice→PDF conversion. Defer until usage data justifies the viewer cost.
+- [v1.2 backlog]: **Preview — historical-version preview** from the version drawer (currently download-only in the drawer). Add eye-icon per version row.
+- [v1.2 backlog]: **Preview — empty-sheet state** in SheetPreview — when `headers.length === 0`, render a "No data in this sheet" message instead of a blank table (currently just renders empty `<thead>` and `<tbody>`).
+- [v1.2 backlog]: **Preview — MIME sanitization at upload** — presign-download's `ResponseContentType: file.mimeType` trusts the DB-stored MIME; a malicious upload could declare `text/html` and force inline HTML rendering. Pre-existing trust issue; preview amplifies slightly. Add server-side sniff + whitelist at upload time.
 - [Production readiness]: AWS credentials currently in .env.local are dev-scoped; production deploy must use a separate IAM user (cis-deal-room-prod) with keys stored in the hosting platform's secrets manager, never on-disk.
 - [Production readiness]: Neon DATABASE_URL similarly must be a separate prod branch/project at deploy time.
 - [Production readiness]: RESEND_API_KEY currently unset (stub mode); production must provision and set for real email delivery.
@@ -152,12 +164,12 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14
-Stopped at: v1.0 milestone complete, pushed to origin (https://github.com/Robcis305/dealroom). 149/149 tests passing, 0 TS errors. Phase 4 checkpoint signed off. Two new v1.1 backlog items captured: document preview + DD checklist/request tracker.
+Last session: 2026-04-15
+Stopped at: v1.1 (document preview) merged to local main as 785a394. 188/188 tests passing. Not yet pushed to origin. Worktree and feature branch cleaned up. Spec at docs/superpowers/specs/2026-04-15-document-preview-design.md (includes Section 12 implementation deltas). Plan at docs/superpowers/plans/2026-04-15-document-preview.md.
 
-**Next session resume — planned sequence:**
-1. **Production credentials setup** (must-do before real deploy): create separate prod IAM user `cis-deal-room-prod` with same scoped S3 policy; spin up production Neon branch/project; provision `RESEND_API_KEY`, `UPSTASH_REDIS_REST_URL/TOKEN`, `QSTASH_TOKEN` + signing keys; set `NEXT_PUBLIC_APP_URL` to prod origin; create QStash scheduled message for daily digest. Rotate any dev keys that touched .env.local.
-2. **Choose a deploy target** — Vercel recommended (no config change needed for Next.js 16), Railway, Fly, or self-hosted. Consider production behavior under S3 CORS for the deployed origin (current CORS allows only http://localhost:3000).
-3. **After deploy:** brainstorm v1.1. Top candidates in backlog: document preview (slice A ships quickly), DD checklist, pre-expiry session warning, dark-mode toggle.
+**Next session resume — options:**
+1. **Push v1.1 to origin** — `git push origin main`. Then decide whether to deploy or continue local work.
+2. **Production deploy prep** (from v1.0 resume plan, still pending): prod IAM user `cis-deal-room-prod`, prod Neon branch, RESEND/UPSTASH/QSTASH keys, `NEXT_PUBLIC_APP_URL`, QStash scheduled message, S3 CORS for prod origin. Vercel recommended as target. Note: v1.1 added a runtime dep on `cdn.jsdelivr.net` for the pdfjs worker — if prod CSP is strict, self-host the worker first (v1.2 backlog).
+3. **Start v1.2** — top candidates: Playwright E2E for preview, self-hosted pdfjs worker, DD checklist/request tracker, pre-expiry session warning, dark-mode toggle, file version restore, per-file comments.
 
 Resume file: None
