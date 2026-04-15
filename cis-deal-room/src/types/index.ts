@@ -51,6 +51,7 @@ export type ActivityAction =
   | 'revoked_access'
   | 'status_changed'
   | 'participant_updated'
-  | 'notified_batch';
+  | 'notified_batch'
+  | 'previewed';
 
 export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant';

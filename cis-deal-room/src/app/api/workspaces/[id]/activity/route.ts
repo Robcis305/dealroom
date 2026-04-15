@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db';
 import { activityLogs, users } from '@/db/schema';
@@ -48,7 +48,12 @@ export async function GET(
     })
     .from(activityLogs)
     .innerJoin(users, eq(users.id, activityLogs.userId))
-    .where(eq(activityLogs.workspaceId, workspaceId))
+    .where(
+      and(
+        eq(activityLogs.workspaceId, workspaceId),
+        ne(activityLogs.action, 'previewed')
+      )
+    )
     .orderBy(desc(activityLogs.createdAt))
     .limit(parsed.data.limit)
     .offset(parsed.data.offset);
