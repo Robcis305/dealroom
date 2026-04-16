@@ -19,7 +19,7 @@ const PUBLIC_PATHS = ['/login', '/auth/verify'];
  *
  * Reference: https://nextjs.org/blog/cve-2025-29927
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths without any session check
