@@ -47,13 +47,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     * - API routes (auth enforcement is in the DAL, not middleware)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|api/).*)',
+    '/((?!api|_next/static|_next/image|favicon\\.ico).*)',
   ],
 };
