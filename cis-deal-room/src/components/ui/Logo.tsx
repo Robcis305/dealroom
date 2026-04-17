@@ -34,6 +34,7 @@ export function Logo({ size = 'md', className, inverse = false }: LogoProps) {
       width={w}
       height={h}
       priority
+      unoptimized
       className={clsx(
         'select-none',
         inverse && 'invert',

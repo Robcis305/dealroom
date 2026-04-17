@@ -21,12 +21,7 @@ export default async function DealsPage() {
     redirect('/login');
   }
 
-  let workspaces: Awaited<ReturnType<typeof getWorkspacesForUser>> = [];
-  try {
-    workspaces = await getWorkspacesForUser();
-  } catch {
-    workspaces = [];
-  }
+  const workspaces = await getWorkspacesForUser();
 
   const [userRow] = await db
     .select({ notificationDigest: users.notificationDigest })

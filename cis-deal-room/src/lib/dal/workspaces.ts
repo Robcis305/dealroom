@@ -37,24 +37,24 @@ export async function getWorkspacesForUser() {
     createdAt: workspaces.createdAt,
     updatedAt: workspaces.updatedAt,
     docCount: sql<number>`(
-      select count(*)::int from ${files}
-      inner join ${folders} on ${folders.id} = ${files.folderId}
-      where ${folders.workspaceId} = ${workspaces.id}
+      select count(*)::int from files
+      inner join folders on folders.id = files.folder_id
+      where folders.workspace_id = workspaces.id
     )`,
     participantCount: sql<number>`(
-      select count(*)::int from ${workspaceParticipants}
-      where ${workspaceParticipants.workspaceId} = ${workspaces.id}
-        and ${workspaceParticipants.status} = 'active'
+      select count(*)::int from workspace_participants wp
+      where wp.workspace_id = workspaces.id
+        and wp.status = 'active'
     )`,
     lastActivityAction: sql<string | null>`(
-      select action from ${activityLogs}
-      where ${activityLogs.workspaceId} = ${workspaces.id}
-      order by ${activityLogs.createdAt} desc limit 1
+      select al.action from activity_logs al
+      where al.workspace_id = workspaces.id
+      order by al.created_at desc limit 1
     )`,
     lastActivityAt: sql<Date | null>`(
-      select ${activityLogs.createdAt} from ${activityLogs}
-      where ${activityLogs.workspaceId} = ${workspaces.id}
-      order by ${activityLogs.createdAt} desc limit 1
+      select al.created_at from activity_logs al
+      where al.workspace_id = workspaces.id
+      order by al.created_at desc limit 1
     )`,
   };
 
