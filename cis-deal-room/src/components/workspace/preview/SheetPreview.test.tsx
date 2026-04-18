@@ -67,7 +67,33 @@ describe('SheetPreview', () => {
     );
 
     render(<SheetPreview url="https://example.com/big.csv" mimeType={csvMime} sizeBytes={200000} />);
-    expect(await screen.findByText(/Showing first 1,000 of 1,234 rows/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Showing first 1,000 rows.*of.*1,234 rows/i)).toBeInTheDocument();
+  });
+
+  it('shows banner with 49,999 total rows (not 999) for a 50k-row sheet', async () => {
+    // Simulate a 50k-row sheet: decode_range returns e.r=49999, e.c=199
+    // After clipping to MAX_ROWS=1000 rows, sheet_to_json returns only 1001 rows (header + 1000 data).
+    const headerRow = Array.from({ length: 200 }, (_, i) => `col${i}`);
+    const clippedDataRows = Array.from({ length: 1000 }, (_, i) => headerRow.map(() => String(i)));
+    vi.mocked(XLSX.utils.decode_range).mockReturnValue(
+      { s: { r: 0, c: 0 }, e: { r: 49999, c: 199 } } as never
+    );
+    vi.mocked(XLSX.utils.encode_range).mockReturnValue('A1' as never);
+    vi.mocked(XLSX.utils.sheet_to_json).mockReturnValue([headerRow, ...clippedDataRows] as never);
+    vi.mocked(XLSX.read).mockReturnValue({
+      SheetNames: ['Sheet1'],
+      Sheets: { Sheet1: { '!ref': 'A1' } },
+    } as never);
+    vi.mocked(global.fetch).mockResolvedValue(
+      new Response(new ArrayBuffer(8), { status: 200 })
+    );
+
+    render(<SheetPreview url="https://example.com/huge.xlsx" mimeType={xlsxMime} sizeBytes={200000} />);
+    // Banner must show 49,999 (the real row count from decode_range), not 999 (the clipped count).
+    const banner = await screen.findByText(/49,999 rows/i);
+    expect(banner).toBeInTheDocument();
+    // The banner text should NOT reference "of 999 rows" (which would be the clipped value).
+    expect(banner.textContent).not.toMatch(/of 999 rows/);
   });
 
   it('shows multi-sheet banner when an XLSX has more than one sheet', async () => {

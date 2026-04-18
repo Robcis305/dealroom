@@ -14,6 +14,7 @@ type State =
       status: 'ready';
       rows: string[][];
       totalRows: number;
+      totalCols: number;
       sheetCount: number;
       headers: string[];
     };
@@ -46,6 +47,9 @@ export function SheetPreview({ url, sizeBytes }: SheetPreviewProps) {
 
         // Clip the sheet range before sheet_to_json so huge sheets don't expand.
         const original = XLSX.utils.decode_range(sheet['!ref'] ?? 'A1');
+        // Compute unclipped totals BEFORE clipping so the banner reflects the real file size.
+        const totalRows = Math.max(0, original.e.r - original.s.r); // exclude header row
+        const totalCols = original.e.c - original.s.c + 1;
         const clipped = {
           s: original.s,
           e: {
@@ -61,7 +65,8 @@ export function SheetPreview({ url, sizeBytes }: SheetPreviewProps) {
         setState({
           status: 'ready',
           rows: dataRows.slice(0, PREVIEW_ROW_CAP),
-          totalRows: Math.max(0, raw.length - 1),
+          totalRows,
+          totalCols,
           sheetCount: workbook.SheetNames.length,
           headers,
         });
@@ -96,8 +101,10 @@ export function SheetPreview({ url, sizeBytes }: SheetPreviewProps) {
     );
   }
 
-  const { rows, totalRows, sheetCount, headers } = state;
-  const truncated = totalRows > PREVIEW_ROW_CAP;
+  const { rows, totalRows, totalCols, sheetCount, headers } = state;
+  const rowTruncated = totalRows > PREVIEW_ROW_CAP;
+  const colTruncated = totalCols > headers.length;
+  const truncated = rowTruncated || colTruncated;
 
   return (
     <div className="w-full h-full overflow-auto bg-white text-black rounded">
@@ -108,7 +115,10 @@ export function SheetPreview({ url, sizeBytes }: SheetPreviewProps) {
       )}
       {truncated && (
         <div className="px-3 py-2 bg-blue-50 border-b border-blue-200 text-xs text-blue-900">
-          Showing first 1,000 of {totalRows.toLocaleString()} rows — download for the full file.
+          Showing first {Math.min(PREVIEW_ROW_CAP, totalRows).toLocaleString()} rows
+          {colTruncated && ` × ${headers.length} columns`} of{' '}
+          {totalRows.toLocaleString()} rows{colTruncated && ` × ${totalCols.toLocaleString()} columns`}
+          {' '}— download for the full file.
         </div>
       )}
       <table className="text-xs w-full border-collapse">
