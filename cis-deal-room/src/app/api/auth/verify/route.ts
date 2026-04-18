@@ -44,13 +44,20 @@ export async function GET(request: NextRequest) {
     return Response.redirect(`${appUrl}/auth/verify?error=expired`);
   }
 
-  // 5. Valid token → consume it (single-use contract)
+  // 5. Binding check: the query-param email must match the token row.
+  // Prevents an attacker who observes a magic link from swapping ?email=
+  // to impersonate an arbitrary user.
+  if (tokenRow.email !== email) {
+    return Response.redirect(`${appUrl}/auth/verify?error=invalid`);
+  }
+
+  // 6. Valid token → consume it (single-use contract)
   await db.delete(magicLinkTokens).where(eq(magicLinkTokens.tokenHash, tokenHash));
 
-  // 6. Upsert user (creates account on first use, updates timestamp on subsequent logins)
+  // 7. Upsert user using tokenRow.email (authoritative, not the query param)
   const [user] = await db
     .insert(users)
-    .values({ email, isAdmin: false })
+    .values({ email: tokenRow.email, isAdmin: false })
     .onConflictDoUpdate({
       target: users.email,
       set: { updatedAt: new Date() },
