@@ -3,13 +3,16 @@
 import { useEffect, useState } from 'react';
 import { PREVIEW_ROW_CAP, PREVIEW_SIZE_CAP_BYTES } from '@/lib/preview';
 
+const MAX_ROWS = 1000;
+const MAX_COLS = 200;
+
 type State =
   | { status: 'loading' }
   | { status: 'too-large' }
   | { status: 'parse-error' }
   | {
       status: 'ready';
-      rows: Record<string, unknown>[];
+      rows: string[][];
       totalRows: number;
       sheetCount: number;
       headers: string[];
@@ -37,16 +40,28 @@ export function SheetPreview({ url, sizeBytes }: SheetPreviewProps) {
         const buffer = await res.arrayBuffer();
         if (aborted) return;
         const XLSX = await import('xlsx');
-        const workbook = XLSX.read(buffer, { type: 'array' });
+        const workbook = XLSX.read(buffer, { type: 'array', cellHTML: false, cellFormula: false });
         const firstSheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[firstSheetName];
-        const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+        // Clip the sheet range before sheet_to_json so huge sheets don't expand.
+        const original = XLSX.utils.decode_range(sheet['!ref'] ?? 'A1');
+        const clipped = {
+          s: original.s,
+          e: {
+            r: Math.min(original.e.r, original.s.r + MAX_ROWS - 1),
+            c: Math.min(original.e.c, original.s.c + MAX_COLS - 1),
+          },
+        };
+        const range = XLSX.utils.encode_range(clipped);
+        const raw = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, range, defval: '' });
         if (aborted) return;
-        const headers = json.length > 0 ? Object.keys(json[0]) : [];
+        const headers = (raw[0] ?? []).map(String);
+        const dataRows = raw.slice(1);
         setState({
           status: 'ready',
-          rows: json.slice(0, PREVIEW_ROW_CAP),
-          totalRows: json.length,
+          rows: dataRows.slice(0, PREVIEW_ROW_CAP),
+          totalRows: Math.max(0, raw.length - 1),
           sheetCount: workbook.SheetNames.length,
           headers,
         });
@@ -107,8 +122,8 @@ export function SheetPreview({ url, sizeBytes }: SheetPreviewProps) {
         <tbody>
           {rows.map((row, i) => (
             <tr key={i} className={i % 2 ? 'bg-gray-50' : ''}>
-              {headers.map((h) => (
-                <td key={h} className="px-2 py-1 border-b align-top">{String(row[h] ?? '')}</td>
+              {headers.map((h, colIndex) => (
+                <td key={h} className="px-2 py-1 border-b align-top">{String(row[colIndex] ?? '')}</td>
               ))}
             </tr>
           ))}

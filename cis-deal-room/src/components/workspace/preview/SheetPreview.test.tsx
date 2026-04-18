@@ -11,6 +11,8 @@ vi.mock('xlsx', () => ({
   read: vi.fn(),
   utils: {
     sheet_to_json: vi.fn(),
+    decode_range: vi.fn().mockReturnValue({ s: { r: 0, c: 0 }, e: { r: 0, c: 0 } }),
+    encode_range: vi.fn().mockReturnValue('A1'),
   },
 }));
 
@@ -19,11 +21,17 @@ import * as XLSX from 'xlsx';
 const csvMime = 'text/csv';
 const xlsxMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-function mockWorkbook(rows: unknown[], sheetNames = ['Sheet1']) {
+/**
+ * Build a workbook mock where `rows` is a string[][] in header:1 format:
+ * row[0] is the header row, row[1..n] are data rows.
+ */
+function mockWorkbook(rows: string[][], sheetNames = ['Sheet1']) {
   vi.mocked(XLSX.read).mockReturnValue({
     SheetNames: sheetNames,
-    Sheets: Object.fromEntries(sheetNames.map((n) => [n, {}])),
+    Sheets: Object.fromEntries(sheetNames.map((n) => [n, { '!ref': 'A1' }])),
   } as never);
+  vi.mocked(XLSX.utils.decode_range).mockReturnValue({ s: { r: 0, c: 0 }, e: { r: rows.length - 1, c: (rows[0]?.length ?? 1) - 1 } } as never);
+  vi.mocked(XLSX.utils.encode_range).mockReturnValue('A1' as never);
   vi.mocked(XLSX.utils.sheet_to_json).mockReturnValue(rows as never);
 }
 
@@ -36,8 +44,10 @@ describe('SheetPreview', () => {
   });
 
   it('fetches, parses, and renders up to 1,000 rows when file is under the cap', async () => {
-    const rows = Array.from({ length: 50 }, (_, i) => ({ a: `row${i}`, b: i }));
-    mockWorkbook(rows);
+    // header row + 50 data rows in header:1 format
+    const headerRow = ['a', 'b'];
+    const dataRows = Array.from({ length: 50 }, (_, i) => [`row${i}`, String(i)]);
+    mockWorkbook([headerRow, ...dataRows]);
     vi.mocked(global.fetch).mockResolvedValue(
       new Response(new ArrayBuffer(8), { status: 200 })
     );
@@ -48,8 +58,10 @@ describe('SheetPreview', () => {
   });
 
   it('shows truncation banner when parsed rows exceed 1,000', async () => {
-    const rows = Array.from({ length: 1234 }, (_, i) => ({ a: i }));
-    mockWorkbook(rows);
+    // header row + 1234 data rows = 1235 total rows; totalRows = 1234
+    const headerRow = ['a'];
+    const dataRows = Array.from({ length: 1234 }, (_, i) => [String(i)]);
+    mockWorkbook([headerRow, ...dataRows]);
     vi.mocked(global.fetch).mockResolvedValue(
       new Response(new ArrayBuffer(8), { status: 200 })
     );
@@ -59,7 +71,7 @@ describe('SheetPreview', () => {
   });
 
   it('shows multi-sheet banner when an XLSX has more than one sheet', async () => {
-    mockWorkbook([{ a: 1 }], ['Sheet1', 'Sheet2', 'Sheet3']);
+    mockWorkbook([['a'], ['1']], ['Sheet1', 'Sheet2', 'Sheet3']);
     vi.mocked(global.fetch).mockResolvedValue(
       new Response(new ArrayBuffer(8), { status: 200 })
     );
