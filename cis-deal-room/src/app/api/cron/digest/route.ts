@@ -1,7 +1,7 @@
 import { Receiver } from '@upstash/qstash';
-import { eq, isNull, inArray } from 'drizzle-orm';
+import { sql, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { notificationQueue, users, workspaces } from '@/db/schema';
+import { users, workspaces } from '@/db/schema';
 import { sendEmail } from '@/lib/email/send';
 import { DailyDigestEmail } from '@/lib/email/daily-digest';
 import { signUnsubscribeToken } from '@/lib/email/unsubscribe';
@@ -33,19 +33,35 @@ export async function POST(request: Request) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 
-  const queued = await db
-    .select({
-      id: notificationQueue.id,
-      userId: notificationQueue.userId,
-      workspaceId: notificationQueue.workspaceId,
-      action: notificationQueue.action,
-      targetType: notificationQueue.targetType,
-      targetId: notificationQueue.targetId,
-      metadata: notificationQueue.metadata,
-      createdAt: notificationQueue.createdAt,
-    })
-    .from(notificationQueue)
-    .where(isNull(notificationQueue.processedAt));
+  // Atomic claim: mark all unprocessed rows processed_at=now() and RETURN them.
+  // A second overlapping invocation will find zero unclaimed rows.
+  const claimed = (await db.execute(sql`
+    WITH claimed AS (
+      UPDATE notification_queue
+         SET processed_at = now()
+       WHERE processed_at IS NULL
+         AND attempts < 5
+      RETURNING id, user_id, workspace_id, action, target_type, target_id, metadata, attempts, created_at
+    )
+    SELECT * FROM claimed
+  `)) as unknown as {
+    rows: Array<{
+      id: string; user_id: string; workspace_id: string; action: string;
+      target_type: string; target_id: string | null; metadata: unknown;
+      attempts: number; created_at: Date;
+    }>;
+  };
+
+  const queued = claimed.rows.map((r) => ({
+    id: r.id,
+    userId: r.user_id,
+    workspaceId: r.workspace_id,
+    action: r.action,
+    targetType: r.target_type,
+    targetId: r.target_id,
+    metadata: r.metadata,
+    createdAt: r.created_at instanceof Date ? r.created_at : new Date(r.created_at),
+  }));
 
   if (queued.length === 0) {
     return Response.json({ processed: 0 });
@@ -74,7 +90,6 @@ export async function POST(request: Request) {
   const workspaceById = new Map(workspaceRows.map((w) => [w.id, w]));
 
   let processed = 0;
-  const processedIds: string[] = [];
   for (const [userId, events] of byUser) {
     const user = userById.get(userId);
     if (!user) continue;
@@ -104,18 +119,18 @@ export async function POST(request: Request) {
           unsubscribeUrl,
         }),
       });
-      processedIds.push(...events.map((e) => e.id));
       processed += events.length;
     } catch (err) {
       console.warn('[cron-digest] send failure for user', userId, err);
+      const msg = err instanceof Error ? err.message : 'unknown';
+      await db.execute(sql`
+        UPDATE notification_queue
+           SET processed_at = NULL,
+               attempts = attempts + 1,
+               last_error = ${msg.slice(0, 500)}
+         WHERE id = ANY(${events.map((e) => e.id)})
+      `);
     }
-  }
-
-  if (processedIds.length > 0) {
-    await db
-      .update(notificationQueue)
-      .set({ processedAt: new Date() })
-      .where(inArray(notificationQueue.id, processedIds));
   }
 
   return Response.json({ processed, users: byUser.size });
