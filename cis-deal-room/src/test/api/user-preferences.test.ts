@@ -42,4 +42,18 @@ describe('POST /api/user/preferences', () => {
     const res = await POST(makeRequest({ notificationDigest: true }));
     expect(res.status).toBe(200);
   });
+
+  it('updates notifyUploads and notifyDigest independently', async () => {
+    vi.mocked(verifySession).mockResolvedValue(session);
+    mockReturning.mockResolvedValueOnce([{ id: 'u1', notifyUploads: false, notifyDigest: true }]);
+    const res = await POST(new Request('http://localhost/api/user/preferences', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ notifyUploads: false, notifyDigest: true }),
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.notifyUploads).toBe(false);
+    expect(body.notifyDigest).toBe(true);
+  });
 });
