@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 
 // Mock Upstash modules at import time so rate-limit.ts can be loaded
 // without real Redis credentials. These limiters are instantiated at
@@ -68,5 +68,21 @@ describe('stub mode (Upstash env absent)', () => {
     const mod = await import('./rate-limit');
     const result = await mod.authSendLimiter.limit('any@example.com');
     expect(result.success).toBe(true);
+  });
+});
+
+describe('rate limiter fail-closed', () => {
+  const origEnv = { ...process.env };
+  afterEach(() => {
+    process.env = { ...origEnv };
+    vi.resetModules();
+  });
+
+  it('throws at import time when NODE_ENV=production and Upstash URL missing', async () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    vi.resetModules();
+    await expect(() => import('./rate-limit')).rejects.toThrow(/Upstash/i);
   });
 });

@@ -21,6 +21,11 @@ function buildLimiter(requests: number, window: '15 m', prefix: string): RateLim
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        `[ratelimit] ${prefix} requires UPSTASH_REDIS_REST_URL/_TOKEN in production.`
+      );
+    }
     console.log(`[ratelimit:stub] ${prefix} (${requests}/${window}) — Upstash not configured`);
     return stubLimiter;
   }
