@@ -14,7 +14,15 @@ const receiver = process.env.QSTASH_CURRENT_SIGNING_KEY && process.env.QSTASH_NE
   : null;
 
 export async function POST(request: Request) {
-  if (receiver) {
+  if (!receiver) {
+    if (process.env.NODE_ENV === 'production') {
+      return Response.json(
+        { error: 'QStash signing keys not configured' },
+        { status: 500 }
+      );
+    }
+    console.warn('[cron-digest] QStash keys absent; allowing unsigned invocation in non-prod.');
+  } else {
     const body = await request.clone().text();
     const signature = request.headers.get('Upstash-Signature');
     if (!signature) return Response.json({ error: 'Missing signature' }, { status: 401 });

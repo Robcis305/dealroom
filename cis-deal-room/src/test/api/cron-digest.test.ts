@@ -16,6 +16,7 @@ import { POST } from '@/app/api/cron/digest/route';
 describe('POST /api/cron/digest (stub mode without Upstash keys)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     delete process.env.QSTASH_CURRENT_SIGNING_KEY;
     delete process.env.QSTASH_NEXT_SIGNING_KEY;
   });
@@ -26,5 +27,13 @@ describe('POST /api/cron/digest (stub mode without Upstash keys)', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.processed).toBe(0);
+  });
+
+  it('returns 500 in production when QStash signing keys are missing', async () => {
+    delete process.env.QSTASH_CURRENT_SIGNING_KEY;
+    delete process.env.QSTASH_NEXT_SIGNING_KEY;
+    vi.stubEnv('NODE_ENV', 'production');
+    const res = await POST(new Request('http://localhost/api/cron/digest', { method: 'POST' }));
+    expect(res.status).toBe(500);
   });
 });
