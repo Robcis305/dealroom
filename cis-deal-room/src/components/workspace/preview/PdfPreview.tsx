@@ -21,7 +21,6 @@ export function PdfPreview({ url }: { url: string }) {
       await import('react-pdf/dist/Page/TextLayer.css');
       await import('react-pdf/dist/Page/AnnotationLayer.css');
       const pdfjs = await import('pdfjs-dist');
-      // Use the CDN worker matching the installed pdfjs-dist version
       pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
       if (!aborted) {
         setComponents({ Document: reactPdf.Document, Page: reactPdf.Page });
