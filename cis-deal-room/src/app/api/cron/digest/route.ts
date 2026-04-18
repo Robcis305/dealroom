@@ -1,7 +1,7 @@
 import { Receiver } from '@upstash/qstash';
 import { sql, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { users, workspaces } from '@/db/schema';
+import { users, workspaces, notificationQueue } from '@/db/schema';
 import { sendEmail } from '@/lib/email/send';
 import { DailyDigestEmail } from '@/lib/email/daily-digest';
 import { signUnsubscribeToken } from '@/lib/email/unsubscribe';
@@ -123,13 +123,14 @@ export async function POST(request: Request) {
     } catch (err) {
       console.warn('[cron-digest] send failure for user', userId, err);
       const msg = err instanceof Error ? err.message : 'unknown';
-      await db.execute(sql`
-        UPDATE notification_queue
-           SET processed_at = NULL,
-               attempts = attempts + 1,
-               last_error = ${msg.slice(0, 500)}
-         WHERE id = ANY(${events.map((e) => e.id)})
-      `);
+      await db
+        .update(notificationQueue)
+        .set({
+          processedAt: null,
+          attempts: sql`${notificationQueue.attempts} + 1`,
+          lastError: msg.slice(0, 500),
+        })
+        .where(inArray(notificationQueue.id, events.map((e) => e.id)));
     }
   }
 

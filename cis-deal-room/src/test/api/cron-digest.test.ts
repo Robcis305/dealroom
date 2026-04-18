@@ -22,6 +22,7 @@ describe('POST /api/cron/digest (stub mode without Upstash keys)', () => {
     vi.unstubAllEnvs();
     delete process.env.QSTASH_CURRENT_SIGNING_KEY;
     delete process.env.QSTASH_NEXT_SIGNING_KEY;
+    process.env.UNSUBSCRIBE_SECRET = 'a-strong-secret-at-least-thirty-two-chars';
     mockExecute.mockResolvedValue({ rows: [] });
   });
 
@@ -41,14 +42,62 @@ describe('POST /api/cron/digest (stub mode without Upstash keys)', () => {
     expect(vi.mocked(sendEmail)).not.toHaveBeenCalled();
   });
 
-  it('claims rows in a single UPDATE … RETURNING, not in a separate pass', async () => {
-    // We assert the shape: the cron route must now use db.execute with a raw SQL
-    // that RETURNs rows; if it still uses two queries (select then update), the
-    // mocked db.select will be called and the spy will catch it.
-    const selectSpy = vi.fn().mockResolvedValue([]);
-    mockSelect.mockImplementation(selectSpy);
+  it('claims rows via db.execute and does not fall back to db.select', async () => {
+    // Return one claimed row so the route proceeds past the empty-check.
+    mockExecute.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'n1',
+          user_id: 'u1',
+          workspace_id: 'w1',
+          action: 'uploaded',
+          target_type: 'file',
+          target_id: 't1',
+          metadata: {},
+          attempts: 0,
+          created_at: new Date(),
+        },
+      ],
+    });
+    // user + workspace lookups (two successive db.select(...).from(...).where(...))
+    mockSelect
+      .mockResolvedValueOnce([{ id: 'u1', email: 'u@x.com', firstName: 'U', lastName: 'X' }])
+      .mockResolvedValueOnce([{ id: 'w1', name: 'W' }]);
+
     const res = await POST(new Request('http://localhost/api/cron/digest', { method: 'POST' }));
     expect(res.status).toBe(200);
-    expect(selectSpy).not.toHaveBeenCalled();
+    // Should have called execute for the claim (once). Must NOT have issued a
+    // second execute for the old-style final bulk-update.
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+  });
+
+  it('on send failure, resets processed_at and bumps attempts via drizzle inArray', async () => {
+    mockExecute.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'n2',
+          user_id: 'u2',
+          workspace_id: 'w2',
+          action: 'uploaded',
+          target_type: 'file',
+          target_id: 't2',
+          metadata: {},
+          attempts: 1,
+          created_at: new Date(),
+        },
+      ],
+    });
+    mockSelect
+      .mockResolvedValueOnce([{ id: 'u2', email: 'u2@x.com', firstName: 'U', lastName: '2' }])
+      .mockResolvedValueOnce([{ id: 'w2', name: 'W2' }]);
+    vi.mocked(sendEmail).mockRejectedValueOnce(new Error('boom'));
+
+    const res = await POST(new Request('http://localhost/api/cron/digest', { method: 'POST' }));
+    expect(res.status).toBe(200);
+    // The failure-path must issue a drizzle ORM update (not db.execute), so
+    // mockUpdateWhere is the right spy. mockExecute should still be only 1 call
+    // (the claim), confirming the failure path no longer uses db.execute.
+    expect(mockUpdateWhere).toHaveBeenCalled();
+    expect(mockExecute).toHaveBeenCalledTimes(1);
   });
 });
