@@ -111,6 +111,7 @@ export async function POST(
         action: 'notified_batch',
         targetType: 'folder',
         targetId: folderId,
+        channel: 'uploads',
         metadata: {
           folderName: folder.name,
           workspaceName: workspace.name,

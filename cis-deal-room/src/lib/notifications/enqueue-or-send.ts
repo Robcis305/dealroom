@@ -5,6 +5,8 @@ import { sendEmail } from '@/lib/email/send';
 import type { ReactElement } from 'react';
 import type { ActivityAction, ActivityTargetType } from '@/types';
 
+type Channel = 'uploads' | 'digest';
+
 interface Input {
   userId: string;
   workspaceId: string;
@@ -12,7 +14,7 @@ interface Input {
   targetType: ActivityTargetType;
   targetId: string | null;
   metadata: Record<string, unknown>;
-  /** Callback to produce the immediate-email payload when digest is off */
+  channel: Channel;
   immediateEmail: () => Promise<{
     to: string;
     subject: string;
@@ -20,19 +22,22 @@ interface Input {
   }>;
 }
 
-/**
- * Central point for routing notifications. Reads the target user's
- * notification_digest preference: if true, enqueues for the daily
- * batch; if false, sends immediately via sendEmail().
- */
 export async function enqueueOrSend(input: Input): Promise<void> {
-  const [user] = await db
-    .select({ notificationDigest: users.notificationDigest })
+  const [prefs] = await db
+    .select({
+      notifyUploads: users.notifyUploads,
+      notifyDigest: users.notifyDigest,
+    })
     .from(users)
     .where(eq(users.id, input.userId))
     .limit(1);
 
-  if (user?.notificationDigest) {
+  if (!prefs) return;
+
+  // Per-channel opt-out: bail out entirely if the user disabled this channel.
+  if (input.channel === 'uploads' && !prefs.notifyUploads) return;
+
+  if (prefs.notifyDigest) {
     await db.insert(notificationQueue).values({
       userId: input.userId,
       workspaceId: input.workspaceId,
