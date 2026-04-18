@@ -71,10 +71,11 @@ describe('SheetPreview', () => {
   });
 
   it('shows banner with 49,999 total rows (not 999) for a 50k-row sheet', async () => {
-    // Simulate a 50k-row sheet: decode_range returns e.r=49999, e.c=199
-    // After clipping to MAX_ROWS=1000 rows, sheet_to_json returns only 1001 rows (header + 1000 data).
-    const headerRow = Array.from({ length: 200 }, (_, i) => `col${i}`);
-    const clippedDataRows = Array.from({ length: 1000 }, (_, i) => headerRow.map(() => String(i)));
+    // Simulate a 50k-row sheet via decode_range; sheet_to_json is mocked to return
+    // a small parsed set so the test doesn't pay for rendering 200k DOM cells —
+    // the banner copy is driven entirely by decode_range's unclipped range.
+    const headerRow = ['a', 'b'];
+    const clippedDataRows = Array.from({ length: 10 }, (_, i) => [`row${i}`, String(i)]);
     vi.mocked(XLSX.utils.decode_range).mockReturnValue(
       { s: { r: 0, c: 0 }, e: { r: 49999, c: 199 } } as never
     );
