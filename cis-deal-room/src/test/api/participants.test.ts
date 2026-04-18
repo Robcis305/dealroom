@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/dal/index', () => ({ verifySession: vi.fn() }));
 vi.mock('@/lib/dal/access', () => ({ requireDealAccess: vi.fn() }));
+vi.mock('@/lib/dal/assertions', () => ({ assertParticipantInWorkspace: vi.fn() }));
 vi.mock('@/lib/dal/participants', () => ({
   getParticipants: vi.fn(),
   inviteParticipant: vi.fn(),
@@ -16,6 +17,7 @@ vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn().mockResolvedValue({ id: 
 
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
+import { assertParticipantInWorkspace } from '@/lib/dal/assertions';
 import { getParticipants, inviteParticipant, updateParticipant, removeParticipant } from '@/lib/dal/participants';
 import { getWorkspace } from '@/lib/dal/workspaces';
 import { GET, POST } from '@/app/api/workspaces/[id]/participants/route';
@@ -127,7 +129,10 @@ function makeDelete() {
 }
 
 describe('PATCH /api/workspaces/[id]/participants/[pid]', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(assertParticipantInWorkspace).mockResolvedValue(undefined);
+  });
 
   it('returns 401 when not authenticated', async () => {
     vi.mocked(verifySession).mockResolvedValue(null);
@@ -166,10 +171,28 @@ describe('PATCH /api/workspaces/[id]/participants/[pid]', () => {
     );
     expect(res.status).toBe(200);
   });
+
+  it('PATCH /[pid] returns 403 when pid is in a different workspace', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    vi.mocked(assertParticipantInWorkspace).mockRejectedValue(new Error('Forbidden'));
+    const res = await PATCH(
+      new Request('http://localhost/x', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ role: 'client', folderIds: [] }),
+      }),
+      { params: Promise.resolve({ id: WORKSPACE_ID, pid: 'pid-from-other-workspace' }) }
+    );
+    expect(res.status).toBe(403);
+    expect(vi.mocked(updateParticipant)).not.toHaveBeenCalled();
+  });
 });
 
 describe('DELETE /api/workspaces/[id]/participants/[pid]', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(assertParticipantInWorkspace).mockResolvedValue(undefined);
+  });
 
   it('returns 401 when not authenticated', async () => {
     vi.mocked(verifySession).mockResolvedValue(null);
@@ -207,5 +230,16 @@ describe('DELETE /api/workspaces/[id]/participants/[pid]', () => {
       { params: Promise.resolve({ id: WORKSPACE_ID, pid: PARTICIPANT_ID }) }
     );
     expect(res.status).toBe(204);
+  });
+
+  it('DELETE /[pid] returns 403 when pid is in a different workspace', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    vi.mocked(assertParticipantInWorkspace).mockRejectedValue(new Error('Forbidden'));
+    const res = await DELETE(
+      new Request('http://localhost/x', { method: 'DELETE' }),
+      { params: Promise.resolve({ id: WORKSPACE_ID, pid: 'pid-from-other-workspace' }) }
+    );
+    expect(res.status).toBe(403);
+    expect(vi.mocked(removeParticipant)).not.toHaveBeenCalled();
   });
 });

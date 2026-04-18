@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { verifySession } from '@/lib/dal/index';
 import { updateParticipant, removeParticipant } from '@/lib/dal/participants';
+import { assertParticipantInWorkspace } from '@/lib/dal/assertions';
 
 const patchSchema = z.object({
   role: z.enum([
@@ -23,7 +24,17 @@ export async function PATCH(
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
 
-  const { pid } = await params;
+  const { id: workspaceId, pid } = await params;
+
+  try {
+    await assertParticipantInWorkspace(pid, workspaceId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Forbidden';
+    return Response.json(
+      { error: msg },
+      { status: msg === 'Not found' ? 404 : 403 }
+    );
+  }
 
   let parsed: z.infer<typeof patchSchema>;
   try {
@@ -56,7 +67,17 @@ export async function DELETE(
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
 
-  const { pid } = await params;
+  const { id: workspaceId, pid } = await params;
+
+  try {
+    await assertParticipantInWorkspace(pid, workspaceId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Forbidden';
+    return Response.json(
+      { error: msg },
+      { status: msg === 'Not found' ? 404 : 403 }
+    );
+  }
 
   try {
     await removeParticipant(pid);
