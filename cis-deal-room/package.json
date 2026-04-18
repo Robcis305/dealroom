@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "prebuild": "node scripts/copy-pdf-worker.mjs",
+    "predev": "node scripts/copy-pdf-worker.mjs",
     "build": "next build --webpack",
-    "start": "next start",
+    "dev": "next dev",
     "lint": "eslint",
+    "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
