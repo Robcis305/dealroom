@@ -81,10 +81,22 @@ export async function GET(request: NextRequest) {
   const sessionId = await createSession(user.id);
 
   const needsProfile = !user.firstName || !user.lastName;
+
+  // Defense-in-depth: only accept safe relative redirects.
+  // Rejects protocol-relative (`//…`) and absolute URLs (`http:…`).
+  function safeRelative(p: string | null | undefined): string | null {
+    if (!p) return null;
+    if (!p.startsWith('/')) return null;
+    if (p.startsWith('//')) return null;
+    return p;
+  }
+
+  const safeRedirect = safeRelative(tokenRow.redirectTo);
+
   const redirectPath = needsProfile
     ? '/complete-profile'
-    : tokenRow.purpose === 'invitation' && tokenRow.redirectTo
-      ? tokenRow.redirectTo
+    : tokenRow.purpose === 'invitation' && safeRedirect
+      ? safeRedirect
       : '/deals';
 
   // Use NextResponse (mutable cookies API) instead of Response.redirect —
