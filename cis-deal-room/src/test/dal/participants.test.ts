@@ -184,6 +184,31 @@ describe('inviteParticipant', () => {
     expect(result.rawToken).toMatch(/^[0-9a-f]{64}$/i);
   });
 
+  it('rejects invite with folderIds outside the workspace', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    // Sequence inside transaction:
+    //   1. user lookup        -> existing user
+    //   2. participant lookup -> no existing participant
+    //   3. folder workspace assertion -> folder belongs to a DIFFERENT workspace
+    // mockSelectChain is called for both .limit(1) and direct-await (.then), so
+    // the three calls all pull from the same mock queue.
+    mockSelectChain
+      .mockResolvedValueOnce([{ id: 'user-1' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'f-external', workspaceId: 'w-other' }]);
+    mockInsertReturning
+      .mockResolvedValueOnce([{ id: 'p1', workspaceId: WORKSPACE_ID, userId: 'user-1', role: 'client', status: 'invited' }]);
+
+    await expect(
+      inviteParticipant({
+        workspaceId: WORKSPACE_ID,
+        email: 'x@y.com',
+        role: 'client',
+        folderIds: ['f-external'],
+      })
+    ).rejects.toThrow('Forbidden');
+  });
+
   it('re-invite updates role and refreshes token for existing participant', async () => {
     vi.mocked(verifySession).mockResolvedValue(adminSession);
 
@@ -285,5 +310,23 @@ describe('updateParticipant', () => {
     await expect(
       updateParticipant(PARTICIPANT_ID, { role: 'client', folderIds: [] })
     ).rejects.toThrow('Cannot demote self');
+  });
+
+  it('rejects update with folderIds outside the workspace', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    // Sequence of mockSelectChain resolutions:
+    //   1. existing participant lookup (outside txn, .limit(1)) -> participant in WORKSPACE_ID owned by someone else
+    //   2. beforeFolderAccessRows (inside txn, awaited directly) -> []
+    //   3. folder workspace assertion (inside txn, awaited directly) -> folder in a DIFFERENT workspace
+    mockSelectChain
+      .mockResolvedValueOnce([
+        { id: PARTICIPANT_ID, workspaceId: WORKSPACE_ID, userId: 'other-u', email: 'x@y.com', role: 'client' },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'f-external', workspaceId: 'w-other' }]);
+
+    await expect(
+      updateParticipant(PARTICIPANT_ID, { role: 'client', folderIds: ['f-external'] })
+    ).rejects.toThrow('Forbidden');
   });
 });
