@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { notificationQueue, users, workspaces } from '@/db/schema';
 import { sendEmail } from '@/lib/email/send';
 import { DailyDigestEmail } from '@/lib/email/daily-digest';
+import { signUnsubscribeToken } from '@/lib/email/unsubscribe';
 import { displayName } from '@/lib/users/display';
 
 const receiver = process.env.QSTASH_CURRENT_SIGNING_KEY && process.env.QSTASH_NEXT_SIGNING_KEY
@@ -29,6 +30,8 @@ export async function POST(request: Request) {
     const valid = await receiver.verify({ signature, body });
     if (!valid) return Response.json({ error: 'Invalid signature' }, { status: 401 });
   }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 
   const queued = await db
     .select({
@@ -88,6 +91,9 @@ export async function POST(request: Request) {
       at: e.createdAt.toISOString(),
     }));
 
+    const unsubToken = signUnsubscribeToken({ userId, channel: 'digest' });
+    const unsubscribeUrl = `${appUrl}/api/unsubscribe?t=${encodeURIComponent(unsubToken)}`;
+
     try {
       await sendEmail({
         to: user.email,
@@ -95,6 +101,7 @@ export async function POST(request: Request) {
         react: DailyDigestEmail({
           recipientName: displayName(user) !== user.email ? displayName(user) : 'there',
           events: digestEvents,
+          unsubscribeUrl,
         }),
       });
       processedIds.push(...events.map((e) => e.id));

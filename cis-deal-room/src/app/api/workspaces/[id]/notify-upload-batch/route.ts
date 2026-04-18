@@ -14,6 +14,7 @@ import { requireFolderAccess } from '@/lib/dal/access';
 import { logActivity } from '@/lib/dal/activity';
 import { enqueueOrSend } from '@/lib/notifications/enqueue-or-send';
 import { UploadBatchNotificationEmail } from '@/lib/email/upload-batch';
+import { signUnsubscribeToken } from '@/lib/email/unsubscribe';
 import { canPerform, type ParticipantRole } from '@/lib/dal/permissions';
 
 const bodySchema = z.object({
@@ -100,6 +101,9 @@ export async function POST(
 
   // Send emails, tolerant of individual failures
   for (const recipient of recipients) {
+    const unsubToken = signUnsubscribeToken({ userId: recipient.userId, channel: 'uploads' });
+    const unsubscribeUrl = `${appUrl}/api/unsubscribe?t=${encodeURIComponent(unsubToken)}`;
+
     try {
       await enqueueOrSend({
         userId: recipient.userId,
@@ -122,6 +126,7 @@ export async function POST(
             files: fileRows.map((f) => ({ fileName: f.name, sizeBytes: f.sizeBytes })),
             workspaceLink,
             uploaderEmail: session.userEmail,
+            unsubscribeUrl,
           }),
         }),
       });
