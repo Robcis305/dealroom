@@ -72,16 +72,13 @@ describe('stub mode (Upstash env absent)', () => {
 });
 
 describe('rate limiter fail-closed', () => {
-  const origEnv = { ...process.env };
   afterEach(() => {
-    process.env = { ...origEnv };
+    vi.unstubAllEnvs();
     vi.resetModules();
   });
 
   it('throws at import time when NODE_ENV=production and Upstash URL missing', async () => {
-    // NODE_ENV is typed readonly by Next.js's env augmentation; cast to
-    // a mutable Record so we can set it for this fail-closed test.
-    (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
     delete process.env.UPSTASH_REDIS_REST_URL;
     delete process.env.UPSTASH_REDIS_REST_TOKEN;
     vi.resetModules();
