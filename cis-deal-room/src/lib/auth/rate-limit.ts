@@ -49,3 +49,9 @@ export const authSendLimiter = buildLimiter(5, '15 m', 'rl:auth:send');
  * Prevents token enumeration attacks.
  */
 export const authVerifyLimiter = buildLimiter(10, '15 m', 'rl:auth:verify');
+
+/**
+ * Per-user-plus-file: 10 preview-log writes per 15 minutes. Plenty for
+ * legitimate re-opens, catches tab-flapping or abuse.
+ */
+export const previewLogLimiter = buildLimiter(10, '15 m', 'rl:preview-log');
