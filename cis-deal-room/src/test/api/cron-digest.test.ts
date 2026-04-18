@@ -12,6 +12,7 @@ vi.mock('@/db', () => ({
 vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn().mockResolvedValue({ id: 'stub' }) }));
 
 import { POST } from '@/app/api/cron/digest/route';
+import { sendEmail } from '@/lib/email/send';
 
 describe('POST /api/cron/digest (stub mode without Upstash keys)', () => {
   beforeEach(() => {
@@ -30,10 +31,10 @@ describe('POST /api/cron/digest (stub mode without Upstash keys)', () => {
   });
 
   it('returns 500 in production when QStash signing keys are missing', async () => {
-    delete process.env.QSTASH_CURRENT_SIGNING_KEY;
-    delete process.env.QSTASH_NEXT_SIGNING_KEY;
     vi.stubEnv('NODE_ENV', 'production');
     const res = await POST(new Request('http://localhost/api/cron/digest', { method: 'POST' }));
     expect(res.status).toBe(500);
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(vi.mocked(sendEmail)).not.toHaveBeenCalled();
   });
 });
