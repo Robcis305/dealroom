@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { magicLinkTokens } from '@/db/schema';
 import { generateToken, hashToken } from '@/lib/auth/tokens';
 import { authSendLimiter } from '@/lib/auth/rate-limit';
+import { isSameOriginRequest } from '@/lib/auth/csrf';
 import { MagicLinkEmail } from '@/lib/email/magic-link';
 import { sendEmail } from '@/lib/email/send';
 
@@ -13,6 +14,10 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  if (!isSameOriginRequest(request)) {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   // 1. Parse and validate request body
   let email: string;
   try {
