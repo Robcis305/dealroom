@@ -8,6 +8,7 @@ import { db } from '@/db';
 import { folders } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireFolderAccess } from '@/lib/dal/access';
+import { buildContentDisposition } from '@/lib/storage/content-disposition';
 
 export async function GET(
   request: Request,
@@ -62,7 +63,7 @@ export async function GET(
     new GetObjectCommand({
       Bucket: S3_BUCKET,
       Key: file.s3Key,
-      ResponseContentDisposition: `${disposition}; filename="${file.name}"`,
+      ResponseContentDisposition: buildContentDisposition(disposition, file.name),
       ...(disposition === 'inline' ? { ResponseContentType: file.mimeType } : {}),
     }),
     { expiresIn: 15 * 60 } // 15 minutes

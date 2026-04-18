@@ -135,7 +135,7 @@ describe('GET /api/files/[id]/presign-download', () => {
         expect.anything(),
         expect.objectContaining({
           input: expect.objectContaining({
-            ResponseContentDisposition: 'attachment; filename="report.pdf"',
+            ResponseContentDisposition: `attachment; filename="report.pdf"; filename*=UTF-8''report.pdf`,
           }),
         }),
         expect.anything()
@@ -164,7 +164,7 @@ describe('GET /api/files/[id]/presign-download', () => {
         expect.anything(),
         expect.objectContaining({
           input: expect.objectContaining({
-            ResponseContentDisposition: 'inline; filename="report.pdf"',
+            ResponseContentDisposition: `inline; filename="report.pdf"; filename*=UTF-8''report.pdf`,
             ResponseContentType: 'application/pdf',
           }),
         }),
