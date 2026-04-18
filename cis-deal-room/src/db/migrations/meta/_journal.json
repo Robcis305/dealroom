@@ -29,6 +29,13 @@
       "when": 1776268933824,
       "tag": "0003_perpetual_talos",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776543798429,
+      "tag": "0004_optimal_magus",
+      "breakpoints": true
     }
   ]
 }

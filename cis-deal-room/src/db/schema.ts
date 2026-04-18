@@ -71,6 +71,8 @@ export const users = pgTable('users', {
   lastName: text('last_name'),
   isAdmin: boolean('is_admin').notNull().default(false),
   notificationDigest: boolean('notification_digest').notNull().default(false),
+  notifyUploads: boolean('notify_uploads').notNull().default(true),
+  notifyDigest: boolean('notify_digest').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -185,6 +187,8 @@ export const notificationQueue = pgTable('notification_queue', {
   targetType: activityTargetTypeEnum('target_type').notNull(),
   targetId: uuid('target_id'),
   metadata: jsonb('metadata'),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   processedAt: timestamp('processed_at'),
 });
