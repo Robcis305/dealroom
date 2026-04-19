@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { destroySession } from '@/lib/auth/session';
+import { isSameOriginRequest } from '@/lib/auth/csrf';
 
 /**
  * POST /api/auth/logout — destroys the current session and clears the cookie.
  * Idempotent: safe to call when already logged out.
  */
-export async function POST() {
+export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const cookieStore = await cookies();
   const sessionId = cookieStore.get('cis_session')?.value;
 
@@ -19,7 +24,6 @@ export async function POST() {
   }
 
   const response = NextResponse.json({ success: true });
-  // Overwrite the cookie with Max-Age=0 to expire it client-side
   response.headers.append(
     'Set-Cookie',
     `cis_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`

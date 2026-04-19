@@ -116,4 +116,87 @@ describe('GET /api/auth/verify', () => {
     const location = response.headers.get('Location') ?? '';
     expect(location).toContain('error=used');
   });
+
+  it('rejects requests where ?email does not match the token row', async () => {
+    const validRow = {
+      id: 'token-1',
+      email: 'victim@example.com',
+      tokenHash: 'hashed-token',
+      expiresAt: new Date(Date.now() + 60_000),
+      createdAt: new Date(),
+      purpose: 'login',
+      redirectTo: null,
+    };
+
+    vi.doMock('@/lib/auth/rate-limit', () => ({
+      authVerifyLimiter: { limit: vi.fn().mockResolvedValue({ success: true }) },
+    }));
+    vi.doMock('@/lib/auth/tokens', () => ({
+      hashToken: vi.fn().mockReturnValue('hashed-token'),
+    }));
+    vi.doMock('@/lib/auth/session', () => ({
+      createSession: vi.fn(),
+      setSessionCookie: vi.fn(),
+    }));
+    vi.doMock('@/db', () => ({
+      db: {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([validRow]),
+            }),
+          }),
+        }),
+        delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+        insert: vi.fn(),
+      },
+    }));
+
+    const { GET } = await import('./route');
+    const url = `${APP_URL}/api/auth/verify?token=raw&email=attacker%40example.com`;
+    const response = await GET(new Request(url) as any);
+
+    expect([302, 307]).toContain(response.status);
+    const location = response.headers.get('Location') ?? '';
+    expect(location).toContain('error=invalid');
+  });
+
+  it('ignores redirectTo that is not a safe relative path (protocol-relative)', async () => {
+    const row = {
+      id: 't', email: 'u@example.com', tokenHash: 'hashed-token',
+      expiresAt: new Date(Date.now() + 60_000), createdAt: new Date(),
+      purpose: 'invitation', redirectTo: '//evil.example/pwn',
+    };
+    vi.doMock('@/lib/auth/rate-limit', () => ({
+      authVerifyLimiter: { limit: vi.fn().mockResolvedValue({ success: true }) },
+    }));
+    vi.doMock('@/lib/auth/tokens', () => ({ hashToken: vi.fn().mockReturnValue('hashed-token') }));
+    vi.doMock('@/lib/auth/session', () => ({
+      createSession: vi.fn().mockResolvedValue('s1'),
+      setSessionCookie: vi.fn(),
+    }));
+    vi.doMock('@/db', () => ({
+      db: {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([row]) }),
+          }),
+        }),
+        delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn().mockReturnValue({
+            onConflictDoUpdate: vi.fn().mockReturnValue({
+              returning: vi.fn().mockResolvedValue([{ id: 'u1', firstName: 'A', lastName: 'B' }]),
+            }),
+          }),
+        }),
+        update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }) }),
+      },
+    }));
+    const { GET } = await import('./route');
+    const response = await GET(new Request(`${APP_URL}/api/auth/verify?token=t&email=u%40example.com`) as any);
+    const location = response.headers.get('Location') ?? '';
+    expect(location).not.toContain('evil.example');
+    expect(location).toContain('/deals');
+  });
 });

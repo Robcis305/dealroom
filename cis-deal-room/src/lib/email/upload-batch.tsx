@@ -17,6 +17,7 @@ interface UploadBatchEmailProps {
   files: Array<{ fileName: string; sizeBytes: number }>;
   workspaceLink: string;
   uploaderEmail: string;
+  unsubscribeUrl: string;
 }
 
 function formatBytes(bytes: number): string {
@@ -36,6 +37,7 @@ export function UploadBatchNotificationEmail({
   files,
   workspaceLink,
   uploaderEmail,
+  unsubscribeUrl,
 }: UploadBatchEmailProps) {
   const fileCount = files.length;
   const fileWord = fileCount === 1 ? 'file' : 'files';
@@ -80,6 +82,13 @@ export function UploadBatchNotificationEmail({
               Open Workspace
             </Button>
           </Section>
+
+          <Text style={smallTextStyle}>
+            Don&apos;t want upload notifications?{' '}
+            <a href={unsubscribeUrl} style={{ color: '#52525B', textDecoration: 'underline' }}>
+              Unsubscribe
+            </a>.
+          </Text>
 
           <Text style={footerStyle}>
             CIS Partners Advisory &mdash; Confidential
@@ -160,6 +169,13 @@ const buttonStyle: React.CSSProperties = {
   fontWeight: '600',
   padding: '12px 32px',
   textDecoration: 'none',
+};
+
+const smallTextStyle: React.CSSProperties = {
+  color: '#A1A1AA',
+  fontSize: '13px',
+  lineHeight: '1.5',
+  margin: '24px 0 16px',
 };
 
 const footerStyle: React.CSSProperties = {

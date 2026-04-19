@@ -4,6 +4,7 @@ import { files, folders } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireFolderAccess } from '@/lib/dal/access';
 import { logActivity } from '@/lib/dal/activity';
+import { previewLogLimiter } from '@/lib/auth/rate-limit';
 
 export async function POST(
   _request: Request,
@@ -32,6 +33,10 @@ export async function POST(
   }
 
   const file = rows[0];
+
+  const identifier = `${session.userId}:${file.id}`;
+  const { success } = await previewLogLimiter.limit(identifier);
+  if (!success) return new Response(null, { status: 204 }); // silent drop
 
   try {
     await requireFolderAccess(file.folderId, session, 'download');

@@ -21,6 +21,11 @@ function buildLimiter(requests: number, window: '15 m', prefix: string): RateLim
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        `[ratelimit] ${prefix} requires UPSTASH_REDIS_REST_URL/_TOKEN in production.`
+      );
+    }
     console.log(`[ratelimit:stub] ${prefix} (${requests}/${window}) — Upstash not configured`);
     return stubLimiter;
   }
@@ -44,3 +49,9 @@ export const authSendLimiter = buildLimiter(5, '15 m', 'rl:auth:send');
  * Prevents token enumeration attacks.
  */
 export const authVerifyLimiter = buildLimiter(10, '15 m', 'rl:auth:verify');
+
+/**
+ * Per-user-plus-file: 10 preview-log writes per 15 minutes. Plenty for
+ * legitimate re-opens, catches tab-flapping or abuse.
+ */
+export const previewLogLimiter = buildLimiter(10, '15 m', 'rl:preview-log');

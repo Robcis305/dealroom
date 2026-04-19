@@ -41,7 +41,10 @@ function makePost(body: object) {
 }
 
 describe('POST /api/workspaces/[id]/notify-upload-batch', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.UNSUBSCRIBE_SECRET = 'a-strong-secret-at-least-thirty-two-chars';
+  });
 
   it('returns 401 when not authenticated', async () => {
     vi.mocked(verifySession).mockResolvedValue(null);

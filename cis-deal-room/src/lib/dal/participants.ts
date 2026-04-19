@@ -1,9 +1,10 @@
-import { and, count, eq, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   users,
   workspaceParticipants,
   folderAccess,
+  folders,
   magicLinkTokens,
   sessions,
 } from '@/db/schema';
@@ -13,6 +14,33 @@ import { generateToken, hashToken } from '@/lib/auth/tokens';
 import type { ParticipantRole } from './permissions';
 
 const INVITATION_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+
+// The transaction callback receives a Drizzle transaction object whose type
+// is exactly the first parameter of db.transaction's callback. Extracting it
+// this way avoids widening to `typeof db` (which would include `.transaction`
+// itself) while keeping us insulated from Drizzle's internal generic changes.
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Throws 'Forbidden' if any folderId does not belong to the given workspace,
+ * or 'Folder not found' if any id doesn't exist. Short-circuits when the list
+ * is empty. Runs inside a transaction so the check is atomic with the writes.
+ */
+async function assertAllFoldersInWorkspace(
+  tx: Tx,
+  workspaceId: string,
+  folderIds: string[]
+): Promise<void> {
+  if (folderIds.length === 0) return;
+  const rows = await tx
+    .select({ id: folders.id, workspaceId: folders.workspaceId })
+    .from(folders)
+    .where(inArray(folders.id, folderIds));
+  if (rows.length !== folderIds.length) throw new Error('Folder not found');
+  for (const r of rows) {
+    if (r.workspaceId !== workspaceId) throw new Error('Forbidden');
+  }
+}
 
 interface InviteInput {
   workspaceId: string;
@@ -138,6 +166,10 @@ export async function inviteParticipant(input: InviteInput) {
           .returning())[0];
 
     // 3. Insert folder_access rows (delete existing first if re-invite)
+    //    Guard first: every folderId must belong to this workspace, else we'd
+    //    let a workspace admin leak access across workspace boundaries.
+    await assertAllFoldersInWorkspace(tx, input.workspaceId, input.folderIds);
+
     await tx
       .delete(folderAccess)
       .where(eq(folderAccess.participantId, participant.id));
@@ -228,6 +260,10 @@ export async function updateParticipant(participantId: string, input: UpdateInpu
       .where(eq(workspaceParticipants.id, participantId));
 
     await tx.delete(folderAccess).where(eq(folderAccess.participantId, participantId));
+
+    // Guard cross-workspace folder grants before writing new folder_access rows.
+    // Runs inside the transaction so a throw rolls back the role update + delete.
+    await assertAllFoldersInWorkspace(tx, existing.workspaceId, input.folderIds);
 
     if (input.folderIds.length > 0) {
       await tx.insert(folderAccess).values(

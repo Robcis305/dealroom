@@ -3,14 +3,18 @@
 import { useEffect, useState } from 'react';
 import { PREVIEW_ROW_CAP, PREVIEW_SIZE_CAP_BYTES } from '@/lib/preview';
 
+const MAX_ROWS = 1000;
+const MAX_COLS = 200;
+
 type State =
   | { status: 'loading' }
   | { status: 'too-large' }
   | { status: 'parse-error' }
   | {
       status: 'ready';
-      rows: Record<string, unknown>[];
+      rows: string[][];
       totalRows: number;
+      totalCols: number;
       sheetCount: number;
       headers: string[];
     };
@@ -37,16 +41,32 @@ export function SheetPreview({ url, sizeBytes }: SheetPreviewProps) {
         const buffer = await res.arrayBuffer();
         if (aborted) return;
         const XLSX = await import('xlsx');
-        const workbook = XLSX.read(buffer, { type: 'array' });
+        const workbook = XLSX.read(buffer, { type: 'array', cellHTML: false, cellFormula: false });
         const firstSheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[firstSheetName];
-        const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+        // Clip the sheet range before sheet_to_json so huge sheets don't expand.
+        const original = XLSX.utils.decode_range(sheet['!ref'] ?? 'A1');
+        // Compute unclipped totals BEFORE clipping so the banner reflects the real file size.
+        const totalRows = Math.max(0, original.e.r - original.s.r); // exclude header row
+        const totalCols = original.e.c - original.s.c + 1;
+        const clipped = {
+          s: original.s,
+          e: {
+            r: Math.min(original.e.r, original.s.r + MAX_ROWS - 1),
+            c: Math.min(original.e.c, original.s.c + MAX_COLS - 1),
+          },
+        };
+        const range = XLSX.utils.encode_range(clipped);
+        const raw = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, range, defval: '' });
         if (aborted) return;
-        const headers = json.length > 0 ? Object.keys(json[0]) : [];
+        const headers = (raw[0] ?? []).map(String);
+        const dataRows = raw.slice(1);
         setState({
           status: 'ready',
-          rows: json.slice(0, PREVIEW_ROW_CAP),
-          totalRows: json.length,
+          rows: dataRows.slice(0, PREVIEW_ROW_CAP),
+          totalRows,
+          totalCols,
           sheetCount: workbook.SheetNames.length,
           headers,
         });
@@ -81,8 +101,10 @@ export function SheetPreview({ url, sizeBytes }: SheetPreviewProps) {
     );
   }
 
-  const { rows, totalRows, sheetCount, headers } = state;
-  const truncated = totalRows > PREVIEW_ROW_CAP;
+  const { rows, totalRows, totalCols, sheetCount, headers } = state;
+  const rowTruncated = totalRows > PREVIEW_ROW_CAP;
+  const colTruncated = totalCols > headers.length;
+  const truncated = rowTruncated || colTruncated;
 
   return (
     <div className="w-full h-full overflow-auto bg-white text-black rounded">
@@ -93,7 +115,10 @@ export function SheetPreview({ url, sizeBytes }: SheetPreviewProps) {
       )}
       {truncated && (
         <div className="px-3 py-2 bg-blue-50 border-b border-blue-200 text-xs text-blue-900">
-          Showing first 1,000 of {totalRows.toLocaleString()} rows — download for the full file.
+          Showing first {Math.min(PREVIEW_ROW_CAP, totalRows).toLocaleString()} rows
+          {colTruncated && ` × ${headers.length} columns`} of{' '}
+          {totalRows.toLocaleString()} rows{colTruncated && ` × ${totalCols.toLocaleString()} columns`}
+          {' '}— download for the full file.
         </div>
       )}
       <table className="text-xs w-full border-collapse">
@@ -107,8 +132,8 @@ export function SheetPreview({ url, sizeBytes }: SheetPreviewProps) {
         <tbody>
           {rows.map((row, i) => (
             <tr key={i} className={i % 2 ? 'bg-gray-50' : ''}>
-              {headers.map((h) => (
-                <td key={h} className="px-2 py-1 border-b align-top">{String(row[h] ?? '')}</td>
+              {headers.map((h, colIndex) => (
+                <td key={h} className="px-2 py-1 border-b align-top">{String(row[colIndex] ?? '')}</td>
               ))}
             </tr>
           ))}

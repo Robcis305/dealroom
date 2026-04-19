@@ -38,9 +38,18 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await verifySession();
+  if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id: workspaceId } = await params;
+
   try {
-    // Next.js 15: params is a Promise
-    const { id: workspaceId } = await params;
+    await requireDealAccess(workspaceId, session);
+  } catch {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  try {
     const body = await request.json();
     const { name } = createFolderSchema.parse(body);
 

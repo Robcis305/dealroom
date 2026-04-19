@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('@/lib/auth/rate-limit', () => ({
+  previewLogLimiter: { limit: vi.fn().mockResolvedValue({ success: true }) },
+}));
 vi.mock('@/lib/dal/index', () => ({
   verifySession: vi.fn(),
 }));
@@ -16,6 +19,7 @@ vi.mock('@/db', () => ({
 }));
 
 import { POST } from '@/app/api/files/[id]/log-preview/route';
+import { previewLogLimiter } from '@/lib/auth/rate-limit';
 import { verifySession } from '@/lib/dal/index';
 import { requireFolderAccess } from '@/lib/dal/access';
 import { logActivity } from '@/lib/dal/activity';
@@ -39,6 +43,7 @@ function mockFileLookup(row: { id: string; folderId: string; workspaceId: string
 describe('POST /api/files/[id]/log-preview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(previewLogLimiter.limit).mockResolvedValue({ success: true });
   });
 
   function makeRequest(fileId: string) {
@@ -92,5 +97,17 @@ describe('POST /api/files/[id]/log-preview', () => {
         userId: 'u1',
       })
     );
+  });
+
+  it('returns 204 and skips logActivity when rate limit is exceeded', async () => {
+    vi.mocked(verifySession).mockResolvedValue(session as never);
+    mockFileLookup({ id: 'f1', folderId: 'fd1', workspaceId: 'w1' });
+    vi.mocked(previewLogLimiter.limit).mockResolvedValue({ success: false });
+
+    const res = await POST(makeRequest('55555555-5555-5555-5555-555555555555'), {
+      params: Promise.resolve({ id: '55555555-5555-5555-5555-555555555555' }),
+    });
+    expect(res.status).toBe(204);
+    expect(logActivity).not.toHaveBeenCalled();
   });
 });

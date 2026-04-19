@@ -145,7 +145,7 @@ export function UploadModal({
       return null;
     }
 
-    const { presignedUrl, s3Key } = presignData;
+    const { presignedUrl, uploadToken } = presignData;
 
     // 3. Upload to S3 (or skip for stub)
     if (presignedUrl) {
@@ -169,12 +169,10 @@ export function UploadModal({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        folderId,
+        uploadToken,
         fileName: file.name,
-        s3Key,
         sizeBytes: file.size,
         mimeType: file.type,
-        workspaceId,
         confirmedVersioning: confirmedVersioning ?? false,
       }),
     });

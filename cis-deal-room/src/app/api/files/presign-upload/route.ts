@@ -5,6 +5,7 @@ import { verifySession } from '@/lib/dal/index';
 import { checkDuplicate } from '@/lib/dal/files';
 import { getS3Client, S3_BUCKET } from '@/lib/storage/s3';
 import { requireFolderAccess } from '@/lib/dal/access';
+import { signUploadToken } from '@/lib/auth/upload-token';
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -83,7 +84,11 @@ export async function POST(request: Request) {
   // S3 stub — return fake key when bucket is not configured
   if (!S3_BUCKET) {
     const s3Key = `stub/fake-key-${crypto.randomUUID()}`;
-    return Response.json({ presignedUrl: null, s3Key, duplicate: false });
+    const uploadToken = signUploadToken(
+      { s3Key, folderId, userId: session.userId, workspaceId },
+      15 * 60
+    );
+    return Response.json({ presignedUrl: null, s3Key, uploadToken, duplicate: false });
   }
 
   const s3Key = `workspaces/${workspaceId}/folders/${folderId}/${crypto.randomUUID()}-${fileName}`;
@@ -103,5 +108,10 @@ export async function POST(request: Request) {
     { expiresIn: 15 * 60 } // 15 minutes
   );
 
-  return Response.json({ presignedUrl, s3Key, duplicate: false });
+  const uploadToken = signUploadToken(
+    { s3Key, folderId, userId: session.userId, workspaceId },
+    15 * 60
+  );
+
+  return Response.json({ presignedUrl, s3Key, uploadToken, duplicate: false });
 }

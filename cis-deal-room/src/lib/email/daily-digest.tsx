@@ -13,6 +13,7 @@ interface DigestEvent {
 interface DailyDigestEmailProps {
   recipientName: string;
   events: DigestEvent[];
+  unsubscribeUrl: string;
 }
 
 function actionLabel(action: string): string {
@@ -29,7 +30,7 @@ function actionLabel(action: string): string {
   return map[action] ?? action;
 }
 
-export function DailyDigestEmail({ recipientName, events }: DailyDigestEmailProps) {
+export function DailyDigestEmail({ recipientName, events, unsubscribeUrl }: DailyDigestEmailProps) {
   const byWorkspace = new Map<string, DigestEvent[]>();
   for (const e of events) {
     const list = byWorkspace.get(e.workspaceName) ?? [];
@@ -65,7 +66,10 @@ export function DailyDigestEmail({ recipientName, events }: DailyDigestEmailProp
           ))}
 
           <Text style={smallTextStyle}>
-            You&apos;re receiving this because daily digest is enabled. Change to real-time notifications in your account settings.
+            Don&apos;t want these daily digests?{' '}
+            <a href={unsubscribeUrl} style={{ color: '#52525B', textDecoration: 'underline' }}>
+              Unsubscribe
+            </a>.
           </Text>
 
           <Text style={footerStyle}>CIS Partners Advisory &mdash; Confidential</Text>

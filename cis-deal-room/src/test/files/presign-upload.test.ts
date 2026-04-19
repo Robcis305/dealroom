@@ -23,7 +23,11 @@ vi.mock('@/lib/dal/access', () => ({
 
 import { verifySession } from '@/lib/dal/index';
 import { checkDuplicate } from '@/lib/dal/files';
+import { requireFolderAccess } from '@/lib/dal/access';
 import { POST } from '@/app/api/files/presign-upload/route';
+
+const FOLDER_ID = 'f1';
+const WORKSPACE_ID = 'w1';
 
 const mockSession = { sessionId: 's1', userId: 'u1', userEmail: 'a@b.com', isAdmin: true };
 
@@ -36,7 +40,10 @@ function makeRequest(body: object) {
 }
 
 describe('POST /api/files/presign-upload', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.UPLOAD_TOKEN_SECRET = 'test-secret-32-bytes-long-minimum-123';
+  });
 
   it('returns 401 when not authenticated', async () => {
     vi.mocked(verifySession).mockResolvedValue(null);
@@ -78,5 +85,22 @@ describe('POST /api/files/presign-upload', () => {
     const body = await res.json();
     expect(body.presignedUrl).toBeNull();
     expect(body.s3Key).toMatch(/^stub\//);
+  });
+
+  it('returns an uploadToken that round-trips for the issued s3Key', async () => {
+    process.env.UPLOAD_TOKEN_SECRET = 'test-secret-32-bytes-long-minimum-123';
+    vi.mocked(verifySession).mockResolvedValue(mockSession);
+    vi.mocked(requireFolderAccess).mockResolvedValue(undefined);
+    vi.mocked(checkDuplicate).mockResolvedValue(null as any);
+    const { verifyUploadToken } = await import('@/lib/auth/upload-token');
+    const res = await POST(makeRequest({
+      folderId: FOLDER_ID, fileName: 'x.pdf', mimeType: 'application/pdf',
+      sizeBytes: 100, workspaceId: WORKSPACE_ID,
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.uploadToken).toBeTruthy();
+    const payload = verifyUploadToken(body.uploadToken);
+    expect(payload).toMatchObject({ s3Key: body.s3Key, folderId: FOLDER_ID, userId: mockSession.userId, workspaceId: WORKSPACE_ID });
   });
 });

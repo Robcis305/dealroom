@@ -76,7 +76,7 @@ export function FolderSidebar({
     setRenamingId(null);
 
     try {
-      const res = await fetchWithAuth(`/api/folders/${folderId}`, {
+      const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/folders/${folderId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),
@@ -105,7 +105,7 @@ export function FolderSidebar({
     }
 
     try {
-      const res = await fetchWithAuth(`/api/folders/${folderId}`, { method: 'DELETE' });
+      const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/folders/${folderId}`, { method: 'DELETE' });
       if (!res.ok) {
         onFoldersChange(previous);
       }
