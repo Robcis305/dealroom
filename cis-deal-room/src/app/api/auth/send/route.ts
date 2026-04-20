@@ -6,6 +6,7 @@ import { magicLinkTokens } from '@/db/schema';
 import { generateToken, hashToken } from '@/lib/auth/tokens';
 import { authSendLimiter } from '@/lib/auth/rate-limit';
 import { isSameOriginRequest } from '@/lib/auth/csrf';
+import { getAppUrl } from '@/lib/app-url';
 import { MagicLinkEmail } from '@/lib/email/magic-link';
 import { sendEmail } from '@/lib/email/send';
 
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
   await db.insert(magicLinkTokens).values({ email, tokenHash, expiresAt });
 
   // 6. Build the magic link URL
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = getAppUrl();
   const magicLink = `${appUrl}/api/auth/verify?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
   // Dev-mode convenience: when Resend is stubbed, surface the link in the

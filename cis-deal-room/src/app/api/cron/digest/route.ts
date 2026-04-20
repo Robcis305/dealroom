@@ -6,6 +6,7 @@ import { sendEmail } from '@/lib/email/send';
 import { DailyDigestEmail } from '@/lib/email/daily-digest';
 import { signUnsubscribeToken } from '@/lib/email/unsubscribe';
 import { displayName } from '@/lib/users/display';
+import { getAppUrl } from '@/lib/app-url';
 
 const receiver = process.env.QSTASH_CURRENT_SIGNING_KEY && process.env.QSTASH_NEXT_SIGNING_KEY
   ? new Receiver({
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     if (!valid) return Response.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = getAppUrl();
 
   // Atomic claim: mark all unprocessed rows processed_at=now() and RETURN them.
   // A second overlapping invocation will find zero unclaimed rows.

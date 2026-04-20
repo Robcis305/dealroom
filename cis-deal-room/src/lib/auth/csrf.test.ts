@@ -1,9 +1,21 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { isSameOriginRequest } from './csrf';
 
 describe('isSameOriginRequest', () => {
+  const originalBranchUrl = process.env.VERCEL_BRANCH_URL;
+  const originalVercelUrl = process.env.VERCEL_URL;
+
   beforeEach(() => {
     process.env.NEXT_PUBLIC_APP_URL = 'https://dealroom.cispartners.co';
+    delete process.env.VERCEL_BRANCH_URL;
+    delete process.env.VERCEL_URL;
+  });
+
+  afterEach(() => {
+    if (originalBranchUrl === undefined) delete process.env.VERCEL_BRANCH_URL;
+    else process.env.VERCEL_BRANCH_URL = originalBranchUrl;
+    if (originalVercelUrl === undefined) delete process.env.VERCEL_URL;
+    else process.env.VERCEL_URL = originalVercelUrl;
   });
 
   it('accepts matching Origin', () => {
@@ -37,5 +49,13 @@ describe('isSameOriginRequest', () => {
       headers: { origin: '//evil.example' },
     });
     expect(isSameOriginRequest(req)).toBe(false);
+  });
+
+  it('accepts the Vercel branch URL as an additional allowed origin', () => {
+    process.env.VERCEL_BRANCH_URL = 'dealroom-git-feat-x-example.vercel.app';
+    const req = new Request('https://dealroom-git-feat-x-example.vercel.app/api/x', {
+      headers: { origin: 'https://dealroom-git-feat-x-example.vercel.app' },
+    });
+    expect(isSameOriginRequest(req)).toBe(true);
   });
 });

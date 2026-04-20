@@ -16,6 +16,7 @@ import { enqueueOrSend } from '@/lib/notifications/enqueue-or-send';
 import { UploadBatchNotificationEmail } from '@/lib/email/upload-batch';
 import { signUnsubscribeToken } from '@/lib/email/unsubscribe';
 import { canPerform, type ParticipantRole } from '@/lib/dal/permissions';
+import { getAppUrl } from '@/lib/app-url';
 
 const bodySchema = z.object({
   folderId: z.string().uuid(),
@@ -96,7 +97,7 @@ export async function POST(
       canPerform(r.role as ParticipantRole, 'download')
   );
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = getAppUrl();
   const workspaceLink = `${appUrl}/deals/${workspaceId}`;
 
   // Send emails, tolerant of individual failures

@@ -10,6 +10,7 @@ import {
   Section,
   Text,
 } from '@react-email/components';
+import { getAppUrl } from '@/lib/app-url';
 
 interface UploadBatchEmailProps {
   workspaceName: string;
@@ -52,7 +53,7 @@ export function UploadBatchNotificationEmail({
         <Container style={containerStyle}>
           <Section style={logoSectionStyle}>
             <Img
-              src={`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/cis-partners-logo.png`}
+              src={`${getAppUrl()}/cis-partners-logo.png`}
               alt="CIS Partners"
               width="160"
               style={{ display: 'block', marginBottom: '32px' }}
