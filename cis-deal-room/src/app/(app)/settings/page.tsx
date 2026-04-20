@@ -1,5 +1,7 @@
 import { eq } from 'drizzle-orm';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { verifySession } from '@/lib/dal/index';
 import { db } from '@/db';
 import { users } from '@/db/schema';
@@ -24,7 +26,16 @@ export default async function SettingsPage() {
   return (
     <div className="min-h-screen bg-bg">
       <header className="h-14 bg-surface border-b border-border flex items-center px-6 gap-4 shrink-0">
-        <Logo size="sm" />
+        <Link href="/deals" aria-label="Deal Rooms">
+          <Logo size="sm" />
+        </Link>
+        <Link
+          href="/deals"
+          className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary"
+        >
+          <ArrowLeft size={14} />
+          Back to deals
+        </Link>
         <span className="text-sm font-semibold text-text-primary flex-1">Settings</span>
       </header>
       <div className="p-6 max-w-2xl mx-auto">

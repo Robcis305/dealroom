@@ -52,4 +52,23 @@ describe('SettingsPage (Server Component)', () => {
     const { container } = render(tree);
     expect(container.textContent).toContain('Notification preferences');
   });
+
+  it('renders a visible back link to /deals', async () => {
+    vi.mocked(verifySession).mockResolvedValue({
+      sessionId: 's1',
+      userId: 'u1',
+      userEmail: 'a@b.com',
+      isAdmin: false,
+    });
+    mockDbResult.mockResolvedValue([{ notifyUploads: true, notifyDigest: false }]);
+
+    const tree = await SettingsPage();
+    const { container } = render(tree);
+    const backLinks = Array.from(container.querySelectorAll('a[href="/deals"]'));
+    expect(backLinks.length).toBeGreaterThanOrEqual(1);
+    const hasLabelledBackLink = backLinks.some((a) =>
+      (a.textContent ?? '').toLowerCase().includes('back to deals')
+    );
+    expect(hasLabelledBackLink).toBe(true);
+  });
 });
