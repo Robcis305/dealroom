@@ -97,7 +97,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
           aria-label="Back to deal rooms"
         >
           <ArrowLeft size={16} />
-          <Logo size="sm" />
+          <Logo size="sm" inverse />
         </Link>
 
         {/* Deal name */}
