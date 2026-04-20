@@ -70,8 +70,6 @@ export const users = pgTable('users', {
   firstName: text('first_name'),
   lastName: text('last_name'),
   isAdmin: boolean('is_admin').notNull().default(false),
-  // TODO(post-deploy): drop `notificationDigest` once backfill to `notifyDigest` is confirmed.
-  notificationDigest: boolean('notification_digest').notNull().default(false),
   notifyUploads: boolean('notify_uploads').notNull().default(true),
   notifyDigest: boolean('notify_digest').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),

@@ -36,6 +36,13 @@
       "when": 1776543798429,
       "tag": "0004_optimal_magus",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776704892159,
+      "tag": "0005_drop_notification_digest",
+      "breakpoints": true
     }
   ]
 }
