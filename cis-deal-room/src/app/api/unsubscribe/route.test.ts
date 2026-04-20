@@ -33,4 +33,13 @@ describe('GET /api/unsubscribe', () => {
     expect(res.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ notifyDigest: false }));
   });
+
+  it('includes an anchor to /settings so the user can re-enable', async () => {
+    const { signUnsubscribeToken } = await import('@/lib/email/unsubscribe');
+    const t = signUnsubscribeToken({ userId: 'u1', channel: 'uploads' });
+    const res = await GET(new Request(`http://localhost/api/unsubscribe?t=${t}`));
+    const html = await res.text();
+    expect(html).toContain('href="/settings"');
+    expect(html.toLowerCase()).toContain('re-enable');
+  });
 });
