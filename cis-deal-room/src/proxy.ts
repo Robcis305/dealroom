@@ -22,6 +22,16 @@ const PUBLIC_PATHS = ['/login', '/auth/verify'];
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Static assets served from /public (e.g. /cis-partners-logo.svg,
+  // /pdf.worker.min.mjs) must not be redirected to /login when the
+  // request is unauthenticated. The matcher below excludes Next.js
+  // internals but not arbitrary files in public/, so an extension
+  // guard here keeps them reachable (e.g. for email clients loading
+  // the logo without a session cookie).
+  if (/\.[a-zA-Z0-9]+$/.test(pathname)) {
+    return NextResponse.next();
+  }
+
   // Allow public paths without any session check
   const isPublic = PUBLIC_PATHS.some(
     (path) => pathname === path || pathname.startsWith(path + '/')
