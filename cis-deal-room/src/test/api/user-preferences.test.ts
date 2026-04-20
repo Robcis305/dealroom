@@ -26,20 +26,20 @@ describe('POST /api/user/preferences', () => {
 
   it('returns 401 when no session', async () => {
     vi.mocked(verifySession).mockResolvedValue(null);
-    const res = await POST(makeRequest({ notificationDigest: true }));
+    const res = await POST(makeRequest({ notifyDigest: true }));
     expect(res.status).toBe(401);
   });
 
-  it('returns 400 when notificationDigest not a boolean', async () => {
+  it('returns 400 when notifyDigest not a boolean', async () => {
     vi.mocked(verifySession).mockResolvedValue(session);
-    const res = await POST(makeRequest({ notificationDigest: 'yes' }));
+    const res = await POST(makeRequest({ notifyDigest: 'yes' }));
     expect(res.status).toBe(400);
   });
 
   it('returns 200 on successful update', async () => {
     vi.mocked(verifySession).mockResolvedValue(session);
-    mockReturning.mockResolvedValue([{ id: 'u1', notificationDigest: true }]);
-    const res = await POST(makeRequest({ notificationDigest: true }));
+    mockReturning.mockResolvedValue([{ id: 'u1', notifyUploads: true, notifyDigest: true }]);
+    const res = await POST(makeRequest({ notifyDigest: true }));
     expect(res.status).toBe(200);
   });
 
