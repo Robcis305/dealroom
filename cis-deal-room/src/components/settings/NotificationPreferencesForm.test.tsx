@@ -71,6 +71,29 @@ describe('NotificationPreferencesForm', () => {
     );
     const uploads = screen.getByLabelText(/email me when files are uploaded/i) as HTMLInputElement;
     fireEvent.click(uploads);
-    await waitFor(() => expect(uploads.checked).toBe(true));
+    expect(uploads.checked).toBe(false); // optimistic flip
+    await waitFor(() => expect(uploads.checked).toBe(true)); // reverted after !ok
+  });
+
+  it('ignores a second click on the same toggle while the first POST is in flight', async () => {
+    let resolveFirst: (value: { ok: boolean; json: () => Promise<object> }) => void = () => {};
+    mockFetch.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        })
+    );
+    render(
+      <NotificationPreferencesForm
+        initialNotifyUploads={false}
+        initialNotifyDigest={false}
+      />
+    );
+    const uploads = screen.getByLabelText(/email me when files are uploaded/i);
+    fireEvent.click(uploads);
+    fireEvent.click(uploads); // second click while first is in flight
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    resolveFirst({ ok: true, json: async () => ({}) });
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
   });
 });

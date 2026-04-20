@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
@@ -18,8 +18,11 @@ export function NotificationPreferencesForm({
   const [notifyUploads, setNotifyUploads] = useState(initialNotifyUploads);
   const [notifyDigest, setNotifyDigest] = useState(initialNotifyDigest);
   const [saving, setSaving] = useState<FieldKey | null>(null);
+  const inFlight = useRef<Record<FieldKey, boolean>>({ notifyUploads: false, notifyDigest: false });
 
   async function update(field: FieldKey, nextValue: boolean) {
+    if (inFlight.current[field]) return;
+    inFlight.current[field] = true;
     const revert = () => {
       if (field === 'notifyUploads') setNotifyUploads(!nextValue);
       else setNotifyDigest(!nextValue);
@@ -39,9 +42,13 @@ export function NotificationPreferencesForm({
       } else {
         toast.success('Preference updated');
       }
-    } catch {
+    } catch (err) {
       revert();
+      if (!(err instanceof Error) || err.message !== 'Session expired') {
+        toast.error('Failed to update preference');
+      }
     } finally {
+      inFlight.current[field] = false;
       setSaving(null);
     }
   }
