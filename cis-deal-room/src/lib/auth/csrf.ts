@@ -1,38 +1,28 @@
+import { getAllowedOrigins } from '@/lib/app-url';
+
 /**
- * Rejects state-changing requests whose Origin/Referer is not the app origin.
- * Origin is required for fetch()/XHR from modern browsers; falls back to Referer.
- * Returns false (reject) when neither header is present — we do not serve
- * state-changing requests from unknown origins, including curl/older bots.
+ * Rejects state-changing requests whose Origin/Referer is not one of the
+ * app's allowed origins. Origin is required for fetch()/XHR from modern
+ * browsers; falls back to Referer. Returns false when neither header is
+ * present — we do not serve state-changing requests from unknown origins,
+ * including curl/older bots.
+ *
+ * The allowlist covers NEXT_PUBLIC_APP_URL plus Vercel preview URLs
+ * (VERCEL_BRANCH_URL, VERCEL_URL) when deployed on Vercel.
  */
 export function isSameOriginRequest(request: Request): boolean {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (!appUrl) return false;
+  const allowed = getAllowedOrigins();
+  if (allowed.length === 0) return false;
 
-  let expectedOrigin: string;
+  const header = request.headers.get('origin') ?? request.headers.get('referer');
+  if (!header) return false;
+
+  let requestOrigin: string;
   try {
-    expectedOrigin = new URL(appUrl).origin;
+    requestOrigin = new URL(header).origin;
   } catch {
     return false;
   }
 
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-
-  if (origin) {
-    try {
-      return new URL(origin).origin === expectedOrigin;
-    } catch {
-      return false;
-    }
-  }
-
-  if (referer) {
-    try {
-      return new URL(referer).origin === expectedOrigin;
-    } catch {
-      return false;
-    }
-  }
-
-  return false;
+  return allowed.includes(requestOrigin);
 }

@@ -5,13 +5,14 @@ import { magicLinkTokens, users, workspaceParticipants } from '@/db/schema';
 import { hashToken } from '@/lib/auth/tokens';
 import { authVerifyLimiter } from '@/lib/auth/rate-limit';
 import { createSession, setSessionCookie } from '@/lib/auth/session';
+import { getAppUrl } from '@/lib/app-url';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const rawToken = searchParams.get('token');
   const email = searchParams.get('email');
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = getAppUrl();
 
   if (!rawToken || !email) {
     return Response.redirect(`${appUrl}/auth/verify?error=invalid`);

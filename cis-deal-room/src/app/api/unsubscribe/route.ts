@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   await db.update(users).set(patch).where(eq(users.id, payload.userId));
 
   return new Response(
-    `<!doctype html><html><body style="font-family:sans-serif;padding:40px"><h1>Unsubscribed</h1><p>You won't receive further ${payload.channel} emails. You can re-enable this in your account settings.</p></body></html>`,
+    `<!doctype html><html><body style="font-family:sans-serif;padding:40px"><h1>Unsubscribed</h1><p>You won't receive further ${payload.channel} emails. You can <a href="/settings">re-enable this in your settings</a>.</p></body></html>`,
     { headers: { 'Content-Type': 'text/html; charset=utf-8' }, status: 200 }
   );
 }

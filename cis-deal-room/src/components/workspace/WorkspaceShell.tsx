@@ -43,7 +43,6 @@ interface WorkspaceShellProps {
   fileCounts: Record<string, number>;
   isAdmin: boolean;
   activeClientCount: number;
-  notificationDigest: boolean;
   userEmail: string;
 }
 
@@ -56,7 +55,7 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts, isAdmin, activeClientCount, notificationDigest, userEmail }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts, isAdmin, activeClientCount, userEmail }: WorkspaceShellProps) {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -158,7 +157,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
         )}
 
         {/* User avatar menu — far right */}
-        <UserMenu notificationDigest={notificationDigest} userEmail={userEmail} />
+        <UserMenu userEmail={userEmail} />
       </header>
 
       {activeClientCount === 0 && (

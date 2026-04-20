@@ -5,6 +5,7 @@ import { getParticipants, inviteParticipant } from '@/lib/dal/participants';
 import { getWorkspace } from '@/lib/dal/workspaces';
 import { sendEmail } from '@/lib/email/send';
 import { InvitationEmail } from '@/lib/email/invitation';
+import { getAppUrl } from '@/lib/app-url';
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -79,7 +80,7 @@ export async function POST(
     folderIds: parsed.folderIds,
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = getAppUrl();
   const inviteLink = `${appUrl}/api/auth/verify?token=${rawToken}&email=${encodeURIComponent(parsed.email)}`;
 
   // Dev-mode convenience: surface the invite URL in the server log when
