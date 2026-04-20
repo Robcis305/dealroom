@@ -27,7 +27,7 @@ export default async function SettingsPage() {
     <div className="min-h-screen bg-bg">
       <header className="h-14 bg-surface border-b border-border flex items-center px-6 gap-4 shrink-0">
         <Link href="/deals" aria-label="Deal Rooms">
-          <Logo size="sm" />
+          <Logo size="sm" inverse />
         </Link>
         <Link
           href="/deals"
