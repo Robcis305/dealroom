@@ -1,56 +1,31 @@
 'use client';
 
 import { useState } from 'react';
-import { LogOut } from 'lucide-react';
-import { toast } from 'sonner';
-import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import Link from 'next/link';
+import { LogOut, Settings } from 'lucide-react';
 
 interface UserMenuProps {
   userEmail: string;
-  notificationDigest: boolean;
 }
 
 /**
  * User avatar button that opens a dropdown with:
  * - The user's email (for disambiguation)
- * - Daily-digest preference toggle (POSTs /api/user/preferences)
- * - Sign out (POSTs /api/auth/logout → clears cookie → redirects to /login)
+ * - Settings link (pointing to /settings)
+ * - Sign out (POSTs /api/auth/logout -> clears cookie -> redirects to /login)
  *
  * Rendered in the header of both the deal list and inside a workspace.
  */
-export function UserMenu({ userEmail, notificationDigest }: UserMenuProps) {
+export function UserMenu({ userEmail }: UserMenuProps) {
   const [open, setOpen] = useState(false);
-  const [digest, setDigest] = useState(notificationDigest);
-  const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-
-  async function toggleDigest() {
-    const newValue = !digest;
-    setSaving(true);
-    setDigest(newValue); // optimistic
-    try {
-      const res = await fetchWithAuth('/api/user/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationDigest: newValue }),
-      });
-      if (!res.ok) {
-        setDigest(!newValue);
-        toast.error('Failed to update preference');
-      } else {
-        toast.success(`Email notifications set to ${newValue ? 'Daily digest' : 'Instant'}`);
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function handleSignOut() {
     setSigningOut(true);
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch {
-      // even if the request fails, still navigate away — the cookie's max-age has been wiped server-side
+      // even if the request fails, still navigate away - the cookie's max-age has been wiped server-side
     }
     window.location.href = '/login';
   }
@@ -71,19 +46,21 @@ export function UserMenu({ userEmail, notificationDigest }: UserMenuProps) {
             <div className="px-3 pt-3 pb-2 border-b border-border-subtle">
               <p className="text-xs text-text-muted truncate">{userEmail}</p>
             </div>
-            <div className="px-3 py-2 border-b border-border-subtle">
-              <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
-                <input type="checkbox" checked={digest} onChange={toggleDigest} disabled={saving} />
-                Daily digest (vs. instant)
-              </label>
-            </div>
+            <Link
+              href="/settings"
+              onClick={() => setOpen(false)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-surface-elevated"
+            >
+              <Settings size={14} />
+              Settings
+            </Link>
             <button
               onClick={handleSignOut}
               disabled={signingOut}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-surface-elevated disabled:opacity-50 text-left"
             >
               <LogOut size={14} />
-              {signingOut ? 'Signing out…' : 'Sign out'}
+              {signingOut ? 'Signing out\u2026' : 'Sign out'}
             </button>
           </div>
         </>
