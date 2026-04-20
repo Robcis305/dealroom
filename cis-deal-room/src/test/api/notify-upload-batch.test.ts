@@ -5,6 +5,11 @@ vi.mock('@/lib/dal/access', () => ({ requireFolderAccess: vi.fn() }));
 vi.mock('@/lib/notifications/enqueue-or-send', () => ({ enqueueOrSend: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('@/lib/dal/activity', () => ({ logActivity: vi.fn() }));
 
+const mockEmailComponent = vi.fn((props: Record<string, unknown>) => props);
+vi.mock('@/lib/email/upload-batch', () => ({
+  UploadBatchNotificationEmail: (props: Record<string, unknown>) => mockEmailComponent(props),
+}));
+
 const mockFetchBatch = vi.fn();
 vi.mock('@/db', () => ({
   db: {
@@ -111,5 +116,30 @@ describe('POST /api/workspaces/[id]/notify-upload-batch', () => {
     );
     expect(res.status).toBe(200);
     expect(vi.mocked(enqueueOrSend)).toHaveBeenCalledTimes(2);
+  });
+
+  it('builds the workspace link at /workspace/<id>, not /deals/<id>', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    vi.mocked(requireFolderAccess).mockResolvedValue(undefined);
+    mockFetchBatch
+      .mockResolvedValueOnce([{ id: FILE_ID, name: 'x.pdf', sizeBytes: 100 }])
+      .mockResolvedValueOnce([{ name: 'Workspace' }])
+      .mockResolvedValueOnce([{ name: 'Folder' }])
+      .mockResolvedValueOnce([{ email: 'a@x.com', userId: 'u-a', role: 'client' }]);
+
+    process.env.NEXT_PUBLIC_APP_URL = 'https://dealroom.cispartners.co';
+
+    await POST(
+      makePost({ folderId: FOLDER_ID, fileIds: [FILE_ID] }),
+      { params: Promise.resolve({ id: WORKSPACE_ID }) }
+    );
+
+    // The mocked UploadBatchNotificationEmail returns its input props directly,
+    // so built.react is the props object itself.
+    const call = vi.mocked(enqueueOrSend).mock.calls[0][0];
+    const built = await call.immediateEmail!();
+    const props = built.react as unknown as { workspaceLink: string };
+    expect(props.workspaceLink).toBe(`https://dealroom.cispartners.co/workspace/${WORKSPACE_ID}`);
+    expect(props.workspaceLink).not.toContain('/deals/');
   });
 });

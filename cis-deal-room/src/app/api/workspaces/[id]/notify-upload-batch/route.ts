@@ -98,7 +98,7 @@ export async function POST(
   );
 
   const appUrl = getAppUrl();
-  const workspaceLink = `${appUrl}/deals/${workspaceId}`;
+  const workspaceLink = `${appUrl}/workspace/${workspaceId}`;
 
   // Send emails, tolerant of individual failures
   for (const recipient of recipients) {
