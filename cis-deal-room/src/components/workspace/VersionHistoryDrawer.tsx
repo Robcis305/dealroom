@@ -5,6 +5,9 @@ import { X, Download, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { displayName } from '@/lib/users/display';
+import { formatDate } from '@/lib/format-date';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useSoftDelete } from '@/lib/use-soft-delete';
 
 interface Version {
   id: string;
@@ -33,16 +36,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatDate(ts: string): string {
-  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 export function VersionHistoryDrawer({
   workspaceId, fileId, fileName, isAdmin, open, onClose, onVersionDeleted,
 }: VersionHistoryDrawerProps) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [loading, setLoading] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Version | null>(null);
+  const softDelete = useSoftDelete();
 
   useEffect(() => {
     if (!open) return;
@@ -73,28 +73,32 @@ export function VersionHistoryDrawer({
     a.click();
   }
 
-  async function handleDelete(version: Version) {
-    if (!confirm(`Delete v${version.version} of ${fileName}?`)) return;
-    setDeletingId(version.id);
-    try {
-      const res = await fetchWithAuth(`/api/files/${version.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setVersions((prev) => prev.filter((v) => v.id !== version.id));
-        toast.success(`v${version.version} deleted`);
-        onVersionDeleted();
-      } else {
-        toast.error('Failed to delete version');
-      }
-    } finally {
-      setDeletingId(null);
-    }
+  function performDelete(version: Version) {
+    // Optimistic local remove; soft-delete handles server call after 10s undo window
+    setVersions((prev) => prev.filter((v) => v.id !== version.id));
+    softDelete({
+      id: version.id,
+      label: `v${version.version}`,
+      onRestore: () => {
+        // Re-insert in original position by version number descending
+        setVersions((prev) => [...prev, version].sort((a, b) => b.version - a.version));
+      },
+      performDelete: async () => {
+        const res = await fetchWithAuth(`/api/files/${version.id}`, { method: 'DELETE' });
+        if (res.ok) {
+          onVersionDeleted();
+          return true;
+        }
+        return false;
+      },
+    });
   }
 
   if (!open) return null;
 
   return (
     <>
-      <div className="fixed inset-0 bg-text-primary/40 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-surface-sunken/70 z-40" onClick={onClose} />
       <div className="fixed right-0 top-0 bottom-0 w-96 z-50 bg-surface border-l border-border shadow-2xl flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
@@ -130,15 +134,14 @@ export function VersionHistoryDrawer({
                       onClick={() => handleDownload(v)}
                       className="flex items-center gap-1 text-xs text-accent hover:underline"
                     >
-                      <Download size={12} /> Download
+                      <Download size={14} aria-hidden="true" /> Download
                     </button>
                     {isAdmin && (
                       <button
-                        onClick={() => handleDelete(v)}
-                        disabled={deletingId === v.id}
-                        className="flex items-center gap-1 text-xs text-danger hover:underline disabled:opacity-50 ml-auto"
+                        onClick={() => setConfirmDelete(v)}
+                        className="flex items-center gap-1 text-xs text-danger hover:underline ml-auto"
                       >
-                        <Trash2 size={12} /> Delete
+                        <Trash2 size={14} aria-hidden="true" /> Delete
                       </button>
                     )}
                   </div>
@@ -148,6 +151,21 @@ export function VersionHistoryDrawer({
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          if (!confirmDelete) return;
+          performDelete(confirmDelete);
+          setConfirmDelete(null);
+        }}
+        title={confirmDelete ? `Delete v${confirmDelete.version} of ${fileName}?` : ''}
+        description="You'll have 10 seconds to undo after confirming."
+        preserves={['Earlier versions remain accessible', 'Activity log entries about this version']}
+        confirmLabel="Delete version"
+        tone="destructive"
+      />
     </>
   );
 }

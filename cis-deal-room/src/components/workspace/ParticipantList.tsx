@@ -7,6 +7,8 @@ import { clsx } from 'clsx';
 import { roleLabel } from '@/lib/participants/roles';
 import { displayName } from '@/lib/users/display';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { formatRelative } from '@/lib/format-date';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ParticipantFormModal } from './ParticipantFormModal';
 import type { CisAdvisorySide, ParticipantRole } from '@/types';
 
@@ -49,6 +51,7 @@ export function ParticipantList({
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
   const [editing, setEditing] = useState<ParticipantRow | null>(null);
+  const [revoking, setRevoking] = useState<ParticipantRow | null>(null);
   const [bump, setBump] = useState(0);
 
   const load = useCallback(async () => {
@@ -65,15 +68,14 @@ export function ParticipantList({
     load();
   }, [load, refreshToken, bump]);
 
-  async function handleRemove(participantId: string, email: string) {
-    if (!confirm(`Remove ${email} from this workspace?`)) return;
+  async function handleRemove(participant: ParticipantRow) {
     const res = await fetchWithAuth(
-      `/api/workspaces/${workspaceId}/participants/${participantId}`,
+      `/api/workspaces/${workspaceId}/participants/${participant.id}`,
       { method: 'DELETE' }
     );
     if (res.ok) {
       setBump((n) => n + 1);
-      toast.success('Participant removed');
+      toast.success(`${participant.email} no longer has access`);
     } else {
       toast.error('Failed to remove participant');
     }
@@ -137,16 +139,24 @@ export function ParticipantList({
                   <button
                     aria-label={`Edit ${row.email}`}
                     onClick={() => setEditing(row)}
-                    className="p-1 text-text-muted hover:text-text-primary transition-colors"
+                    className="w-8 h-8 rounded flex items-center justify-center
+                      text-text-muted hover:text-text-primary hover:bg-surface-elevated
+                      transition-colors cursor-pointer
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    title="Edit participant"
                   >
-                    <Pencil size={14} />
+                    <Pencil size={14} aria-hidden="true" />
                   </button>
                   <button
-                    aria-label={`Remove ${row.email}`}
-                    onClick={() => handleRemove(row.id, row.email)}
-                    className="p-1 text-text-muted hover:text-danger transition-colors"
+                    aria-label={`Revoke access for ${row.email}`}
+                    onClick={() => setRevoking(row)}
+                    className="w-8 h-8 rounded flex items-center justify-center
+                      text-text-muted hover:text-danger hover:bg-surface-elevated
+                      transition-colors cursor-pointer
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    title="Revoke access"
                   >
-                    <X size={14} />
+                    <X size={14} aria-hidden="true" />
                   </button>
                 </div>
               )}
@@ -184,20 +194,28 @@ export function ParticipantList({
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!revoking}
+        onClose={() => setRevoking(null)}
+        onConfirm={async () => {
+          if (!revoking) return;
+          await handleRemove(revoking);
+          setRevoking(null);
+        }}
+        title={revoking ? `Revoke access for ${revoking.email}?` : ''}
+        description="They lose access to this workspace immediately and receive no notification."
+        preserves={[
+          'Their activity history remains in the audit log',
+          'Any files they uploaded stay in the workspace',
+        ]}
+        requireTypedValue={revoking?.email}
+        typedValueLabel="Type the email to confirm"
+        confirmLabel="Revoke access"
+        tone="destructive"
+      />
     </div>
   );
 }
 
-function formatRelative(ts: string | Date): string {
-  const then = new Date(ts).getTime();
-  const diff = Date.now() - then;
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(ts).toLocaleDateString();
-}
 

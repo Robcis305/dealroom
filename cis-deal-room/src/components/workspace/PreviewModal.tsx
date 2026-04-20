@@ -103,7 +103,7 @@ export function PreviewModal({ file, open, onClose }: PreviewModalProps) {
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 bg-black/80 flex flex-col"
+      className="fixed inset-0 z-50 bg-surface-sunken/85 flex flex-col"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

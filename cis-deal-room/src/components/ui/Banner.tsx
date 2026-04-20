@@ -21,7 +21,7 @@ export function Banner({ variant = 'warning', children, action }: BannerProps) {
   const { bg, text, icon: Icon } = VARIANT_STYLES[variant];
 
   return (
-    <div className={clsx('flex items-center gap-3 px-6 py-2.5 border-b border-border', bg)}>
+    <div className={clsx('flex items-center gap-3 px-4 py-2.5 border-b border-border', bg)}>
       <Icon size={16} className={text} />
       <div className={clsx('flex-1 text-sm', text)}>{children}</div>
       {action && (
