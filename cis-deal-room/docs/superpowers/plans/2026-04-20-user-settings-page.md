@@ -225,7 +225,7 @@ describe('NotificationPreferencesForm', () => {
         initialNotifyDigest={true}
       />
     );
-    const uploads = screen.getByLabelText(/upload/i) as HTMLInputElement;
+    const uploads = screen.getByLabelText(/email me when files are uploaded/i) as HTMLInputElement;
     const digest = screen.getByLabelText(/daily digest/i) as HTMLInputElement;
     expect(uploads.checked).toBe(false);
     expect(digest.checked).toBe(true);
@@ -238,7 +238,7 @@ describe('NotificationPreferencesForm', () => {
         initialNotifyDigest={false}
       />
     );
-    const uploads = screen.getByLabelText(/upload/i);
+    const uploads = screen.getByLabelText(/email me when files are uploaded/i);
     fireEvent.click(uploads);
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
     const [url, init] = mockFetch.mock.calls[0];
@@ -269,7 +269,7 @@ describe('NotificationPreferencesForm', () => {
         initialNotifyDigest={false}
       />
     );
-    const uploads = screen.getByLabelText(/upload/i) as HTMLInputElement;
+    const uploads = screen.getByLabelText(/email me when files are uploaded/i) as HTMLInputElement;
     fireEvent.click(uploads);
     await waitFor(() => expect(uploads.checked).toBe(true));
   });
