@@ -20,6 +20,10 @@ interface UploadModalProps {
   onUploadComplete: () => void;
   /** Called after a batch upload finishes — delta is the count of successfully uploaded files */
   onFolderCountChange?: (folderId: string, delta: number) => void;
+  /** Pre-selects a checklist item in the "Link to checklist item" dropdown. */
+  initialChecklistItemId?: string | null;
+  /** Checklist items available for linking. When omitted the dropdown is hidden. */
+  checklistItems?: Array<{ id: string; name: string; folderId: string }>;
 }
 
 const ACCEPTED_TYPES = {
@@ -73,8 +77,11 @@ export function UploadModal({
   workspaceId,
   onUploadComplete,
   onFolderCountChange,
+  initialChecklistItemId,
+  checklistItems,
 }: UploadModalProps) {
   const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId ?? folders[0]?.id ?? '');
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(initialChecklistItemId ?? null);
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [uploading, setUploading] = useState(false);
 
@@ -84,6 +91,7 @@ export function UploadModal({
     if (!open) {
       setQueue([]);
       setUploading(false);
+      setSelectedItemId(null);
     }
   }, [open]);
 
@@ -95,6 +103,12 @@ export function UploadModal({
       setSelectedFolderId(initialFolderId ?? folders[0]?.id ?? '');
     }
   }, [open, initialFolderId, folders]);
+
+  // Sync selectedItemId when the pre-fill hint changes (e.g. opened from a
+  // different checklist item without the modal being fully unmounted).
+  useEffect(() => {
+    setSelectedItemId(initialChecklistItemId ?? null);
+  }, [initialChecklistItemId]);
 
   const onDrop = useCallback((accepted: File[]) => {
     setQueue((prev) => [
@@ -224,6 +238,26 @@ export function UploadModal({
       }
     }
 
+    // Link every successfully uploaded file to the selected checklist item (option a).
+    if (selectedItemId && succeededIds.length > 0) {
+      try {
+        await Promise.all(
+          succeededIds.map((fileId) =>
+            fetchWithAuth(
+              `/api/workspaces/${workspaceId}/checklist/items/${selectedItemId}/links`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileId }),
+              },
+            ),
+          ),
+        );
+      } catch (err) {
+        console.warn('[UploadModal] checklist link failed:', err);
+      }
+    }
+
     if (newFileCount > 0) {
       onFolderCountChange?.(selectedFolderId, newFileCount);
     }
@@ -270,6 +304,28 @@ export function UploadModal({
               {folders.map((f) => (
                 <option key={f.id} value={f.id}>{f.name}</option>
               ))}
+            </select>
+          </div>
+        )}
+
+        {/* Checklist item linker */}
+        {checklistItems && checklistItems.length > 0 && (
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-text-secondary mb-1">
+              Link to checklist item (optional)
+            </label>
+            <select
+              value={selectedItemId ?? ''}
+              onChange={(e) => setSelectedItemId(e.target.value || null)}
+              disabled={uploading}
+              className="w-full bg-surface-sunken border border-border rounded-md px-2 py-1.5 text-sm text-text-primary"
+            >
+              <option value="">— None —</option>
+              {checklistItems
+                .filter((it) => !selectedFolderId || it.folderId === selectedFolderId)
+                .map((it) => (
+                  <option key={it.id} value={it.id}>{it.name}</option>
+                ))}
             </select>
           </div>
         )}

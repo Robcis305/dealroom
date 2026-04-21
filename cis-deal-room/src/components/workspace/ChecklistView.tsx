@@ -4,30 +4,20 @@ import { useEffect, useState, useCallback } from 'react';
 import { ClipboardList, Upload } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { ChecklistImportModal } from './ChecklistImportModal';
-import type { ChecklistPriority, ChecklistOwner, ChecklistStatus } from '@/types';
+import { ChecklistTable } from './ChecklistTable';
+import type { ChecklistItemRow } from './ChecklistTable';
 
-export interface ChecklistItemRow {
-  id: string;
-  sortOrder: number;
-  category: string;
-  folderId: string;
-  name: string;
-  description: string | null;
-  priority: ChecklistPriority;
-  owner: ChecklistOwner;
-  status: ChecklistStatus;
-  notes: string | null;
-  requestedAt: string;
-  receivedAt: string | null;
-}
+export type { ChecklistItemRow };
 
 interface Props {
   workspaceId: string;
   isAdmin: boolean;
   onChanged?: () => void;
+  onUploadForItem: (folderId: string, itemId: string, itemName: string) => void;
+  folders: Array<{ id: string; name: string }>;
 }
 
-export function ChecklistView({ workspaceId, isAdmin, onChanged }: Props) {
+export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem, folders }: Props) {
   const [loading, setLoading] = useState(true);
   const [checklist, setChecklist] = useState<{ id: string; name: string } | null>(null);
   const [items, setItems] = useState<ChecklistItemRow[]>([]);
@@ -85,14 +75,19 @@ export function ChecklistView({ workspaceId, isAdmin, onChanged }: Props) {
     return <div className="p-8 text-text-muted text-sm">No checklist yet.</div>;
   }
 
-  // Table — implemented in Task 24. For now, render a compact stub showing item count
-  // so the view is visibly populated after import. Task 24 replaces this with the real table.
   return (
-    <div className="p-8">
-      <h2 className="text-lg font-semibold text-text-primary mb-4">{checklist.name}</h2>
-      <p className="text-sm text-text-muted">
-        {items.length} item{items.length === 1 ? '' : 's'} — table view coming in next task.
-      </p>
+    <div>
+      <div className="px-8 pt-6 pb-2">
+        <h2 className="text-lg font-semibold text-text-primary">{checklist.name}</h2>
+      </div>
+      <ChecklistTable
+        workspaceId={workspaceId}
+        items={items}
+        isAdmin={isAdmin}
+        onChanged={() => { refresh(); onChanged?.(); }}
+        onUploadForItem={(item) => onUploadForItem(item.folderId, item.id, item.name)}
+        folders={folders}
+      />
     </div>
   );
 }

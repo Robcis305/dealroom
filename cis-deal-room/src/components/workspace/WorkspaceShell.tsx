@@ -70,6 +70,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   const [participantsRefresh, setParticipantsRefresh] = useState(0);
   const [hasChecklist, setHasChecklist] = useState(false);
   const [openChecklistCount, setOpenChecklistCount] = useState(0);
+  const [checklistItems, setChecklistItems] = useState<Array<{ id: string; name: string; folderId: string }>>([]);
+  const [uploadItemHint, setUploadItemHint] = useState<string | null>(null);
 
   // Derived for backward-compat with UploadModal's initialFolderId
   const selectedFolderId = view.kind === 'folder' ? view.folderId : null;
@@ -84,6 +86,13 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
         (i) => i.status === 'not_started' || i.status === 'in_progress'
       ).length;
       setOpenChecklistCount(open);
+      setChecklistItems(
+        (data.items as { id: string; name: string; folderId: string }[]).map((i) => ({
+          id: i.id,
+          name: i.name,
+          folderId: i.folderId,
+        })),
+      );
     } catch {
       // silently ignore — sidebar just won't show checklist meta
     }
@@ -100,6 +109,12 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
       const current = prev[folderId] ?? 0;
       return { ...prev, [folderId]: Math.max(0, current + delta) };
     });
+  }
+
+  function handleUploadForItem(folderId: string, itemId: string, _itemName: string) {
+    setUploadItemHint(itemId);
+    setView({ kind: 'folder', folderId });
+    setShowUploadModal(true);
   }
 
   async function handleStatusChange(newStatus: WorkspaceStatus) {
@@ -259,6 +274,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               workspaceId={workspace.id}
               isAdmin={isAdmin}
               onChanged={refreshChecklistMeta}
+              onUploadForItem={handleUploadForItem}
+              folders={folders}
             />
           ) : (
             <FileList
@@ -289,15 +306,21 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
 
       <UploadModal
         open={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
+        onClose={() => {
+          setShowUploadModal(false);
+          setUploadItemHint(null);
+        }}
         folders={folders}
         initialFolderId={selectedFolderId ?? undefined}
         workspaceId={workspace.id}
         onUploadComplete={() => {
           setShowUploadModal(false);
+          setUploadItemHint(null);
           setUploadRevision((n) => n + 1);
         }}
         onFolderCountChange={handleFolderCountChange}
+        initialChecklistItemId={uploadItemHint}
+        checklistItems={checklistItems}
       />
 
       {showInviteParticipant && (
