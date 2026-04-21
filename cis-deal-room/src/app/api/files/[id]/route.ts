@@ -16,15 +16,26 @@ export async function DELETE(
   const file = await getFileById(fileId);
   if (!file) return Response.json({ error: 'File not found' }, { status: 404 });
 
-  // Delete from S3 if bucket is configured
+  // DB delete first — if this throws FILE_LOCKED_BY_CHECKLIST we abort before
+  // touching S3 (keeps storage consistent with DB).
+  try {
+    await deleteFile(fileId);
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('FILE_LOCKED_BY_CHECKLIST:')) {
+      return Response.json(
+        { error: e.message.slice('FILE_LOCKED_BY_CHECKLIST: '.length) },
+        { status: 409 },
+      );
+    }
+    throw e;
+  }
+
+  // Delete from S3 after DB commit
   if (S3_BUCKET) {
     await getS3Client().send(
       new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: file.s3Key })
     );
   }
-
-  // Delete DB row + log activity (deleteFile DAL handles both)
-  await deleteFile(fileId);
 
   return new Response(null, { status: 204 });
 }

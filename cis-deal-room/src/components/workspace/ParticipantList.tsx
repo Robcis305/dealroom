@@ -29,6 +29,7 @@ interface ParticipantRow {
   activatedAt: string | Date | null;
   folderIds: string[];
   lastSeen: string | Date | null;
+  viewOnlyShadowSide: 'buyer' | 'seller' | null;
 }
 
 interface ParticipantListProps {
@@ -208,6 +209,7 @@ export function ParticipantList({
             email: editing.email,
             role: editing.role,
             folderIds: editing.folderIds,
+            viewOnlyShadowSide: editing.viewOnlyShadowSide,
           }}
         />
       )}

@@ -27,10 +27,12 @@ export type ParticipantRole =
   | 'admin'
   | 'cis_team'
   | 'client'
-  | 'counsel'
+  | 'counsel'          // deprecated — not offered in new-invite UI
   | 'buyer_rep'
   | 'seller_rep'
-  | 'view_only';
+  | 'view_only'
+  | 'seller_counsel'
+  | 'buyer_counsel';
 
 // ─── Participant Status ───────────────────────────────────────────────────────
 
@@ -52,6 +54,32 @@ export type ActivityAction =
   | 'status_changed'
   | 'participant_updated'
   | 'notified_batch'
-  | 'previewed';
+  | 'previewed'
+  | 'checklist_imported'
+  | 'checklist_item_linked'
+  | 'checklist_item_received'
+  | 'checklist_item_waived'
+  | 'checklist_item_na'
+  | 'checklist_item_assigned';
 
 export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant';
+
+// ─── Checklist ────────────────────────────────────────────────────────────────
+
+export type ChecklistPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export type ChecklistOwner =
+  | 'seller'
+  | 'buyer'
+  | 'both'
+  | 'cis_team'
+  | 'unassigned';
+
+export type ChecklistStatus =
+  | 'not_started'
+  | 'in_progress'
+  | 'received'
+  | 'waived'
+  | 'n_a';
+
+export type ViewOnlyShadowSide = 'buyer' | 'seller';

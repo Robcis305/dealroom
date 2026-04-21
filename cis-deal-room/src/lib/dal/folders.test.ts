@@ -4,6 +4,7 @@ vi.mock('@/db/schema', () => ({
   folders: {},
   folderAccess: {},
   workspaceParticipants: {},
+  checklistItems: {},
 }));
 
 describe('getFolders()', () => {
@@ -143,7 +144,7 @@ describe('deleteFolder()', () => {
     vi.clearAllMocks();
   });
 
-  it('deletes a folder by id', async () => {
+  it('deletes a folder by id when no checklist items reference it', async () => {
     const existingFolder = { id: 'f-1', name: 'Legal', sortOrder: 1, workspaceId: 'ws-1' };
 
     vi.doMock('./index', () => ({
@@ -159,9 +160,7 @@ describe('deleteFolder()', () => {
       logActivity: vi.fn().mockResolvedValue(undefined),
     }));
 
-    const deleteMock = vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue(undefined),
-    });
+    const txDeleteWhere = vi.fn().mockResolvedValue(undefined);
 
     vi.doMock('@/db', () => ({
       db: {
@@ -172,12 +171,66 @@ describe('deleteFolder()', () => {
             }),
           }),
         }),
-        delete: deleteMock,
+        transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+          return fn({
+            select: vi.fn().mockReturnValue({
+              from: vi.fn().mockReturnValue({
+                where: vi.fn().mockResolvedValue([{ count: 0 }]),
+              }),
+            }),
+            delete: vi.fn().mockReturnValue({ where: txDeleteWhere }),
+          });
+        }),
       },
     }));
 
     const { deleteFolder } = await import('./folders');
     await deleteFolder('f-1');
-    expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(txDeleteWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws FOLDER_IN_USE when checklist items reference it', async () => {
+    const existingFolder = { id: 'f-1', name: 'Legal', sortOrder: 1, workspaceId: 'ws-1' };
+
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({
+        userId: 'admin-1',
+        isAdmin: true,
+        sessionId: 's1',
+        userEmail: 'admin@cis.com',
+      }),
+    }));
+
+    vi.doMock('./activity', () => ({
+      logActivity: vi.fn().mockResolvedValue(undefined),
+    }));
+
+    const txDeleteWhere = vi.fn().mockResolvedValue(undefined);
+
+    vi.doMock('@/db', () => ({
+      db: {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([existingFolder]),
+            }),
+          }),
+        }),
+        transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+          return fn({
+            select: vi.fn().mockReturnValue({
+              from: vi.fn().mockReturnValue({
+                where: vi.fn().mockResolvedValue([{ count: 3 }]),
+              }),
+            }),
+            delete: vi.fn().mockReturnValue({ where: txDeleteWhere }),
+          });
+        }),
+      },
+    }));
+
+    const { deleteFolder } = await import('./folders');
+    await expect(deleteFolder('f-1')).rejects.toThrow(/FOLDER_IN_USE/);
+    expect(txDeleteWhere).not.toHaveBeenCalled();
   });
 });

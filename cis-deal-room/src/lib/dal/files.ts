@@ -1,6 +1,6 @@
-import { desc, eq, and, count, inArray } from 'drizzle-orm';
+import { desc, eq, and, count, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { files, folders, users } from '@/db/schema';
+import { files, folders, users, checklistItems, checklistItemFiles } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
 
@@ -176,9 +176,46 @@ export async function createFile(input: {
 }
 
 /**
+ * For each provided fileId, returns the terminal-state checklist items
+ * blocking its deletion. Used by the delete-preflight endpoint so the UI
+ * can fail fast without waiting for the 10s soft-delete window.
+ */
+export async function getChecklistLocksForFiles(fileIds: string[]) {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (fileIds.length === 0) return [];
+
+  return db
+    .select({
+      fileId: checklistItemFiles.fileId,
+      fileName: files.name,
+      itemName: checklistItems.name,
+      status: checklistItems.status,
+    })
+    .from(checklistItemFiles)
+    .innerJoin(checklistItems, eq(checklistItems.id, checklistItemFiles.itemId))
+    .innerJoin(files, eq(files.id, checklistItemFiles.fileId))
+    .where(
+      and(
+        inArray(checklistItemFiles.fileId, fileIds),
+        inArray(checklistItems.status, ['received', 'waived', 'n_a']),
+      ),
+    );
+}
+
+/**
  * Deletes a file row by ID and logs the 'deleted' activity.
  * Fetches the file + parent folder in one join to get workspaceId for the activity log.
  * Admin-only. Does NOT delete the S3 object — the route handler does that.
+ *
+ * Checklist interactions:
+ * 1. If the file is linked to any checklist item in a terminal state
+ *    (received / waived / n_a), throw FILE_LOCKED_BY_CHECKLIST — the admin
+ *    must reset the item's status before deleting, so the explicit "accepted"
+ *    decision isn't silently undone.
+ * 2. For non-terminal items that lose their last link as a result of this
+ *    delete, revert in_progress → not_started. The DB cascade removes the
+ *    checklist_item_files row, but the status revert is app-level.
  */
 export async function deleteFile(fileId: string) {
   const session = await verifySession();
@@ -195,16 +232,70 @@ export async function deleteFile(fileId: string) {
 
   if (!row) throw new Error('File not found');
   if (!row.folder) throw new Error('Folder not found');
+  const folder = row.folder;
 
-  await db.delete(files).where(eq(files.id, fileId));
+  // (1) Block if linked to any checklist item in a terminal state
+  const lockedLinks = await db
+    .select({
+      itemName: checklistItems.name,
+      status: checklistItems.status,
+    })
+    .from(checklistItemFiles)
+    .innerJoin(checklistItems, eq(checklistItems.id, checklistItemFiles.itemId))
+    .where(
+      and(
+        eq(checklistItemFiles.fileId, fileId),
+        inArray(checklistItems.status, ['received', 'waived', 'n_a']),
+      ),
+    );
 
-  await logActivity(db, {
-    workspaceId: row.folder.workspaceId,
-    userId: session.userId,
-    action: 'deleted',
-    targetType: 'file',
-    targetId: fileId,
-    metadata: { fileName: row.file.name },
+  if (lockedLinks.length > 0) {
+    const names = lockedLinks.map((l) => `"${l.itemName}"`).join(', ');
+    throw new Error(
+      `FILE_LOCKED_BY_CHECKLIST: linked to ${names}. Reset the checklist item's status before deleting this file.`,
+    );
+  }
+
+  // (2) Collect non-terminal items linked to this file so we can revert their
+  // status after the DB cascade wipes the link rows.
+  const affectedItems = await db
+    .select({ itemId: checklistItemFiles.itemId })
+    .from(checklistItemFiles)
+    .where(eq(checklistItemFiles.fileId, fileId));
+  const affectedItemIds = affectedItems.map((r) => r.itemId);
+
+  await db.transaction(async (tx) => {
+    await tx.delete(files).where(eq(files.id, fileId));
+
+    for (const itemId of affectedItemIds) {
+      const [{ count: linkCount }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(checklistItemFiles)
+        .where(eq(checklistItemFiles.itemId, itemId));
+
+      if (linkCount === 0) {
+        const [item] = await tx
+          .select({ status: checklistItems.status })
+          .from(checklistItems)
+          .where(eq(checklistItems.id, itemId))
+          .limit(1);
+        if (item?.status === 'in_progress') {
+          await tx
+            .update(checklistItems)
+            .set({ status: 'not_started', updatedAt: new Date() })
+            .where(eq(checklistItems.id, itemId));
+        }
+      }
+    }
+
+    await logActivity(tx, {
+      workspaceId: folder.workspaceId,
+      userId: session.userId,
+      action: 'deleted',
+      targetType: 'file',
+      targetId: fileId,
+      metadata: { fileName: row.file.name },
+    });
   });
 
   return row.file;

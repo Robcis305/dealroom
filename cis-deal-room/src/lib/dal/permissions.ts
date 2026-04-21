@@ -5,7 +5,9 @@ export type ParticipantRole =
   | 'counsel'
   | 'buyer_rep'
   | 'seller_rep'
-  | 'view_only';
+  | 'view_only'
+  | 'seller_counsel'
+  | 'buyer_counsel';
 
 export type FolderAction = 'upload' | 'download';
 
@@ -19,6 +21,6 @@ export type FolderAction = 'upload' | 'download';
  */
 export function canPerform(role: ParticipantRole, action: FolderAction): boolean {
   if (role === 'view_only') return action === 'download';
-  // admin, cis_team, client, counsel, buyer_rep, seller_rep
+  // admin, cis_team, client, counsel, buyer_rep, seller_rep, seller_counsel, buyer_counsel
   return true;
 }

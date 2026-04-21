@@ -12,8 +12,11 @@ const patchSchema = z.object({
     'buyer_rep',
     'seller_rep',
     'view_only',
+    'seller_counsel',
+    'buyer_counsel',
   ]),
   folderIds: z.array(z.string().uuid()).default([]),
+  viewOnlyShadowSide: z.enum(['buyer', 'seller']).nullable().optional(),
 });
 
 export async function PATCH(
@@ -47,7 +50,11 @@ export async function PATCH(
   }
 
   try {
-    await updateParticipant(pid, { role: parsed.role, folderIds: parsed.folderIds });
+    await updateParticipant(pid, {
+      role: parsed.role,
+      folderIds: parsed.folderIds,
+      viewOnlyShadowSide: parsed.viewOnlyShadowSide ?? null,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Update failed';
     if (message === 'Participant not found') {

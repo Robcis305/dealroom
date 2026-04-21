@@ -84,6 +84,12 @@ export async function DELETE(
     const m = err instanceof Error ? err.message : 'Internal error';
     if (m === 'Admin required') return Response.json({ error: m }, { status: 403 });
     if (m === 'Folder not found') return Response.json({ error: m }, { status: 404 });
+    if (err instanceof Error && err.message.startsWith('FOLDER_IN_USE:')) {
+      return Response.json(
+        { error: 'Folder has checklist items. Reassign or delete them first.' },
+        { status: 409 },
+      );
+    }
     return Response.json({ error: m }, { status: 500 });
   }
 }

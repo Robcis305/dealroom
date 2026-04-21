@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil, ClipboardList, Combine } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { FolderMergeModal } from './FolderMergeModal';
 
 interface FolderItem {
   id: string;
@@ -14,29 +15,44 @@ interface FolderItem {
   updatedAt: Date | string;
 }
 
+export type CenterView =
+  | { kind: 'overview' }
+  | { kind: 'folder'; folderId: string }
+  | { kind: 'checklist' };
+
 interface FolderSidebarProps {
   folders: FolderItem[];
   workspaceId: string;
-  selectedFolderId: string | null;
-  onFolderSelect: (folderId: string | null) => void;
+  selected: CenterView;
+  onSelect: (view: CenterView) => void;
   onFoldersChange: (folders: FolderItem[]) => void;
   isAdmin: boolean;
+  hasChecklist: boolean;
+  openChecklistCount: number;
   /** folderId → number of files (server-rendered at page load; may be stale after uploads) */
   fileCounts?: Record<string, number>;
+  /** Called after a structural folder change (e.g., merge) so the shell can refetch checklist items + file counts */
+  onStructureChanged?: () => void;
 }
 
 export function FolderSidebar({
   folders,
   workspaceId,
-  selectedFolderId,
-  onFolderSelect,
+  selected,
+  onSelect,
   onFoldersChange,
   isAdmin,
+  hasChecklist,
+  openChecklistCount,
   fileCounts,
+  onStructureChanged,
 }: FolderSidebarProps) {
+  // Derived for backward-compat with internal delete logic
+  const selectedFolderId = selected.kind === 'folder' ? selected.folderId : null;
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [mergeSourceId, setMergeSourceId] = useState<string | null>(null);
   const [addingFolder, setAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -104,7 +120,7 @@ export function FolderSidebar({
     // Optimistic remove
     onFoldersChange(folders.filter((f) => f.id !== folderId));
     if (selectedFolderId === folderId) {
-      onFolderSelect(null);
+      onSelect({ kind: 'overview' });
     }
 
     try {
@@ -153,10 +169,10 @@ export function FolderSidebar({
         {/* Deal overview entry */}
         <div className="mx-1 mb-1">
           <button
-            onClick={() => onFolderSelect(null)}
+            onClick={() => onSelect({ kind: 'overview' })}
             className={clsx(
               'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
-              selectedFolderId === null
+              selected.kind === 'overview'
                 ? 'bg-accent-subtle text-accent-on-subtle'
                 : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
             )}
@@ -165,6 +181,31 @@ export function FolderSidebar({
             Deal overview
           </button>
         </div>
+
+        {/* Checklist pinned entry */}
+        {(hasChecklist || isAdmin) && (
+          <div className="mx-1 mb-1">
+            <button
+              onClick={() => onSelect({ kind: 'checklist' })}
+              className={clsx(
+                'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm transition-colors',
+                selected.kind === 'checklist'
+                  ? 'bg-accent-subtle text-accent-on-subtle'
+                  : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <ClipboardList size={14} />
+                Checklist
+              </span>
+              {openChecklistCount > 0 && (
+                <span className="text-xs font-mono text-text-muted">
+                  {openChecklistCount} open
+                </span>
+              )}
+            </button>
+          </div>
+        )}
 
         {folders.map((folder) => {
           const isSelected = folder.id === selectedFolderId;
@@ -210,7 +251,7 @@ export function FolderSidebar({
                 <button
                   className="flex-1 min-w-0 text-left text-sm truncate cursor-pointer
                     focus:outline-none"
-                  onClick={() => onFolderSelect(isSelected ? null : folder.id)}
+                  onClick={() => onSelect(isSelected ? { kind: 'overview' } : { kind: 'folder', folderId: folder.id })}
                 >
                   {folder.name}
                 </button>
@@ -240,6 +281,22 @@ export function FolderSidebar({
                     title="Rename folder"
                   >
                     <Pencil size={14} aria-hidden="true" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMergeSourceId(folder.id);
+                    }}
+                    className="p-1.5 text-text-muted hover:text-text-primary rounded
+                      transition-colors cursor-pointer
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
+                      focus-visible:ring-offset-1 focus-visible:ring-offset-surface
+                      disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label={`Merge ${folder.name} into another folder`}
+                    title="Merge into another folder"
+                    disabled={folders.length <= 1}
+                  >
+                    <Combine size={14} aria-hidden="true" />
                   </button>
                   <button
                     onClick={(e) => {
@@ -302,6 +359,29 @@ export function FolderSidebar({
           </button>
         </div>
       )}
+
+      {mergeSourceId && (() => {
+        const source = folders.find((f) => f.id === mergeSourceId);
+        if (!source) return null;
+        const targets = folders.filter((f) => f.id !== mergeSourceId);
+        return (
+          <FolderMergeModal
+            workspaceId={workspaceId}
+            source={{ id: source.id, name: source.name }}
+            targets={targets.map((t) => ({ id: t.id, name: t.name }))}
+            onClose={() => setMergeSourceId(null)}
+            onMerged={() => {
+              const remaining = folders.filter((f) => f.id !== mergeSourceId);
+              onFoldersChange(remaining);
+              if (selectedFolderId === mergeSourceId) {
+                onSelect({ kind: 'overview' });
+              }
+              setMergeSourceId(null);
+              onStructureChanged?.();
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
