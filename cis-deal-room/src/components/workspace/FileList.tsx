@@ -43,6 +43,8 @@ interface FileListProps {
   uploadRevision?: number;
   /** All folders in the workspace — used by the Move-to-folder action */
   folders: FolderRef[];
+  /** Called on delete (negative delta) and restore (positive delta) to keep sidebar counts live */
+  onFolderCountChange?: (folderId: string, delta: number) => void;
 }
 
 function mimeToIcon(mimeType: string) {
@@ -60,7 +62,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload, uploadRevision = 0, folders }: FileListProps) {
+export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload, uploadRevision = 0, folders, onFolderCountChange }: FileListProps) {
   const [files, setFiles] = useState<FileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -136,6 +138,7 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
     // Optimistic removal
     setFiles((prev) => prev.filter((f) => !ids.includes(f.id)));
     clearSelection();
+    onFolderCountChange?.(folderId, -toDelete.length);
 
     const batchId = `files-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const label = toDelete.length === 1
@@ -153,6 +156,7 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
         });
+        onFolderCountChange?.(folderId, toDelete.length);
       },
       performDelete: async () => {
         const results = await Promise.all(
