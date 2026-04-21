@@ -5,6 +5,8 @@ import { folders, checklistItems } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { getChecklistForWorkspace, createChecklist } from '@/lib/dal/checklist';
+import { enqueueChecklistAssignedNotifications } from '@/lib/notifications/enqueue-checklist-assigned';
+import type { ChecklistOwner } from '@/types';
 
 const rowSchema = z.object({
   sortOrder: z.number().int(),
@@ -87,7 +89,25 @@ export async function POST(
     notes: r.notes,
     requestedAt: r.requestedAt ? new Date(r.requestedAt) : new Date(),
   }));
-  await db.insert(checklistItems).values(values);
+  const insertedRows = await db.insert(checklistItems).values(values).returning({
+    id: checklistItems.id,
+    name: checklistItems.name,
+    owner: checklistItems.owner,
+  });
+
+  // Enqueue notifications for rows with concrete owner
+  await Promise.all(
+    insertedRows
+      .filter((r) => r.owner !== 'unassigned')
+      .map((r) =>
+        enqueueChecklistAssignedNotifications({
+          workspaceId,
+          itemId: r.id,
+          itemName: r.name,
+          newOwner: r.owner as Exclude<ChecklistOwner, 'unassigned'>,
+        }),
+      ),
+  );
 
   return Response.json({ checklistId: checklist.id, itemCount: values.length });
 }

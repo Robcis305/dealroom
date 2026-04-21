@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { updateItem, deleteItem } from '@/lib/dal/checklist';
+import { enqueueChecklistAssignedNotifications } from '@/lib/notifications/enqueue-checklist-assigned';
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -30,10 +31,14 @@ export async function PATCH(
 
   const result = await updateItem(itemId, parsed.data);
 
-  // TODO(Task 28): When owner transitions from unassigned → a concrete side,
-  // call enqueueChecklistAssignedNotifications({ workspaceId, itemId,
-  //   itemName: result.updated.name, newOwner: result.newlyAssignedOwner })
-  // The helper is built in Task 28 and doesn't exist yet.
+  if (result.newlyAssignedOwner) {
+    await enqueueChecklistAssignedNotifications({
+      workspaceId,
+      itemId,
+      itemName: result.updated.name,
+      newOwner: result.newlyAssignedOwner,
+    });
+  }
 
   return Response.json(result.updated);
 }
