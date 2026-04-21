@@ -66,7 +66,7 @@ export function PdfPreview({ url }: { url: string }) {
   const { Document, Page } = Components;
 
   return (
-    <div ref={containerRef} className="w-full h-full overflow-auto bg-neutral-900">
+    <div ref={containerRef} className="w-full h-full overflow-auto bg-surface">
       <div className="flex flex-col items-center gap-2 py-4">
         <Document
           file={url}

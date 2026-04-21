@@ -57,7 +57,7 @@ describe('ParticipantList', () => {
     expect(screen.getByText('Seller Rep')).toBeInTheDocument();
   });
 
-  it('hides Edit/Remove buttons for non-admin', async () => {
+  it('hides Edit/Revoke buttons for non-admin', async () => {
     render(
       <ParticipantList
         workspaceId={WORKSPACE_ID}
@@ -69,10 +69,10 @@ describe('ParticipantList', () => {
     );
     await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /remove/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /revoke/i })).not.toBeInTheDocument();
   });
 
-  it('shows Edit/Remove buttons for admin', async () => {
+  it('shows Edit/Revoke buttons for admin', async () => {
     render(
       <ParticipantList
         workspaceId={WORKSPACE_ID}
@@ -84,11 +84,10 @@ describe('ParticipantList', () => {
     );
     await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());
     expect(screen.getAllByRole('button', { name: /edit/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: /remove/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /revoke access/i }).length).toBeGreaterThan(0);
   });
 
-  it('calls DELETE when Remove is clicked and confirmed', async () => {
-    const confirmSpy = vi.spyOn(global, 'confirm').mockReturnValue(true);
+  it('calls DELETE after typed-email confirmation when Revoke is clicked', async () => {
     render(
       <ParticipantList
         workspaceId={WORKSPACE_ID}
@@ -99,14 +98,22 @@ describe('ParticipantList', () => {
       />
     );
     await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());
-    const removeButtons = screen.getAllByRole('button', { name: /remove/i });
-    fireEvent.click(removeButtons[0]);
+
+    // Open the revoke confirmation modal for client@x.com
+    fireEvent.click(screen.getByRole('button', { name: /revoke access for client@x\.com/i }));
+
+    // Typed-email gate must be satisfied before the confirm button enables
+    const emailInput = await screen.findByPlaceholderText('client@x.com');
+    fireEvent.change(emailInput, { target: { value: 'client@x.com' } });
+
+    // Click the destructive confirm button inside the modal
+    fireEvent.click(screen.getByRole('button', { name: /^revoke access$/i }));
+
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining(`/participants/p1`),
         expect.objectContaining({ method: 'DELETE' })
       )
     );
-    confirmSpy.mockRestore();
   });
 });

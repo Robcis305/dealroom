@@ -23,7 +23,7 @@ export default async function CompleteProfilePage() {
   return (
     <main className="min-h-screen bg-bg flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        <Logo size="md" className="mx-auto mb-8" />
+        <Logo size="md" className="mx-auto mb-8" inverse />
         <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
           <h1 className="text-lg font-semibold text-text-primary mb-1">Complete your profile</h1>
           <p className="text-sm text-text-muted mb-6">

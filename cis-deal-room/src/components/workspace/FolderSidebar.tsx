@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Folder, FolderOpen, Plus, Trash2, LayoutGrid } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
@@ -154,11 +154,11 @@ export function FolderSidebar({
             className={clsx(
               'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
               selectedFolderId === null
-                ? 'bg-accent-subtle text-accent'
+                ? 'bg-accent-subtle text-accent-on-subtle'
                 : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
             )}
           >
-            <LayoutGrid size={15} />
+            <LayoutGrid size={14} />
             Deal overview
           </button>
         </div>
@@ -174,7 +174,7 @@ export function FolderSidebar({
               className={clsx(
                 'group flex items-center gap-2 px-3 py-2 mx-1 rounded-lg transition-colors duration-100',
                 isSelected
-                  ? 'bg-accent-subtle text-accent'
+                  ? 'bg-accent-subtle text-accent-on-subtle'
                   : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary',
                 isDeleting && 'opacity-40'
               )}
@@ -182,9 +182,9 @@ export function FolderSidebar({
               {/* Folder icon */}
               <span className="shrink-0">
                 {isSelected ? (
-                  <FolderOpen size={15} />
+                  <FolderOpen size={14} />
                 ) : (
-                  <Folder size={15} />
+                  <Folder size={14} />
                 )}
               </span>
 
@@ -208,55 +208,44 @@ export function FolderSidebar({
                   className="flex-1 min-w-0 text-left text-sm truncate cursor-pointer
                     focus:outline-none"
                   onClick={() => onFolderSelect(isSelected ? null : folder.id)}
-                  onDoubleClick={() => isAdmin && startRename(folder)}
                 >
                   {folder.name}
                 </button>
               )}
 
-              {/* Admin actions (shown on hover) */}
+              {/* Admin actions — always visible, brighter on hover/focus */}
               {isAdmin && !isRenaming && (
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100
-                  transition-opacity duration-100 shrink-0">
+                <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100
+                  group-focus-within:opacity-100 transition-opacity duration-100 shrink-0">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       startRename(folder);
                     }}
-                    className="p-1 text-text-muted hover:text-text-primary rounded transition-colors
-                      focus:outline-none cursor-pointer"
+                    className="p-1.5 text-text-muted hover:text-text-primary rounded
+                      transition-colors cursor-pointer
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
+                      focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
                     aria-label={`Rename ${folder.name}`}
                     title="Rename folder"
                   >
-                    {/* Pencil represented by reusing FolderOpen or a text label is not ideal;
-                        use the Pencil icon from lucide */}
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                      <path d="m15 5 4 4" />
-                    </svg>
+                    <Pencil size={14} aria-hidden="true" />
                   </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDelete(folder.id);
                     }}
-                    className="p-1 text-text-muted hover:text-accent rounded
-                      transition-colors focus:outline-none cursor-pointer"
+                    className="p-1.5 text-text-muted hover:text-accent rounded
+                      transition-colors cursor-pointer
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
+                      focus-visible:ring-offset-1 focus-visible:ring-offset-surface
+                      disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label={`Delete ${folder.name}`}
                     title="Delete folder"
                     disabled={isDeleting}
                   >
-                    <Trash2 size={12} />
+                    <Trash2 size={14} aria-hidden="true" />
                   </button>
                 </div>
               )}
@@ -267,7 +256,7 @@ export function FolderSidebar({
         {/* Add folder inline input */}
         {addingFolder && (
           <div className="flex items-center gap-2 px-3 py-2 mx-1">
-            <Folder size={15} className="text-text-muted shrink-0" />
+            <Folder size={14} className="text-text-muted shrink-0" />
             <input
               ref={addInputRef}
               value={newFolderName}

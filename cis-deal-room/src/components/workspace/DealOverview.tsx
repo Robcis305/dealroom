@@ -83,7 +83,7 @@ export function DealOverview({ workspace, status, folders, fileCounts, onFolderS
                 aria-label={`Open ${folder.name} folder`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Folder size={15} className="text-text-muted shrink-0" />
+                  <Folder size={14} className="text-text-muted shrink-0" />
                   <span className="text-sm text-text-secondary truncate">{folder.name}</span>
                 </div>
                 <span className="text-xs font-mono text-text-muted shrink-0 ml-2">{fileCount}</span>

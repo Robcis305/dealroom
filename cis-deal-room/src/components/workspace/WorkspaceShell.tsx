@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ArrowLeft } from 'lucide-react';
-import { toast } from 'sonner';
+import { ChevronDown, ArrowLeft, Upload } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
@@ -14,6 +13,7 @@ import { DealOverview } from './DealOverview';
 import { RightPanel } from './RightPanel';
 import { FileList } from './FileList';
 import { UploadModal } from './UploadModal';
+import { ParticipantFormModal } from './ParticipantFormModal';
 import type { WorkspaceStatus } from '@/types';
 
 interface Workspace {
@@ -62,6 +62,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
   const [folders, setFolders] = useState(initialFolders);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadRevision, setUploadRevision] = useState(0);
+  const [showInviteParticipant, setShowInviteParticipant] = useState(false);
+  const [participantsRefresh, setParticipantsRefresh] = useState(0);
 
   async function handleStatusChange(newStatus: WorkspaceStatus) {
     const previous = status;
@@ -95,7 +97,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
           aria-label="Back to deal rooms"
         >
           <ArrowLeft size={16} />
-          <Logo size="sm" />
+          <Logo size="sm" inverse />
         </Link>
 
         {/* Deal name */}
@@ -141,7 +143,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
                         duration-100 cursor-pointer
                         ${
                           status === opt.value
-                            ? 'text-accent bg-accent-subtle'
+                            ? 'text-accent-on-subtle bg-accent-subtle'
                             : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
                         }`}
                     >
@@ -156,6 +158,22 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
           <Badge status={status} />
         )}
 
+        {/* Upload — persistent primary action */}
+        <button
+          type="button"
+          onClick={() => setShowUploadModal(true)}
+          disabled={folders.length === 0}
+          className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-text-inverse
+            text-sm font-medium px-3 py-1.5 rounded-lg transition-colors cursor-pointer
+            focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface
+            disabled:opacity-40 disabled:cursor-not-allowed"
+          aria-label="Upload files"
+          title={folders.length === 0 ? 'Create a folder first' : 'Upload files'}
+        >
+          <Upload size={14} aria-hidden="true" />
+          <span className="hidden sm:inline">Upload</span>
+        </button>
+
         {/* User avatar menu — far right */}
         <UserMenu userEmail={userEmail} />
       </header>
@@ -165,9 +183,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
           variant="warning"
           action={{
             label: 'Invite Client',
-            onClick: () => {
-              toast.info('Click Participants tab → Invite Participant → select Client');
-            },
+            onClick: () => setShowInviteParticipant(true),
           }}
         >
           No active Client participant. Invite one to progress the deal.
@@ -206,6 +222,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
               isAdmin={isAdmin}
               onUpload={() => setShowUploadModal(true)}
               uploadRevision={uploadRevision}
+              folders={folders}
             />
           )}
         </main>
@@ -217,7 +234,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
                 cisAdvisorySide={workspace.cisAdvisorySide}
                 folders={folders}
                 isAdmin={isAdmin}
-                participantsRefreshToken={0}
+                participantsRefreshToken={participantsRefresh}
               />
         </div>
       </div>
@@ -233,6 +250,21 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
           setUploadRevision((n) => n + 1);
         }}
       />
+
+      {showInviteParticipant && (
+        <ParticipantFormModal
+          mode="invite"
+          open={showInviteParticipant}
+          onClose={() => setShowInviteParticipant(false)}
+          onSuccess={() => {
+            setParticipantsRefresh((n) => n + 1);
+            setShowInviteParticipant(false);
+          }}
+          workspaceId={workspace.id}
+          cisAdvisorySide={workspace.cisAdvisorySide}
+          folders={folders}
+        />
+      )}
     </div>
   );
 }

@@ -41,14 +41,14 @@ describe('FileList preview icon', () => {
 
   it('renders a preview icon button on rows with supported MIME types', async () => {
     mockFilesResponse([previewableRow]);
-    render(<FileList workspaceId="w1" folderId="fd1" folderName="F" isAdmin={false} onUpload={() => {}} />);
+    render(<FileList workspaceId="w1" folderId="fd1" folderName="F" isAdmin={false} onUpload={() => {}} folders={[{ id: 'fd1', name: 'F' }]} />);
     await screen.findByText(previewableRow.name);
     expect(screen.getByRole('button', { name: /preview/i })).toBeInTheDocument();
   });
 
   it('does not render the preview icon on unsupported MIME types', async () => {
     mockFilesResponse([unsupportedRow]);
-    render(<FileList workspaceId="w1" folderId="fd1" folderName="F" isAdmin={false} onUpload={() => {}} />);
+    render(<FileList workspaceId="w1" folderId="fd1" folderName="F" isAdmin={false} onUpload={() => {}} folders={[{ id: 'fd1', name: 'F' }]} />);
     await screen.findByText(unsupportedRow.name);
     expect(screen.queryByRole('button', { name: /preview/i })).toBeNull();
   });
@@ -56,14 +56,14 @@ describe('FileList preview icon', () => {
   it('hides the preview icon below 1024px viewports', async () => {
     Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 900 });
     mockFilesResponse([previewableRow]);
-    render(<FileList workspaceId="w1" folderId="fd1" folderName="F" isAdmin={false} onUpload={() => {}} />);
+    render(<FileList workspaceId="w1" folderId="fd1" folderName="F" isAdmin={false} onUpload={() => {}} folders={[{ id: 'fd1', name: 'F' }]} />);
     await screen.findByText(previewableRow.name);
     expect(screen.queryByRole('button', { name: /preview/i })).toBeNull();
   });
 
   it('opens the preview modal when the eye icon is clicked', async () => {
     mockFilesResponse([previewableRow]);
-    render(<FileList workspaceId="w1" folderId="fd1" folderName="F" isAdmin={false} onUpload={() => {}} />);
+    render(<FileList workspaceId="w1" folderId="fd1" folderName="F" isAdmin={false} onUpload={() => {}} folders={[{ id: 'fd1', name: 'F' }]} />);
     await screen.findByText(previewableRow.name);
     fireEvent.click(screen.getByRole('button', { name: /preview/i }));
     await waitFor(() => {
