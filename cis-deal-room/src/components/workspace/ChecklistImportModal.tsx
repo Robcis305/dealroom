@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { ChecklistPriority, ChecklistOwner } from '@/types';
+import type { FolderMatchKind } from '@/lib/checklist/folder-match';
 
 interface Props {
   workspaceId: string;
@@ -23,13 +24,27 @@ interface ParsedRow {
   requestedAt: string | null;
 }
 
+interface FolderResolution {
+  category: string;
+  matchedFolderId: string | null;
+  matchedFolderName: string | null;
+  matchKind: FolderMatchKind;
+}
+
 interface PreviewPayload {
   valid: ParsedRow[];
   rejected: Array<{ rowNumber: number; reason: string }>;
+  folderResolution: FolderResolution[];
+  existingFolders: Array<{ id: string; name: string }>;
 }
+
+/** Sentinel for the "create new folder" dropdown choice. */
+const CREATE_NEW = '__create_new__';
 
 export function ChecklistImportModal({ workspaceId, onClose, onImported }: Props) {
   const [preview, setPreview] = useState<PreviewPayload | null>(null);
+  // category → folderId (existing) | CREATE_NEW
+  const [mapping, setMapping] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   const onDrop = async (accepted: File[]) => {
@@ -45,7 +60,15 @@ export function ChecklistImportModal({ workspaceId, onClose, onImported }: Props
       toast.error('Failed to parse file');
       return;
     }
-    setPreview(await res.json());
+    const data: PreviewPayload = await res.json();
+    setPreview(data);
+
+    // Seed mapping with auto-resolved defaults.
+    const seeded: Record<string, string> = {};
+    for (const r of data.folderResolution) {
+      seeded[r.category] = r.matchedFolderId ?? CREATE_NEW;
+    }
+    setMapping(seeded);
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -54,20 +77,37 @@ export function ChecklistImportModal({ workspaceId, onClose, onImported }: Props
     maxFiles: 1,
   });
 
+  // Split for display: auto-matched (exact or fuzzy) vs unmapped.
+  const autoMatched = useMemo(
+    () => preview?.folderResolution.filter((r) => r.matchKind !== 'none') ?? [],
+    [preview],
+  );
+  const unmapped = useMemo(
+    () => preview?.folderResolution.filter((r) => r.matchKind === 'none') ?? [],
+    [preview],
+  );
+
   async function handleConfirm() {
     if (!preview) return;
     setSubmitting(true);
+
+    // Pass the final user-confirmed mapping to the server. Each entry is either
+    // an existing folder UUID (map) or null (create a new folder for this
+    // category). This lets the admin's choice override fuzzy auto-matches too.
+    const folderMapping: Record<string, string | null> = {};
+    for (const r of preview.folderResolution) {
+      const chosen = mapping[r.category];
+      folderMapping[r.category] = chosen === CREATE_NEW ? null : chosen;
+    }
+
     const res = await fetchWithAuth(
       `/api/workspaces/${workspaceId}/checklist/import`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rows: preview.valid.map((r) => ({
-            ...r,
-            // zod schema on server expects ISO datetime string or null — ParsedRow.requestedAt is already string|null from API
-            requestedAt: r.requestedAt,
-          })),
+          rows: preview.valid.map((r) => ({ ...r, requestedAt: r.requestedAt })),
+          folderMapping,
         }),
       },
     );
@@ -84,7 +124,7 @@ export function ChecklistImportModal({ workspaceId, onClose, onImported }: Props
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-surface border border-border rounded-xl max-w-2xl w-full p-6 max-h-[80vh] overflow-y-auto">
+      <div className="bg-surface border border-border rounded-xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto">
         <h2 className="text-lg font-semibold text-text-primary mb-4">Import checklist</h2>
 
         {!preview ? (
@@ -120,6 +160,84 @@ export function ChecklistImportModal({ workspaceId, onClose, onImported }: Props
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {preview.folderResolution.length > 0 && (
+              <div className="border border-border rounded-lg p-3">
+                <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
+                  Folder mapping
+                </p>
+
+                {unmapped.length > 0 && (
+                  <>
+                    <p className="text-xs text-text-secondary mb-2">
+                      New categor{unmapped.length === 1 ? 'y' : 'ies'} — map to an existing folder, or create new.
+                    </p>
+                    <div className="space-y-2 mb-3">
+                      {unmapped.map((r) => (
+                        <div key={r.category} className="flex items-center gap-2">
+                          <span className="text-sm text-text-primary flex-1 min-w-0 truncate">
+                            {r.category}
+                          </span>
+                          <span className="text-xs text-text-muted">→</span>
+                          <select
+                            value={mapping[r.category] ?? CREATE_NEW}
+                            onChange={(e) =>
+                              setMapping((prev) => ({ ...prev, [r.category]: e.target.value }))
+                            }
+                            className="bg-surface-sunken border border-border rounded-md px-2 py-1 text-xs text-text-primary"
+                          >
+                            <option value={CREATE_NEW}>Create new &ldquo;{r.category}&rdquo;</option>
+                            {preview.existingFolders.map((f) => (
+                              <option key={f.id} value={f.id}>
+                                Map to &ldquo;{f.name}&rdquo;
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {autoMatched.length > 0 && (
+                  <details className="text-xs text-text-secondary">
+                    <summary className="cursor-pointer text-text-muted hover:text-text-primary">
+                      {autoMatched.length} categor{autoMatched.length === 1 ? 'y' : 'ies'}{' '}
+                      auto-matched to existing folders (click to review or override)
+                    </summary>
+                    <div className="mt-2 space-y-1">
+                      {autoMatched.map((r) => (
+                        <div key={r.category} className="flex items-center gap-2">
+                          <span className="text-text-primary flex-1 min-w-0 truncate">
+                            {r.category}
+                          </span>
+                          <span className="text-text-muted">→</span>
+                          <select
+                            value={mapping[r.category] ?? r.matchedFolderId ?? CREATE_NEW}
+                            onChange={(e) =>
+                              setMapping((prev) => ({ ...prev, [r.category]: e.target.value }))
+                            }
+                            className="bg-surface-sunken border border-border rounded-md px-2 py-1 text-text-primary"
+                          >
+                            {preview.existingFolders.map((f) => (
+                              <option key={f.id} value={f.id}>
+                                {f.name}
+                                {f.id === r.matchedFolderId
+                                  ? r.matchKind === 'exact'
+                                    ? ' (exact)'
+                                    : ' (fuzzy match)'
+                                  : ''}
+                              </option>
+                            ))}
+                            <option value={CREATE_NEW}>Create new &ldquo;{r.category}&rdquo;</option>
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
             )}
 

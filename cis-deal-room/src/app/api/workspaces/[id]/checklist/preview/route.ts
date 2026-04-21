@@ -1,6 +1,10 @@
+import { eq, asc } from 'drizzle-orm';
+import { db } from '@/db';
+import { folders } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { parseChecklistXlsx } from '@/lib/checklist/parse-xlsx';
+import { resolveFolderMatches } from '@/lib/checklist/folder-match';
 
 export async function POST(
   request: Request,
@@ -27,6 +31,22 @@ export async function POST(
   }
 
   const buf = await file.arrayBuffer();
-  const result = parseChecklistXlsx(buf);
-  return Response.json(result);
+  const parse = parseChecklistXlsx(buf);
+
+  // Resolve each distinct category against existing folders so the admin can
+  // review + override the mapping before committing the import.
+  const categories = Array.from(new Set(parse.valid.map((r) => r.category)));
+  const existingFolders = await db
+    .select({ id: folders.id, name: folders.name })
+    .from(folders)
+    .where(eq(folders.workspaceId, workspaceId))
+    .orderBy(asc(folders.sortOrder));
+
+  const folderResolution = resolveFolderMatches(categories, existingFolders);
+
+  return Response.json({
+    ...parse,
+    folderResolution,
+    existingFolders,
+  });
 }

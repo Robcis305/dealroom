@@ -6,6 +6,7 @@ import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { getChecklistForWorkspace, createChecklist } from '@/lib/dal/checklist';
 import { enqueueChecklistAssignedNotifications } from '@/lib/notifications/enqueue-checklist-assigned';
+import { resolveFolderMatches } from '@/lib/checklist/folder-match';
 import type { ChecklistOwner } from '@/types';
 
 const rowSchema = z.object({
@@ -21,6 +22,10 @@ const rowSchema = z.object({
 
 const bodySchema = z.object({
   rows: z.array(rowSchema),
+  // Optional per-category folder mapping. Values are either an existing folder
+  // UUID (map) or null (create a new folder for this category). Any category
+  // not present here falls back to resolveFolderMatches → auto-create if none.
+  folderMapping: z.record(z.string(), z.string().uuid().nullable()).optional(),
 });
 
 export async function POST(
@@ -51,33 +56,46 @@ export async function POST(
 
   const checklist = await createChecklist(workspaceId);
 
-  // Category → folderId resolution with auto-create.
-  //
-  // Match existing folders using a normalized key (case-insensitive, trimmed,
-  // trailing 's' stripped) so the common singular/plural mismatch between
-  // Excel category labels ("Financial") and default workspace folders
-  // ("Financials") doesn't create duplicates. Conservative — does NOT
-  // collapse distinct categories like "Technology" vs "Technology & IP".
-  function normalizeFolderKey(s: string): string {
-    return s.trim().toLowerCase().replace(/s$/, '');
-  }
+  // Resolve each category → folderId. The client may have explicitly chosen
+  // a mapping for some categories (folderMapping); anything unspecified falls
+  // back to resolveFolderMatches (exact → fuzzy → create-new).
   const categories = Array.from(new Set(parsed.data.rows.map((r) => r.category)));
   const allFolders = await db
     .select({ id: folders.id, name: folders.name, sortOrder: folders.sortOrder })
     .from(folders)
     .where(eq(folders.workspaceId, workspaceId));
 
-  const keyToFolder = new Map<string, { id: string; name: string; sortOrder: number }>();
-  for (const f of allFolders) {
-    const key = normalizeFolderKey(f.name);
-    if (!keyToFolder.has(key)) keyToFolder.set(key, f);
-  }
+  const autoMatches = resolveFolderMatches(
+    categories,
+    allFolders.map((f) => ({ id: f.id, name: f.name })),
+  );
+  const autoMatchByCategory = new Map(autoMatches.map((m) => [m.category, m]));
 
+  const validFolderIds = new Set(allFolders.map((f) => f.id));
   const nameToId = new Map<string, string>();
   const missing: string[] = [];
+  const userMapping = parsed.data.folderMapping ?? {};
+
   for (const category of categories) {
-    const match = keyToFolder.get(normalizeFolderKey(category));
-    if (match) nameToId.set(category, match.id);
+    const explicit = userMapping[category];
+    if (explicit === null) {
+      // Client explicitly asked to create a new folder for this category.
+      missing.push(category);
+      continue;
+    }
+    if (typeof explicit === 'string') {
+      if (!validFolderIds.has(explicit)) {
+        return Response.json(
+          { error: `Invalid folderMapping: "${category}" points to a folder that doesn't exist in this workspace` },
+          { status: 400 },
+        );
+      }
+      nameToId.set(category, explicit);
+      continue;
+    }
+    // No explicit choice — fall back to auto-match.
+    const auto = autoMatchByCategory.get(category);
+    if (auto?.matchedFolderId) nameToId.set(category, auto.matchedFolderId);
     else missing.push(category);
   }
 
