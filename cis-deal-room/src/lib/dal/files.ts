@@ -176,6 +176,34 @@ export async function createFile(input: {
 }
 
 /**
+ * For each provided fileId, returns the terminal-state checklist items
+ * blocking its deletion. Used by the delete-preflight endpoint so the UI
+ * can fail fast without waiting for the 10s soft-delete window.
+ */
+export async function getChecklistLocksForFiles(fileIds: string[]) {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (fileIds.length === 0) return [];
+
+  return db
+    .select({
+      fileId: checklistItemFiles.fileId,
+      fileName: files.name,
+      itemName: checklistItems.name,
+      status: checklistItems.status,
+    })
+    .from(checklistItemFiles)
+    .innerJoin(checklistItems, eq(checklistItems.id, checklistItemFiles.itemId))
+    .innerJoin(files, eq(files.id, checklistItemFiles.fileId))
+    .where(
+      and(
+        inArray(checklistItemFiles.fileId, fileIds),
+        inArray(checklistItems.status, ['received', 'waived', 'n_a']),
+      ),
+    );
+}
+
+/**
  * Deletes a file row by ID and logs the 'deleted' activity.
  * Fetches the file + parent folder in one join to get workspaceId for the activity log.
  * Admin-only. Does NOT delete the S3 object — the route handler does that.

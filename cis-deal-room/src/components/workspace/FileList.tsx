@@ -130,10 +130,48 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
    * Batch delete with a 10-second undo window.
    * Files are removed from the local list immediately; the server DELETE
    * fires after the undo window elapses.
+   *
+   * Before the optimistic remove, preflight against /files/check-delete: if
+   * any file is linked to a terminal-state checklist item, abort and show a
+   * prominent top-center toast so the admin fixes the checklist first.
    */
-  function performDeleteIds(ids: string[]) {
+  async function performDeleteIds(ids: string[]) {
     const toDelete = files.filter((f) => ids.includes(f.id));
     if (toDelete.length === 0) return;
+
+    try {
+      const res = await fetchWithAuth('/api/files/check-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileIds: ids }),
+      });
+      if (res.ok) {
+        const { locks } = (await res.json()) as {
+          locks: Array<{ fileId: string; fileName: string; itemName: string }>;
+        };
+        if (locks.length > 0) {
+          const byFile = new Map<string, string[]>();
+          for (const l of locks) {
+            if (!byFile.has(l.fileName)) byFile.set(l.fileName, []);
+            byFile.get(l.fileName)!.push(l.itemName);
+          }
+          const lines = Array.from(byFile.entries()).map(
+            ([name, items]) =>
+              `${name} — linked to ${items.map((i) => `"${i}"`).join(', ')}`,
+          );
+          toast.error("Can't delete — reset checklist item first", {
+            description: lines.join('\n'),
+            position: 'top-center',
+            duration: 6000,
+          });
+          return;
+        }
+      }
+    } catch {
+      // Preflight failed — fall through to the soft-delete path. The server
+      // DELETE will still enforce the lock and surface a toast via
+      // use-soft-delete's failure branch.
+    }
 
     // Optimistic removal
     setFiles((prev) => prev.filter((f) => !ids.includes(f.id)));
