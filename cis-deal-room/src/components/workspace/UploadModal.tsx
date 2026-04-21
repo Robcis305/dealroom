@@ -18,6 +18,8 @@ interface UploadModalProps {
   initialFolderId?: string;
   workspaceId: string;
   onUploadComplete: () => void;
+  /** Called after a batch upload finishes — delta is the count of successfully uploaded files */
+  onFolderCountChange?: (folderId: string, delta: number) => void;
 }
 
 const ACCEPTED_TYPES = {
@@ -70,6 +72,7 @@ export function UploadModal({
   initialFolderId,
   workspaceId,
   onUploadComplete,
+  onFolderCountChange,
 }: UploadModalProps) {
   const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId ?? folders[0]?.id ?? '');
   const [queue, setQueue] = useState<QueuedFile[]>([]);
@@ -193,12 +196,18 @@ export function UploadModal({
     setUploading(true);
 
     const succeededIds: string[] = [];
+    // A successful upload of a DUPLICATE filename creates a new version of the
+    // existing file row, not a new row — so it shouldn't bump folder count.
+    let newFileCount = 0;
     for (let i = 0; i < queue.length; i++) {
       const qf = queue[i];
       if (qf.status === 'done' || qf.status === 'error') continue;
       updateFile(i, { status: 'uploading', progress: 0 });
       const fileId = await uploadOne(qf, i, selectedFolderId);
-      if (fileId) succeededIds.push(fileId);
+      if (fileId) {
+        succeededIds.push(fileId);
+        if (qf.duplicateVersion === undefined) newFileCount++;
+      }
     }
 
     // Fire the batch-notify call once, after all uploads resolve. Failures
@@ -213,6 +222,10 @@ export function UploadModal({
       } catch (err) {
         console.warn('[UploadModal] notify-batch failed:', err);
       }
+    }
+
+    if (newFileCount > 0) {
+      onFolderCountChange?.(selectedFolderId, newFileCount);
     }
 
     setUploading(false);

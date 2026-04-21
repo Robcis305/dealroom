@@ -39,12 +39,14 @@ interface Folder {
 interface WorkspaceShellProps {
   workspace: Workspace;
   folders: Folder[];
-  /** folderId → number of files (server-rendered at page load) */
+  /** folderId → number of files (server-rendered at page load; kept live client-side) */
   fileCounts: Record<string, number>;
   isAdmin: boolean;
   activeClientCount: number;
   userEmail: string;
 }
+
+type FileCounts = Record<string, number>;
 
 const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'engagement', label: 'Engagement' },
@@ -55,15 +57,25 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts, isAdmin, activeClientCount, userEmail }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, activeClientCount, userEmail }: WorkspaceShellProps) {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [folders, setFolders] = useState(initialFolders);
+  const [fileCounts, setFileCounts] = useState<FileCounts>(initialFileCounts);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadRevision, setUploadRevision] = useState(0);
   const [showInviteParticipant, setShowInviteParticipant] = useState(false);
   const [participantsRefresh, setParticipantsRefresh] = useState(0);
+
+  // Keep folder file counts live across uploads and soft-deletes.
+  // Callers pass a signed delta (+N on upload, -N on delete, +N again on undo).
+  function handleFolderCountChange(folderId: string, delta: number) {
+    setFileCounts((prev) => {
+      const current = prev[folderId] ?? 0;
+      return { ...prev, [folderId]: Math.max(0, current + delta) };
+    });
+  }
 
   async function handleStatusChange(newStatus: WorkspaceStatus) {
     const previous = status;
@@ -201,6 +213,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
             onFolderSelect={setSelectedFolderId}
             onFoldersChange={setFolders}
             isAdmin={isAdmin}
+            fileCounts={fileCounts}
           />
         </div>
 
@@ -223,6 +236,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
               onUpload={() => setShowUploadModal(true)}
               uploadRevision={uploadRevision}
               folders={folders}
+              onFolderCountChange={handleFolderCountChange}
             />
           )}
         </main>
@@ -235,6 +249,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
                 folders={folders}
                 isAdmin={isAdmin}
                 participantsRefreshToken={participantsRefresh}
+                currentUserEmail={userEmail}
               />
         </div>
       </div>
@@ -249,6 +264,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
           setShowUploadModal(false);
           setUploadRevision((n) => n + 1);
         }}
+        onFolderCountChange={handleFolderCountChange}
       />
 
       {showInviteParticipant && (
