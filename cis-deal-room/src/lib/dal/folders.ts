@@ -1,6 +1,6 @@
-import { eq, and, inArray, max, asc } from 'drizzle-orm';
+import { eq, and, inArray, max, asc, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { folders, folderAccess, workspaceParticipants } from '@/db/schema';
+import { folders, folderAccess, workspaceParticipants, checklistItems } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
 
@@ -144,7 +144,18 @@ export async function deleteFolder(folderId: string) {
 
   if (!existing) throw new Error('Folder not found');
 
-  await db.delete(folders).where(eq(folders.id, folderId));
+  await db.transaction(async (tx) => {
+    const [{ count: refCount }] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(checklistItems)
+      .where(eq(checklistItems.folderId, folderId));
+
+    if (refCount > 0) {
+      throw new Error(`FOLDER_IN_USE: ${refCount} checklist item(s) reference this folder`);
+    }
+
+    await tx.delete(folders).where(eq(folders.id, folderId));
+  });
 
   await logActivity(db, {
     workspaceId: existing.workspaceId,
