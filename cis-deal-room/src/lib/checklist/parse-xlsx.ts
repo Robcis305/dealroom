@@ -82,22 +82,31 @@ function isAllBlank(rowArr: unknown[]): boolean {
 
 export function parseChecklistXlsx(input: ArrayBuffer | Buffer): ParseResult {
   const wb = XLSX.read(input, { type: input instanceof ArrayBuffer ? 'array' : 'buffer' });
-  const sheetName = wb.SheetNames[0];
-  if (!sheetName) return { valid: [], rejected: [] };
-  const sheet = wb.Sheets[sheetName];
+  if (wb.SheetNames.length === 0) return { valid: [], rejected: [] };
 
-  // Parse as arrays of values so we can detect the header row ourselves.
-  const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
-  if (rawRows.length === 0) return { valid: [], rejected: [] };
+  // Workbooks often have helper sheets (Instructions, Summary) alongside the
+  // actual request list. Scan every sheet and use the first one that contains
+  // a detectable "Category" header row.
+  let rawRows: unknown[][] = [];
+  let headerRowIdx = -1;
+  for (const sheetName of wb.SheetNames) {
+    const sheet = wb.Sheets[sheetName];
+    const candidate = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
+    const idx = detectHeaderRow(candidate);
+    if (idx !== -1) {
+      rawRows = candidate;
+      headerRowIdx = idx;
+      break;
+    }
+  }
 
-  const headerRowIdx = detectHeaderRow(rawRows);
   if (headerRowIdx === -1) {
     return {
       valid: [],
       rejected: [{
         rowNumber: 1,
         raw: {},
-        reason: 'Could not find a "Category" column header in the first ' + HEADER_SCAN_LIMIT + ' rows',
+        reason: 'Could not find a "Category" column header in any sheet (scanned first ' + HEADER_SCAN_LIMIT + ' rows of each)',
       }],
     };
   }

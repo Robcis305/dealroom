@@ -156,4 +156,38 @@ describe('parseChecklistXlsx', () => {
     expect(result.rejected).toHaveLength(1);
     expect(result.rejected[0].reason).toMatch(/Category.*column header/i);
   });
+
+  it('scans every sheet and uses the first one with a Category header', () => {
+    // Mirrors Rob's real file: Instructions sheet first (no Category), then the
+    // actual DD Request List sheet second, then a Summary sheet last.
+    const wb = XLSX.utils.book_new();
+    const instructions = XLSX.utils.aoa_to_sheet([
+      ['Instructions'],
+      ['Fill in the columns and owner will mark Received as requests come in.'],
+    ]);
+    const dd = XLSX.utils.aoa_to_sheet([
+      ['#', 'Category', 'Item', 'Priority', 'Owner'],
+      ['Legal', '', '', '', ''],
+      ['29', 'Legal', 'Corporate Formation Docs', 'High', 'Seller'],
+      ['30', 'Legal', 'Cap Table', 'Critical', 'Seller'],
+    ]);
+    const summary = XLSX.utils.aoa_to_sheet([
+      ['Metric', 'Count'],
+      ['Open', '2'],
+    ]);
+    XLSX.utils.book_append_sheet(wb, instructions, 'Instructions');
+    XLSX.utils.book_append_sheet(wb, dd, 'DD Request List');
+    XLSX.utils.book_append_sheet(wb, summary, 'Summary');
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+
+    const result = parseChecklistXlsx(buf);
+    expect(result.valid).toHaveLength(2);
+    expect(result.valid.map((v) => v.name)).toEqual([
+      'Corporate Formation Docs',
+      'Cap Table',
+    ]);
+    // The "Legal" banner row lands in rejected (it has 'Legal' in column A,
+    // so the Category column is empty → Missing Category). Real data still parses.
+    expect(result.rejected).toHaveLength(1);
+  });
 });
