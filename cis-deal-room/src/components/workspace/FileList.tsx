@@ -160,11 +160,22 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
       },
       performDelete: async () => {
         const results = await Promise.all(
-          toDelete.map((f) =>
-            fetchWithAuth(`/api/files/${f.id}`, { method: 'DELETE' }).then((r) => r.ok)
-          )
+          toDelete.map(async (f) => {
+            const res = await fetchWithAuth(`/api/files/${f.id}`, { method: 'DELETE' });
+            if (res.status === 409) {
+              const body = await res.json().catch(() => ({ error: 'Locked by checklist item' }));
+              return { ok: false, reason: body.error as string };
+            }
+            return { ok: res.ok, reason: null as string | null };
+          })
         );
-        return results.every(Boolean);
+        const blockedReasons = Array.from(
+          new Set(results.filter((r) => !r.ok && r.reason).map((r) => r.reason!)),
+        );
+        for (const reason of blockedReasons) {
+          toast.error('Can\'t delete file', { description: reason });
+        }
+        return results.every((r) => r.ok);
       },
     });
   }
