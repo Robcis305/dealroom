@@ -78,9 +78,20 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
 
   const refreshChecklistMeta = useCallback(async () => {
     try {
-      const res = await fetchWithAuth(`/api/workspaces/${workspace.id}/checklist`);
-      if (!res.ok) return;
-      const data = await res.json();
+      const [checklistRes, foldersRes] = await Promise.all([
+        fetchWithAuth(`/api/workspaces/${workspace.id}/checklist`),
+        fetchWithAuth(`/api/workspaces/${workspace.id}/folders`),
+      ]);
+
+      if (foldersRes.ok) {
+        // Checklist import auto-creates folders server-side; refreshing here
+        // keeps the sidebar, UploadModal, and FileList name lookups in sync.
+        const folderList = await foldersRes.json();
+        setFolders(folderList);
+      }
+
+      if (!checklistRes.ok) return;
+      const data = await checklistRes.json();
       setHasChecklist(!!data.checklist);
       const open = (data.items as { status: string }[]).filter(
         (i) => i.status === 'not_started' || i.status === 'in_progress'

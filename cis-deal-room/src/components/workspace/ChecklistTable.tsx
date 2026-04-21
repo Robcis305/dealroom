@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Filter as FilterIcon } from 'lucide-react';
+import { Filter as FilterIcon, X } from 'lucide-react';
 import clsx from 'clsx';
 import type { ChecklistPriority, ChecklistOwner, ChecklistStatus } from '@/types';
 import { ChecklistStatusChip } from './ChecklistStatusChip';
@@ -116,19 +116,61 @@ export function ChecklistTable({ workspaceId, items, isAdmin, onChanged, onUploa
     return <p className="p-8 text-sm text-text-muted">No checklist items visible.</p>;
   }
 
+  const activeFilterChips: Array<{ key: string; label: string; onRemove: () => void }> = [];
+  filters.category.forEach((v) =>
+    activeFilterChips.push({
+      key: `category:${v}`,
+      label: `Category: ${v}`,
+      onRemove: () => toggleFilterValue('category', v),
+    }),
+  );
+  filters.priority.forEach((v) =>
+    activeFilterChips.push({
+      key: `priority:${v}`,
+      label: `Priority: ${PRIORITY_LABEL[v]}`,
+      onRemove: () => toggleFilterValue('priority', v),
+    }),
+  );
+  filters.owner.forEach((v) =>
+    activeFilterChips.push({
+      key: `owner:${v}`,
+      label: `Owner: ${OWNER_LABEL[v]}`,
+      onRemove: () => toggleFilterValue('owner', v),
+    }),
+  );
+  filters.status.forEach((v) =>
+    activeFilterChips.push({
+      key: `status:${v}`,
+      label: `Status: ${STATUS_LABEL[v]}`,
+      onRemove: () => toggleFilterValue('status', v),
+    }),
+  );
+
   return (
     <div className="p-6">
       {isAnyFilterActive(filters) && (
-        <div className="mb-3 flex items-center gap-3 text-xs text-text-muted">
-          <span>
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-text-muted">
             Showing {filtered.length} of {items.length}
           </span>
-          <button
-            onClick={clearFilters}
-            className="text-accent hover:underline cursor-pointer"
-          >
-            Clear filters
-          </button>
+          {activeFilterChips.map((chip) => (
+            <button
+              key={chip.key}
+              onClick={chip.onRemove}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-elevated px-2 py-0.5 text-text-secondary hover:bg-surface hover:border-accent hover:text-text-primary transition-colors cursor-pointer"
+            >
+              <span>{chip.label}</span>
+              <X size={10} aria-hidden="true" />
+            </button>
+          ))}
+          {activeFilterChips.length > 1 && (
+            <button
+              onClick={clearFilters}
+              className="text-accent hover:underline cursor-pointer"
+            >
+              Clear all
+            </button>
+          )}
         </div>
       )}
       <table className="w-full text-sm border-collapse">
