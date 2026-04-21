@@ -31,6 +31,12 @@ const ACTION_VERBS: Record<string, string> = {
   revoked_access: 'revoked access to',
   status_changed: 'changed status',
   notified_batch: 'notified participants about',
+  checklist_imported: 'imported a diligence checklist',
+  checklist_item_linked: 'linked a file to',
+  checklist_item_received: 'marked as received',
+  checklist_item_waived: 'marked as waived',
+  checklist_item_na: 'marked as N/A',
+  checklist_item_assigned: 'assigned',
 };
 
 // Actions whose verb already mentions "folder" — don't repeat the word as a target
@@ -47,6 +53,7 @@ function resolveTarget(
   resolveFolderName?: (id: string) => string | null,
 ): string | null {
   if (typeof metadata?.fileName === 'string') return metadata.fileName;
+  if (typeof metadata?.itemName === 'string') return metadata.itemName;
   if (typeof metadata?.email === 'string') return metadata.email;
   if (typeof metadata?.folderName === 'string') return metadata.folderName;
   if (typeof metadata?.folderId === 'string') {
