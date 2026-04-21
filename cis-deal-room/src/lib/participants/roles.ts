@@ -23,6 +23,10 @@ export function roleLabel(role: ParticipantRole, side: CisAdvisorySide): string 
       return 'Seller Rep';
     case 'view_only':
       return 'View Only';
+    case 'seller_counsel':
+      return 'Seller Counsel';
+    case 'buyer_counsel':
+      return 'Buyer Counsel';
     default: {
       // Exhaustiveness guard
       const _exhaustive: never = role;

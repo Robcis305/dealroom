@@ -8,6 +8,7 @@ import {
   timestamp,
   integer,
   jsonb,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -30,10 +31,12 @@ export const participantRoleEnum = pgEnum('participant_role', [
   'admin',
   'cis_team',
   'client',
-  'counsel',
+  'counsel',          // deprecated — kept for existing rows; not offered in new-invite UI
   'buyer_rep',
   'seller_rep',
   'view_only',
+  'seller_counsel',
+  'buyer_counsel',
 ]);
 
 export const activityActionEnum = pgEnum('activity_action', [
@@ -51,6 +54,12 @@ export const activityActionEnum = pgEnum('activity_action', [
   'participant_updated',
   'notified_batch',
   'previewed',
+  'checklist_imported',
+  'checklist_item_linked',
+  'checklist_item_received',
+  'checklist_item_waived',
+  'checklist_item_na',
+  'checklist_item_assigned',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
@@ -60,6 +69,34 @@ export const activityTargetTypeEnum = pgEnum('activity_target_type', [
   'folder',
   'file',
   'participant',
+]);
+
+export const checklistPriorityEnum = pgEnum('checklist_priority', [
+  'critical',
+  'high',
+  'medium',
+  'low',
+]);
+
+export const checklistOwnerEnum = pgEnum('checklist_owner', [
+  'seller',
+  'buyer',
+  'both',
+  'cis_team',
+  'unassigned',
+]);
+
+export const checklistStatusEnum = pgEnum('checklist_status', [
+  'not_started',
+  'in_progress',
+  'received',
+  'waived',
+  'n_a',
+]);
+
+export const viewOnlyShadowSideEnum = pgEnum('view_only_shadow_side', [
+  'buyer',
+  'seller',
 ]);
 
 // ─── Tables ───────────────────────────────────────────────────────────────────
@@ -121,6 +158,7 @@ export const workspaceParticipants = pgTable('workspace_participants', {
   status: text('status').notNull().default('invited'),
   invitedAt: timestamp('invited_at').notNull().defaultNow(),
   activatedAt: timestamp('activated_at'),
+  viewOnlyShadowSide: viewOnlyShadowSideEnum('view_only_shadow_side'),
 });
 
 export const folders = pgTable('folders', {
@@ -191,3 +229,52 @@ export const notificationQueue = pgTable('notification_queue', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   processedAt: timestamp('processed_at'),
 });
+
+export const checklists = pgTable('checklists', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  name: text('name').notNull().default('Diligence Checklist'),
+  createdBy: uuid('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const checklistItems = pgTable('checklist_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  checklistId: uuid('checklist_id')
+    .notNull()
+    .references(() => checklists.id, { onDelete: 'cascade' }),
+  folderId: uuid('folder_id')
+    .notNull()
+    .references(() => folders.id, { onDelete: 'restrict' }),
+  sortOrder: integer('sort_order').notNull().default(0),
+  category: text('category').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  priority: checklistPriorityEnum('priority').notNull().default('medium'),
+  owner: checklistOwnerEnum('owner').notNull().default('unassigned'),
+  status: checklistStatusEnum('status').notNull().default('not_started'),
+  notes: text('notes'),
+  requestedAt: timestamp('requested_at').notNull().defaultNow(),
+  receivedAt: timestamp('received_at'),
+  receivedBy: uuid('received_by').references(() => users.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const checklistItemFiles = pgTable(
+  'checklist_item_files',
+  {
+    itemId: uuid('item_id')
+      .notNull()
+      .references(() => checklistItems.id, { onDelete: 'cascade' }),
+    fileId: uuid('file_id')
+      .notNull()
+      .references(() => files.id, { onDelete: 'cascade' }),
+    linkedAt: timestamp('linked_at').notNull().defaultNow(),
+    linkedBy: uuid('linked_by').notNull().references(() => users.id),
+  },
+  (table) => [primaryKey({ columns: [table.itemId, table.fileId] })],
+);
