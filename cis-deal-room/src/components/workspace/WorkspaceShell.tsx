@@ -201,6 +201,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
             onFolderSelect={setSelectedFolderId}
             onFoldersChange={setFolders}
             isAdmin={isAdmin}
+            fileCounts={fileCounts}
           />
         </div>
 
@@ -235,6 +236,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts,
                 folders={folders}
                 isAdmin={isAdmin}
                 participantsRefreshToken={participantsRefresh}
+                currentUserEmail={userEmail}
               />
         </div>
       </div>

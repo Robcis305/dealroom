@@ -38,6 +38,8 @@ interface ParticipantListProps {
   isAdmin: boolean;
   /** Parent increments to force a refetch (e.g., after an invite succeeds) */
   refreshToken: number;
+  /** Current viewer's email — the row matching this hides its edit/revoke buttons */
+  currentUserEmail: string;
 }
 
 export function ParticipantList({
@@ -46,6 +48,7 @@ export function ParticipantList({
   folders,
   isAdmin,
   refreshToken,
+  currentUserEmail,
 }: ParticipantListProps) {
   const [rows, setRows] = useState<ParticipantRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,9 +79,23 @@ export function ParticipantList({
     if (res.ok) {
       setBump((n) => n + 1);
       toast.success(`${participant.email} no longer has access`);
-    } else {
-      toast.error('Failed to remove participant');
+      return;
     }
+
+    // Surface the server's error string when available (e.g. "Cannot remove self")
+    let message = 'Failed to remove participant';
+    try {
+      const body = await res.json();
+      if (typeof body?.error === 'string') {
+        message =
+          body.error === 'Cannot remove self'
+            ? "You can't revoke your own access — ask another admin."
+            : body.error;
+      }
+    } catch {
+      /* body wasn't JSON; keep generic message */
+    }
+    toast.error(message);
   }
 
   return (
@@ -134,7 +151,7 @@ export function ParticipantList({
                   </span>
                 </div>
               </div>
-              {isAdmin && (
+              {isAdmin && row.email !== currentUserEmail && (
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     aria-label={`Edit ${row.email}`}

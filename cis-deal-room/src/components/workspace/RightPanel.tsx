@@ -18,6 +18,8 @@ interface RightPanelProps {
   isAdmin: boolean;
   /** Parent increments to force a participant refetch */
   participantsRefreshToken: number;
+  /** Current viewer's email — used to hide self-edit/self-revoke buttons */
+  currentUserEmail: string;
 }
 
 type Tab = 'activity' | 'participants';
@@ -28,6 +30,7 @@ export function RightPanel({
   folders,
   isAdmin,
   participantsRefreshToken,
+  currentUserEmail,
 }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('activity');
 
@@ -58,6 +61,7 @@ export function RightPanel({
             folders={folders}
             isAdmin={isAdmin}
             refreshToken={participantsRefreshToken}
+            currentUserEmail={currentUserEmail}
           />
         )}
       </div>

@@ -50,6 +50,7 @@ describe('ParticipantList', () => {
         folders={[]}
         isAdmin={false}
         refreshToken={0}
+        currentUserEmail="admin@cis.com"
       />
     );
     await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());
@@ -65,6 +66,7 @@ describe('ParticipantList', () => {
         folders={[]}
         isAdmin={false}
         refreshToken={0}
+        currentUserEmail="admin@cis.com"
       />
     );
     await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());
@@ -80,11 +82,34 @@ describe('ParticipantList', () => {
         folders={[]}
         isAdmin
         refreshToken={0}
+        currentUserEmail="admin@cis.com"
       />
     );
     await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());
     expect(screen.getAllByRole('button', { name: /edit/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /revoke access/i }).length).toBeGreaterThan(0);
+  });
+
+  it('hides edit/revoke buttons on the viewer\'s own row', async () => {
+    render(
+      <ParticipantList
+        workspaceId={WORKSPACE_ID}
+        cisAdvisorySide="buyer_side"
+        folders={[]}
+        isAdmin
+        refreshToken={0}
+        currentUserEmail="client@x.com"
+      />
+    );
+    await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());
+
+    // client@x.com is the viewer — no self-edit/self-revoke
+    expect(screen.queryByRole('button', { name: /edit client@x\.com/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /revoke access for client@x\.com/i })).not.toBeInTheDocument();
+
+    // rep@x.com is a different user — admin controls still render
+    expect(screen.getByRole('button', { name: /edit rep@x\.com/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /revoke access for rep@x\.com/i })).toBeInTheDocument();
   });
 
   it('calls DELETE after typed-email confirmation when Revoke is clicked', async () => {
@@ -95,6 +120,7 @@ describe('ParticipantList', () => {
         folders={[]}
         isAdmin
         refreshToken={0}
+        currentUserEmail="admin@cis.com"
       />
     );
     await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());

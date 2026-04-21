@@ -21,6 +21,8 @@ interface FolderSidebarProps {
   onFolderSelect: (folderId: string | null) => void;
   onFoldersChange: (folders: FolderItem[]) => void;
   isAdmin: boolean;
+  /** folderId → number of files (server-rendered at page load; may be stale after uploads) */
+  fileCounts?: Record<string, number>;
 }
 
 export function FolderSidebar({
@@ -30,6 +32,7 @@ export function FolderSidebar({
   onFolderSelect,
   onFoldersChange,
   isAdmin,
+  fileCounts,
 }: FolderSidebarProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -211,6 +214,13 @@ export function FolderSidebar({
                 >
                   {folder.name}
                 </button>
+              )}
+
+              {/* File count — server-rendered at page load */}
+              {!isRenaming && fileCounts && (
+                <span className="shrink-0 text-xs font-mono text-text-muted tabular-nums">
+                  {fileCounts[folder.id] ?? 0}
+                </span>
               )}
 
               {/* Admin actions — always visible, brighter on hover/focus */}
