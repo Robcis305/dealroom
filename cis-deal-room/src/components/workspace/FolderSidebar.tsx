@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil, ClipboardList } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
@@ -14,13 +14,20 @@ interface FolderItem {
   updatedAt: Date | string;
 }
 
+export type CenterView =
+  | { kind: 'overview' }
+  | { kind: 'folder'; folderId: string }
+  | { kind: 'checklist' };
+
 interface FolderSidebarProps {
   folders: FolderItem[];
   workspaceId: string;
-  selectedFolderId: string | null;
-  onFolderSelect: (folderId: string | null) => void;
+  selected: CenterView;
+  onSelect: (view: CenterView) => void;
   onFoldersChange: (folders: FolderItem[]) => void;
   isAdmin: boolean;
+  hasChecklist: boolean;
+  openChecklistCount: number;
   /** folderId → number of files (server-rendered at page load; may be stale after uploads) */
   fileCounts?: Record<string, number>;
 }
@@ -28,12 +35,16 @@ interface FolderSidebarProps {
 export function FolderSidebar({
   folders,
   workspaceId,
-  selectedFolderId,
-  onFolderSelect,
+  selected,
+  onSelect,
   onFoldersChange,
   isAdmin,
+  hasChecklist,
+  openChecklistCount,
   fileCounts,
 }: FolderSidebarProps) {
+  // Derived for backward-compat with internal delete logic
+  const selectedFolderId = selected.kind === 'folder' ? selected.folderId : null;
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -104,7 +115,7 @@ export function FolderSidebar({
     // Optimistic remove
     onFoldersChange(folders.filter((f) => f.id !== folderId));
     if (selectedFolderId === folderId) {
-      onFolderSelect(null);
+      onSelect({ kind: 'overview' });
     }
 
     try {
@@ -153,10 +164,10 @@ export function FolderSidebar({
         {/* Deal overview entry */}
         <div className="mx-1 mb-1">
           <button
-            onClick={() => onFolderSelect(null)}
+            onClick={() => onSelect({ kind: 'overview' })}
             className={clsx(
               'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
-              selectedFolderId === null
+              selected.kind === 'overview'
                 ? 'bg-accent-subtle text-accent-on-subtle'
                 : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
             )}
@@ -165,6 +176,31 @@ export function FolderSidebar({
             Deal overview
           </button>
         </div>
+
+        {/* Checklist pinned entry */}
+        {(hasChecklist || isAdmin) && (
+          <div className="mx-1 mb-1">
+            <button
+              onClick={() => onSelect({ kind: 'checklist' })}
+              className={clsx(
+                'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm transition-colors',
+                selected.kind === 'checklist'
+                  ? 'bg-accent-subtle text-accent-on-subtle'
+                  : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <ClipboardList size={14} />
+                Checklist
+              </span>
+              {openChecklistCount > 0 && (
+                <span className="text-xs font-mono text-text-muted">
+                  {openChecklistCount} open
+                </span>
+              )}
+            </button>
+          </div>
+        )}
 
         {folders.map((folder) => {
           const isSelected = folder.id === selectedFolderId;
@@ -210,7 +246,7 @@ export function FolderSidebar({
                 <button
                   className="flex-1 min-w-0 text-left text-sm truncate cursor-pointer
                     focus:outline-none"
-                  onClick={() => onFolderSelect(isSelected ? null : folder.id)}
+                  onClick={() => onSelect(isSelected ? { kind: 'overview' } : { kind: 'folder', folderId: folder.id })}
                 >
                   {folder.name}
                 </button>

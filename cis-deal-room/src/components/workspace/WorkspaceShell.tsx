@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ArrowLeft, Upload } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
@@ -8,12 +8,13 @@ import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
 import { Logo } from '@/components/ui/Logo';
 import { UserMenu } from '@/components/ui/UserMenu';
-import { FolderSidebar } from './FolderSidebar';
+import { FolderSidebar, type CenterView } from './FolderSidebar';
 import { DealOverview } from './DealOverview';
 import { RightPanel } from './RightPanel';
 import { FileList } from './FileList';
 import { UploadModal } from './UploadModal';
 import { ParticipantFormModal } from './ParticipantFormModal';
+import { ChecklistView } from './ChecklistView';
 import type { WorkspaceStatus } from '@/types';
 
 interface Workspace {
@@ -58,7 +59,7 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
 ];
 
 export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, activeClientCount, userEmail }: WorkspaceShellProps) {
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [view, setView] = useState<CenterView>({ kind: 'overview' });
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [folders, setFolders] = useState(initialFolders);
@@ -67,6 +68,30 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   const [uploadRevision, setUploadRevision] = useState(0);
   const [showInviteParticipant, setShowInviteParticipant] = useState(false);
   const [participantsRefresh, setParticipantsRefresh] = useState(0);
+  const [hasChecklist, setHasChecklist] = useState(false);
+  const [openChecklistCount, setOpenChecklistCount] = useState(0);
+
+  // Derived for backward-compat with UploadModal's initialFolderId
+  const selectedFolderId = view.kind === 'folder' ? view.folderId : null;
+
+  const refreshChecklistMeta = useCallback(async () => {
+    try {
+      const res = await fetchWithAuth(`/api/workspaces/${workspace.id}/checklist`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setHasChecklist(!!data.checklist);
+      const open = (data.items as { status: string }[]).filter(
+        (i) => i.status === 'not_started' || i.status === 'in_progress'
+      ).length;
+      setOpenChecklistCount(open);
+    } catch {
+      // silently ignore — sidebar just won't show checklist meta
+    }
+  }, [workspace.id]);
+
+  useEffect(() => {
+    refreshChecklistMeta();
+  }, [refreshChecklistMeta]);
 
   // Keep folder file counts live across uploads and soft-deletes.
   // Callers pass a signed delta (+N on upload, -N on delete, +N again on undo).
@@ -209,29 +234,37 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
           <FolderSidebar
             folders={folders}
             workspaceId={workspace.id}
-            selectedFolderId={selectedFolderId}
-            onFolderSelect={setSelectedFolderId}
+            selected={view}
+            onSelect={setView}
             onFoldersChange={setFolders}
             isAdmin={isAdmin}
+            hasChecklist={hasChecklist}
+            openChecklistCount={openChecklistCount}
             fileCounts={fileCounts}
           />
         </div>
 
         {/* Center: flex-1 main area */}
         <main className="flex-1 min-w-0 overflow-y-auto bg-surface-elevated border-x border-border">
-          {selectedFolderId === null ? (
+          {view.kind === 'overview' ? (
             <DealOverview
               workspace={workspace}
               status={status}
               folders={folders}
               fileCounts={fileCounts}
-              onFolderSelect={setSelectedFolderId}
+              onFolderSelect={(folderId) => setView({ kind: 'folder', folderId })}
+            />
+          ) : view.kind === 'checklist' ? (
+            <ChecklistView
+              workspaceId={workspace.id}
+              isAdmin={isAdmin}
+              onChanged={refreshChecklistMeta}
             />
           ) : (
             <FileList
               workspaceId={workspace.id}
-              folderId={selectedFolderId}
-              folderName={folders.find((f) => f.id === selectedFolderId)?.name ?? 'Files'}
+              folderId={view.folderId}
+              folderName={folders.find((f) => f.id === view.folderId)?.name ?? 'Files'}
               isAdmin={isAdmin}
               onUpload={() => setShowUploadModal(true)}
               uploadRevision={uploadRevision}
