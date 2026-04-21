@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { folders, checklistItems } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
@@ -51,18 +51,38 @@ export async function POST(
 
   const checklist = await createChecklist(workspaceId);
 
-  // Category → folderId resolution with auto-create
+  // Category → folderId resolution with auto-create.
+  //
+  // Match existing folders using a normalized key (case-insensitive, trimmed,
+  // trailing 's' stripped) so the common singular/plural mismatch between
+  // Excel category labels ("Financial") and default workspace folders
+  // ("Financials") doesn't create duplicates. Conservative — does NOT
+  // collapse distinct categories like "Technology" vs "Technology & IP".
+  function normalizeFolderKey(s: string): string {
+    return s.trim().toLowerCase().replace(/s$/, '');
+  }
   const categories = Array.from(new Set(parsed.data.rows.map((r) => r.category)));
-  const existingFolders = await db
+  const allFolders = await db
     .select({ id: folders.id, name: folders.name, sortOrder: folders.sortOrder })
     .from(folders)
-    .where(and(eq(folders.workspaceId, workspaceId), inArray(folders.name, categories)));
+    .where(eq(folders.workspaceId, workspaceId));
 
-  const nameToId = new Map(existingFolders.map((f) => [f.name, f.id]));
-  const missing = categories.filter((c) => !nameToId.has(c));
+  const keyToFolder = new Map<string, { id: string; name: string; sortOrder: number }>();
+  for (const f of allFolders) {
+    const key = normalizeFolderKey(f.name);
+    if (!keyToFolder.has(key)) keyToFolder.set(key, f);
+  }
+
+  const nameToId = new Map<string, string>();
+  const missing: string[] = [];
+  for (const category of categories) {
+    const match = keyToFolder.get(normalizeFolderKey(category));
+    if (match) nameToId.set(category, match.id);
+    else missing.push(category);
+  }
 
   if (missing.length > 0) {
-    const maxSort = Math.max(0, ...existingFolders.map((f) => f.sortOrder));
+    const maxSort = Math.max(0, ...allFolders.map((f) => f.sortOrder));
     const inserted = await db
       .insert(folders)
       .values(

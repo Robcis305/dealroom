@@ -267,6 +267,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
             hasChecklist={hasChecklist}
             openChecklistCount={openChecklistCount}
             fileCounts={fileCounts}
+            onStructureChanged={refreshChecklistMeta}
           />
         </div>
 

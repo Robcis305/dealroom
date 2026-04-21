@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil, ClipboardList } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil, ClipboardList, Combine } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { FolderMergeModal } from './FolderMergeModal';
 
 interface FolderItem {
   id: string;
@@ -30,6 +31,8 @@ interface FolderSidebarProps {
   openChecklistCount: number;
   /** folderId → number of files (server-rendered at page load; may be stale after uploads) */
   fileCounts?: Record<string, number>;
+  /** Called after a structural folder change (e.g., merge) so the shell can refetch checklist items + file counts */
+  onStructureChanged?: () => void;
 }
 
 export function FolderSidebar({
@@ -42,12 +45,14 @@ export function FolderSidebar({
   hasChecklist,
   openChecklistCount,
   fileCounts,
+  onStructureChanged,
 }: FolderSidebarProps) {
   // Derived for backward-compat with internal delete logic
   const selectedFolderId = selected.kind === 'folder' ? selected.folderId : null;
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [mergeSourceId, setMergeSourceId] = useState<string | null>(null);
   const [addingFolder, setAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -280,6 +285,22 @@ export function FolderSidebar({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      setMergeSourceId(folder.id);
+                    }}
+                    className="p-1.5 text-text-muted hover:text-text-primary rounded
+                      transition-colors cursor-pointer
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
+                      focus-visible:ring-offset-1 focus-visible:ring-offset-surface
+                      disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label={`Merge ${folder.name} into another folder`}
+                    title="Merge into another folder"
+                    disabled={folders.length <= 1}
+                  >
+                    <Combine size={14} aria-hidden="true" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
                       handleDelete(folder.id);
                     }}
                     className="p-1.5 text-text-muted hover:text-accent rounded
@@ -338,6 +359,29 @@ export function FolderSidebar({
           </button>
         </div>
       )}
+
+      {mergeSourceId && (() => {
+        const source = folders.find((f) => f.id === mergeSourceId);
+        if (!source) return null;
+        const targets = folders.filter((f) => f.id !== mergeSourceId);
+        return (
+          <FolderMergeModal
+            workspaceId={workspaceId}
+            source={{ id: source.id, name: source.name }}
+            targets={targets.map((t) => ({ id: t.id, name: t.name }))}
+            onClose={() => setMergeSourceId(null)}
+            onMerged={() => {
+              const remaining = folders.filter((f) => f.id !== mergeSourceId);
+              onFoldersChange(remaining);
+              if (selectedFolderId === mergeSourceId) {
+                onSelect({ kind: 'overview' });
+              }
+              setMergeSourceId(null);
+              onStructureChanged?.();
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

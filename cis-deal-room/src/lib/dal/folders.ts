@@ -1,6 +1,6 @@
-import { eq, and, inArray, max, asc, sql } from 'drizzle-orm';
+import { eq, and, inArray, max, asc, sql, notInArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { folders, folderAccess, workspaceParticipants, checklistItems } from '@/db/schema';
+import { folders, folderAccess, workspaceParticipants, checklistItems, files } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
 
@@ -165,4 +165,108 @@ export async function deleteFolder(folderId: string) {
     targetId: folderId,
     metadata: { folderName: existing.name },
   });
+}
+
+/**
+ * Merges source folder into target: moves all files, re-points checklist items,
+ * unions folder_access, then deletes the source folder. Admin-only.
+ *
+ * Both folders must belong to the same workspace. The checklist-item re-point
+ * is important — without it, the source delete would fail on the RESTRICT FK.
+ */
+export async function mergeFolders(sourceId: string, targetId: string) {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+  if (sourceId === targetId) throw new Error('Source and target must differ');
+
+  const [source] = await db
+    .select()
+    .from(folders)
+    .where(eq(folders.id, sourceId))
+    .limit(1);
+  if (!source) throw new Error('Source folder not found');
+
+  const [target] = await db
+    .select()
+    .from(folders)
+    .where(eq(folders.id, targetId))
+    .limit(1);
+  if (!target) throw new Error('Target folder not found');
+
+  if (source.workspaceId !== target.workspaceId) {
+    throw new Error('Cross-workspace merge not allowed');
+  }
+
+  const moved = await db.transaction(async (tx) => {
+    // 1. Move files
+    const [{ count: fileCount }] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(files)
+      .where(eq(files.folderId, sourceId));
+    await tx
+      .update(files)
+      .set({ folderId: targetId })
+      .where(eq(files.folderId, sourceId));
+
+    // 2. Re-point checklist items (RESTRICT FK would block the source delete)
+    const [{ count: itemCount }] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(checklistItems)
+      .where(eq(checklistItems.folderId, sourceId));
+    await tx
+      .update(checklistItems)
+      .set({ folderId: targetId })
+      .where(eq(checklistItems.folderId, sourceId));
+
+    // 3. Union folder_access: any participant who had access to source but
+    // not target gets a target row. Source's rows cascade-delete with source.
+    const targetParticipantIds = await tx
+      .select({ participantId: folderAccess.participantId })
+      .from(folderAccess)
+      .where(eq(folderAccess.folderId, targetId));
+    const targetSet = new Set(targetParticipantIds.map((r) => r.participantId));
+
+    const sourceOnly = await tx
+      .select({ participantId: folderAccess.participantId })
+      .from(folderAccess)
+      .where(
+        and(
+          eq(folderAccess.folderId, sourceId),
+          targetSet.size > 0
+            ? notInArray(folderAccess.participantId, Array.from(targetSet))
+            : undefined,
+        ),
+      );
+    if (sourceOnly.length > 0) {
+      await tx.insert(folderAccess).values(
+        sourceOnly.map((r) => ({
+          folderId: targetId,
+          participantId: r.participantId,
+        })),
+      );
+    }
+
+    // 4. Delete source — folder_access rows for source cascade-delete
+    await tx.delete(folders).where(eq(folders.id, sourceId));
+
+    return { fileCount, itemCount };
+  });
+
+  await logActivity(db, {
+    workspaceId: source.workspaceId,
+    userId: session.userId,
+    action: 'deleted',
+    targetType: 'folder',
+    targetId: sourceId,
+    metadata: {
+      folderName: source.name,
+      mergedInto: target.name,
+      mergedIntoId: targetId,
+      fileCount: moved.fileCount,
+      itemCount: moved.itemCount,
+    },
+  });
+
+  return { targetId, ...moved };
 }
