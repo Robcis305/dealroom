@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: document-preview
 status: complete
-stopped_at: "v1.1 complete. Document preview shipped end-to-end via superpowers subagent-driven workflow. 188/188 tests pass, 0 TS errors. Merged to main as 785a394 (not pushed)."
-last_updated: "2026-04-15T13:23:00.000Z"
-last_activity: 2026-04-15 -- v1.1 document preview merged to main. 17 commits. Inline modal viewer for PDF/image/video/CSV/XLSX with guardrails and silent activity logging.
+stopped_at: "2026-04-16 — v1.1 deployed to https://dealroom.cispartners.co. Admin flipped for rob@cispartners.co via prod Neon SQL. Test deal room created successfully (8 default folders seeded). Upload blocked by S3 CORS on new prod bucket — stopped mid-debug."
+last_updated: "2026-04-16T16:30:00.000Z"
+last_activity: 2026-04-16 -- Prod deploy live. First admin provisioned. Upload flow blocked on S3 prod bucket config (CORS + possibly IAM perms + Vercel env vars pointing to new bucket).
 progress:
   total_phases: 4
   completed_phases: 4
@@ -164,8 +164,34 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-15
-Stopped at: v1.1 shipped + pushed to origin (785a394 + 8b59515 + e7d86f3). 188/188 tests passing. Dev environment upgraded from fully-stubbed to real integrations: Resend live (from `noreply@website.cispartners.co`; `cispartners.co` root is NOT verified, only `website.cispartners.co`), Upstash Redis live, QStash signing keys in place (digest cron endpoint ready to verify signatures, no scheduled message yet). send.ts sender domain fixed (.co not .com). Email flow tested end-to-end against Rob's real inbox.
+Last session: 2026-04-16
+Stopped at: Prod deploy is live at https://dealroom.cispartners.co. Auth works end-to-end (magic link + sign in). Admin gate wired — rob@cispartners.co promoted via `INSERT INTO users (email, is_admin) VALUES ('rob@cispartners.co', true) ON CONFLICT (email) DO UPDATE SET is_admin = true;` run in Neon prod SQL editor. First test deal room created successfully (8 default folders seeded, redirect to /workspace/[id] worked). Upload flow broken — CORS blocked on direct presigned PUT to S3.
+
+**Next session — resume here (upload debug):**
+
+Rob created a new S3 bucket for prod (name TBC — S3 names can't have underscores; confirmed earlier message showed "deal_room_prod" but real name likely "deal-room-prod" or similar). Three checks in order:
+1. **Vercel env vars** — confirm `AWS_S3_BUCKET` points to the new prod bucket name (not the dev bucket). `AWS_REGION` matches bucket region. `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` belong to an IAM user with access to the new bucket. Any change here requires redeploy.
+2. **IAM policy** — dev IAM user (cis-deal-room-app) is scoped to `cis-deal-room-dev/*` only. For prod, either update its policy to include the new bucket ARN, OR (recommended per deploy checklist) create a new `cis-deal-room-prod` IAM user with policy scoped to the prod bucket.
+3. **CORS on the new bucket** — needs `AllowedOrigins: ["https://dealroom.cispartners.co"]`, `AllowedMethods: ["PUT", "GET", "HEAD"]`, `AllowedHeaders: ["*"]`, `ExposeHeaders: ["ETag"]`. Configured in AWS Console → S3 → bucket → Permissions → CORS.
+
+CORS error in browser console was: "Access to XMLHttpRequest at '...s3...amazonaws.com...' from origin 'https://dealroom.cispartners.co' has been blocked by CORS policy."
+
+**Open questions to ask Rob on resume:**
+- Exact bucket name?
+- Did he update Vercel `AWS_S3_BUCKET` + redeploy?
+- New IAM user for prod or updated dev policy?
+
+Additional deploy checklist items still pending (from last session):
+- Resend: prod key + verify clean sender domain (currently likely still using dev config)
+- Upstash Redis + QStash: separate prod keys
+- Rotate all dev keys that touched .env.local
+- QStash scheduled message for /api/cron/digest (create once in Upstash dashboard post-deploy)
+
+Previous session state preserved below for reference:
+
+---
+
+2026-04-15 session: v1.1 shipped + pushed to origin (785a394 + 8b59515 + e7d86f3). 188/188 tests passing. Dev environment upgraded from fully-stubbed to real integrations: Resend live (from `noreply@website.cispartners.co`; `cispartners.co` root is NOT verified, only `website.cispartners.co`), Upstash Redis live, QStash signing keys in place (digest cron endpoint ready to verify signatures, no scheduled message yet). send.ts sender domain fixed (.co not .com). Email flow tested end-to-end against Rob's real inbox.
 
 **Goal for next session (2026-04-16): deploy to production** so first users can hit it.
 
