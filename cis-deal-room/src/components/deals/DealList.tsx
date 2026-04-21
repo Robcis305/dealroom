@@ -30,7 +30,10 @@ interface DealListProps {
 export function DealList({ workspaces, isAdmin }: DealListProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<WorkspaceStatus | 'all'>('all');
+  // 'active' is a pseudo-filter meaning "any status except archived". It's
+  // the default so archived deals are hidden from the main list unless the
+  // admin explicitly picks Archived or All statuses.
+  const [statusFilter, setStatusFilter] = useState<WorkspaceStatus | 'all' | 'active'>('active');
 
   const filtered = useMemo(() => {
     const lower = search.toLowerCase();
@@ -39,7 +42,10 @@ export function DealList({ workspaces, isAdmin }: DealListProps) {
         lower === '' ||
         w.name.toLowerCase().includes(lower) ||
         (w.clientName && w.clientName.toLowerCase().includes(lower));
-      const matchesStatus = statusFilter === 'all' || w.status === statusFilter;
+      let matchesStatus: boolean;
+      if (statusFilter === 'all') matchesStatus = true;
+      else if (statusFilter === 'active') matchesStatus = w.status !== 'archived';
+      else matchesStatus = w.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [workspaces, search, statusFilter]);
@@ -53,7 +59,9 @@ export function DealList({ workspaces, isAdmin }: DealListProps) {
           <p className="text-sm text-text-muted mt-1">
             {workspaces.length === 0
               ? 'No deal rooms yet'
-              : `${workspaces.length} deal room${workspaces.length === 1 ? '' : 's'}`}
+              : filtered.length === workspaces.length
+                ? `${workspaces.length} deal room${workspaces.length === 1 ? '' : 's'}`
+                : `${filtered.length} of ${workspaces.length} deal rooms`}
           </p>
         </div>
         {isAdmin && (
@@ -112,10 +120,11 @@ export function DealList({ workspaces, isAdmin }: DealListProps) {
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as WorkspaceStatus | 'all')}
+            onChange={(e) => setStatusFilter(e.target.value as WorkspaceStatus | 'all' | 'active')}
             className="px-3 py-2 text-sm bg-surface-sunken border border-border rounded-lg
               text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
           >
+            <option value="active">Active (excludes archived)</option>
             <option value="all">All statuses</option>
             <option value="engagement">Engagement</option>
             <option value="active_dd">Active DD</option>
