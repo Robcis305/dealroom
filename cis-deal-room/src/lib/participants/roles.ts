@@ -48,9 +48,9 @@ export function assignableRolesFor(
     'admin',
     'cis_team',
     'client',
-    'counsel',
     'view_only',
   ];
   const rep: ParticipantRole = side === 'buyer_side' ? 'seller_rep' : 'buyer_rep';
-  return [...base, rep].map((value) => ({ value, label: roleLabel(value, side) }));
+  const counsel: ParticipantRole[] = ['seller_counsel', 'buyer_counsel'];
+  return [...base, rep, ...counsel].map((value) => ({ value, label: roleLabel(value, side) }));
 }

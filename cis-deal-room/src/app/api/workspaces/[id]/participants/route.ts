@@ -17,8 +17,11 @@ const inviteSchema = z.object({
     'buyer_rep',
     'seller_rep',
     'view_only',
+    'seller_counsel',
+    'buyer_counsel',
   ]),
   folderIds: z.array(z.string().uuid()).default([]),
+  viewOnlyShadowSide: z.enum(['buyer', 'seller']).nullable().optional(),
 });
 
 const ROLE_LABELS: Record<string, string> = {
@@ -78,6 +81,7 @@ export async function POST(
     email: parsed.email,
     role: parsed.role,
     folderIds: parsed.folderIds,
+    viewOnlyShadowSide: parsed.viewOnlyShadowSide ?? null,
   });
 
   const appUrl = getAppUrl();

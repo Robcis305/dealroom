@@ -21,6 +21,20 @@ const INVITATION_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 // itself) while keeping us insulated from Drizzle's internal generic changes.
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+function validateShadowSide(
+  role: ParticipantRole,
+  shadowSide: 'buyer' | 'seller' | null | undefined,
+): 'buyer' | 'seller' | null {
+  if (role === 'view_only') {
+    if (shadowSide !== 'buyer' && shadowSide !== 'seller') {
+      throw new Error('view_only role requires viewOnlyShadowSide');
+    }
+    return shadowSide;
+  }
+  // For any other role, ignore whatever was passed and store null.
+  return null;
+}
+
 /**
  * Throws 'Forbidden' if any folderId does not belong to the given workspace,
  * or 'Folder not found' if any id doesn't exist. Short-circuits when the list
@@ -47,11 +61,13 @@ interface InviteInput {
   email: string;
   role: ParticipantRole;
   folderIds: string[];
+  viewOnlyShadowSide?: 'buyer' | 'seller' | null;
 }
 
 interface UpdateInput {
   role: ParticipantRole;
   folderIds: string[];
+  viewOnlyShadowSide?: 'buyer' | 'seller' | null;
 }
 
 /**
@@ -74,6 +90,7 @@ export async function getParticipants(workspaceId: string) {
       status: workspaceParticipants.status,
       invitedAt: workspaceParticipants.invitedAt,
       activatedAt: workspaceParticipants.activatedAt,
+      viewOnlyShadowSide: workspaceParticipants.viewOnlyShadowSide,
       folderIds: sql<string[]>`coalesce(array_agg(${folderAccess.folderId}) filter (where ${folderAccess.folderId} is not null), '{}')`,
       lastSeen: sql<Date | null>`(select max(${sessions.lastActiveAt}) from ${sessions} where ${sessions.userId} = ${users.id})`,
     })
@@ -92,6 +109,7 @@ export async function getParticipants(workspaceId: string) {
       workspaceParticipants.status,
       workspaceParticipants.invitedAt,
       workspaceParticipants.activatedAt,
+      workspaceParticipants.viewOnlyShadowSide,
     );
 
   return rows;
@@ -110,6 +128,8 @@ export async function inviteParticipant(input: InviteInput) {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
   if (!session.isAdmin) throw new Error('Admin required');
+
+  const shadowSide = validateShadowSide(input.role, input.viewOnlyShadowSide ?? null);
 
   const rawToken = generateToken();
   const tokenHash = hashToken(rawToken);
@@ -145,16 +165,22 @@ export async function inviteParticipant(input: InviteInput) {
 
     // Fix #1: Re-invite must update the role on the existing participant row
     if (existingParticipant) {
-      if (existingParticipant.role !== input.role) {
+      const needsUpdate =
+        existingParticipant.role !== input.role ||
+        existingParticipant.viewOnlyShadowSide !== shadowSide;
+      if (needsUpdate) {
         await tx
           .update(workspaceParticipants)
-          .set({ role: input.role })
+          .set({
+            role: input.role,
+            viewOnlyShadowSide: shadowSide,
+          })
           .where(eq(workspaceParticipants.id, existingParticipant.id));
       }
     }
 
     const participant = existingParticipant
-      ? { ...existingParticipant, role: input.role }
+      ? { ...existingParticipant, role: input.role, viewOnlyShadowSide: shadowSide }
       : (await tx
           .insert(workspaceParticipants)
           .values({
@@ -162,6 +188,7 @@ export async function inviteParticipant(input: InviteInput) {
             userId,
             role: input.role,
             status: 'invited',
+            viewOnlyShadowSide: shadowSide,
           })
           .returning())[0];
 
@@ -240,6 +267,8 @@ export async function updateParticipant(participantId: string, input: UpdateInpu
 
   if (!existing) throw new Error('Participant not found');
 
+  const shadowSide = validateShadowSide(input.role, input.viewOnlyShadowSide ?? null);
+
   // Self-guard: an admin cannot demote their own role away from 'admin'
   if (existing.userId === session.userId && input.role !== 'admin' && existing.role === 'admin') {
     throw new Error('Cannot demote self');
@@ -256,7 +285,7 @@ export async function updateParticipant(participantId: string, input: UpdateInpu
 
     await tx
       .update(workspaceParticipants)
-      .set({ role: input.role })
+      .set({ role: input.role, viewOnlyShadowSide: shadowSide })
       .where(eq(workspaceParticipants.id, participantId));
 
     await tx.delete(folderAccess).where(eq(folderAccess.participantId, participantId));

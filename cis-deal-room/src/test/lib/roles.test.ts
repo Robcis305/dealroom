@@ -34,14 +34,22 @@ describe('assignableRolesFor()', () => {
     expect(values).not.toContain('seller_rep');
   });
 
-  it('always includes admin, cis_team, client, counsel, view_only', () => {
+  it('always includes admin, cis_team, client, view_only, seller_counsel, buyer_counsel', () => {
     for (const side of ['buyer_side', 'seller_side'] as const) {
       const values = assignableRolesFor(side).map((r) => r.value);
       expect(values).toContain('admin');
       expect(values).toContain('cis_team');
       expect(values).toContain('client');
-      expect(values).toContain('counsel');
       expect(values).toContain('view_only');
+      expect(values).toContain('seller_counsel');
+      expect(values).toContain('buyer_counsel');
+    }
+  });
+
+  it('does not include deprecated counsel role', () => {
+    for (const side of ['buyer_side', 'seller_side'] as const) {
+      const values = assignableRolesFor(side).map((r) => r.value);
+      expect(values).not.toContain('counsel');
     }
   });
 });

@@ -299,6 +299,81 @@ describe('countActiveClientParticipants', () => {
   });
 });
 
+describe('validateShadowSide via inviteParticipant', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('throws when role=view_only and shadow side is missing', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    // validateShadowSide runs before the transaction, so no DB mocks needed
+    await expect(
+      inviteParticipant({
+        workspaceId: WORKSPACE_ID,
+        email: 'viewer@example.com',
+        role: 'view_only',
+        folderIds: [],
+        viewOnlyShadowSide: null,
+      }),
+    ).rejects.toThrow(/view_only role requires viewOnlyShadowSide/);
+  });
+
+  it('stores shadow side when role=view_only and side is provided', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    // user lookup → existing user, participant lookup → no existing participant
+    mockSelectChain
+      .mockResolvedValueOnce([{ id: 'user-1' }])  // user exists
+      .mockResolvedValueOnce([]);                   // no existing participant
+    mockInsertReturning.mockResolvedValueOnce([
+      { id: 'p-view', userId: 'user-1', role: 'view_only', status: 'invited', viewOnlyShadowSide: 'seller' },
+    ]);
+
+    await inviteParticipant({
+      workspaceId: WORKSPACE_ID,
+      email: 'viewer@example.com',
+      role: 'view_only',
+      folderIds: [],
+      viewOnlyShadowSide: 'seller',
+    });
+
+    // Find the insert call that looks like a workspaceParticipants row
+    const participantInsertCall = mockInsertValues.mock.calls.find(
+      (args: unknown[]) => {
+        const v = args[0];
+        return v !== null && typeof v === 'object' && 'workspaceId' in (v as object) && 'userId' in (v as object);
+      },
+    );
+    expect(participantInsertCall).toBeDefined();
+    expect((participantInsertCall![0] as { viewOnlyShadowSide: unknown }).viewOnlyShadowSide).toBe('seller');
+  });
+
+  it('forces shadow side to null when role != view_only', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    // role='seller_rep', viewOnlyShadowSide='buyer' — validator must coerce to null
+    mockSelectChain
+      .mockResolvedValueOnce([{ id: 'user-1' }])  // user exists
+      .mockResolvedValueOnce([]);                   // no existing participant
+    mockInsertReturning.mockResolvedValueOnce([
+      { id: 'p-seller', userId: 'user-1', role: 'seller_rep', status: 'invited', viewOnlyShadowSide: null },
+    ]);
+
+    await inviteParticipant({
+      workspaceId: WORKSPACE_ID,
+      email: 'seller@example.com',
+      role: 'seller_rep',
+      folderIds: [],
+      viewOnlyShadowSide: 'buyer',
+    });
+
+    const participantInsertCall = mockInsertValues.mock.calls.find(
+      (args: unknown[]) => {
+        const v = args[0];
+        return v !== null && typeof v === 'object' && 'workspaceId' in (v as object) && 'userId' in (v as object);
+      },
+    );
+    expect(participantInsertCall).toBeDefined();
+    expect((participantInsertCall![0] as { viewOnlyShadowSide: unknown }).viewOnlyShadowSide).toBeNull();
+  });
+});
+
 describe('updateParticipant', () => {
   beforeEach(() => vi.clearAllMocks());
 
