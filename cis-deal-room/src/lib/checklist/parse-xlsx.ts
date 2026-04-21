@@ -54,18 +54,74 @@ function coerceOwner(v: unknown): ChecklistOwner {
   return 'unassigned';
 }
 
+const HEADER_SCAN_LIMIT = 20;
+
+/**
+ * Returns the 0-based index of the first row in `rawRows` that contains a
+ * cell matching "category" (case-insensitive, whitespace-tolerant). Returns
+ * -1 if no such row is found within the first HEADER_SCAN_LIMIT rows.
+ *
+ * This lets real-world .xlsx files work even when the column headers are not
+ * on row 1 — e.g., when there's a title row, merged section banner, or blank
+ * spacer above the header.
+ */
+function detectHeaderRow(rawRows: unknown[][]): number {
+  const limit = Math.min(HEADER_SCAN_LIMIT, rawRows.length);
+  for (let i = 0; i < limit; i++) {
+    const row = rawRows[i];
+    if (!Array.isArray(row)) continue;
+    const hasCategory = row.some((cell) => normalizeHeader(String(cell ?? '')) === 'category');
+    if (hasCategory) return i;
+  }
+  return -1;
+}
+
+function isAllBlank(rowArr: unknown[]): boolean {
+  return rowArr.every((v) => String(v ?? '').trim() === '');
+}
+
 export function parseChecklistXlsx(input: ArrayBuffer | Buffer): ParseResult {
   const wb = XLSX.read(input, { type: input instanceof ArrayBuffer ? 'array' : 'buffer' });
   const sheetName = wb.SheetNames[0];
   if (!sheetName) return { valid: [], rejected: [] };
   const sheet = wb.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+  // Parse as arrays of values so we can detect the header row ourselves.
+  const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
+  if (rawRows.length === 0) return { valid: [], rejected: [] };
+
+  const headerRowIdx = detectHeaderRow(rawRows);
+  if (headerRowIdx === -1) {
+    return {
+      valid: [],
+      rejected: [{
+        rowNumber: 1,
+        raw: {},
+        reason: 'Could not find a "Category" column header in the first ' + HEADER_SCAN_LIMIT + ' rows',
+      }],
+    };
+  }
+
+  const headerRow = rawRows[headerRowIdx] as unknown[];
+  const headers = headerRow.map((h) => String(h ?? ''));
 
   const valid: ParsedRow[] = [];
   const rejected: ParseResult['rejected'] = [];
 
-  rows.forEach((row, idx) => {
-    const rowNumber = idx + 2; // header is row 1
+  for (let i = headerRowIdx + 1; i < rawRows.length; i++) {
+    const rowArr = rawRows[i];
+    if (!Array.isArray(rowArr)) continue;
+    // Skip entirely blank rows silently — they don't belong in the rejection list.
+    if (isAllBlank(rowArr)) continue;
+
+    const rowNumber = i + 1; // 1-based for human-readable error output
+
+    // Build a record keyed by header labels, so the rest of the parser (which
+    // expects Record<string, unknown>) works unchanged.
+    const row: Record<string, unknown> = {};
+    for (let c = 0; c < headers.length; c++) {
+      row[headers[c]] = rowArr[c] ?? '';
+    }
 
     const categoryKey = findKey(row, 'category');
     const nameKey = findKey(row, 'name');
@@ -74,17 +130,17 @@ export function parseChecklistXlsx(input: ArrayBuffer | Buffer): ParseResult {
 
     if (!category) {
       rejected.push({ rowNumber, raw: row as Record<string, string>, reason: 'Missing Category' });
-      return;
+      continue;
     }
     if (!name) {
       rejected.push({ rowNumber, raw: row as Record<string, string>, reason: 'Missing Item' });
-      return;
+      continue;
     }
 
     const sortKey = findKey(row, 'sortOrder');
     const sortRaw = sortKey ? String(row[sortKey] ?? '').trim() : '';
     const sortNum = Number.parseInt(sortRaw, 10);
-    const sortOrder = Number.isFinite(sortNum) ? sortNum : idx + 1;
+    const sortOrder = Number.isFinite(sortNum) ? sortNum : i - headerRowIdx;
 
     const descKey = findKey(row, 'description');
     const notesKey = findKey(row, 'notes');
@@ -108,7 +164,7 @@ export function parseChecklistXlsx(input: ArrayBuffer | Buffer): ParseResult {
     }
 
     valid.push({ sortOrder, category, name, description, priority, owner, notes, requestedAt });
-  });
+  }
 
   return { valid, rejected };
 }

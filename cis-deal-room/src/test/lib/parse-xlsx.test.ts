@@ -9,6 +9,19 @@ function buildSheet(rows: Array<Record<string, string>>): ArrayBuffer {
   return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 }
 
+/**
+ * Build a sheet from an array-of-arrays (rows of cells). Lets tests produce
+ * .xlsx files with a title row, merged section banners, or blank spacers
+ * above the actual column headers — i.e., real-world diligence checklist
+ * shapes where headers aren't on row 1.
+ */
+function buildSheetRaw(rows: unknown[][]): ArrayBuffer {
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+}
+
 describe('parseChecklistXlsx', () => {
   it('parses valid rows with all columns', () => {
     const buf = buildSheet([
@@ -87,5 +100,60 @@ describe('parseChecklistXlsx', () => {
     const result = parseChecklistXlsx(buf);
     expect(result.valid[0].sortOrder).toBe(1);
     expect(result.valid[1].sortOrder).toBe(2);
+  });
+
+  it('detects header row when it is not on row 1', () => {
+    // Row 1: title, Row 2: blank, Row 3: headers, Row 4+: data
+    const buf = buildSheetRaw([
+      ['Rayobyte Diligence Checklist'],
+      [],
+      ['#', 'Category', 'Item', 'Priority', 'Owner'],
+      ['29', 'Legal', 'Corporate Formation Docs', 'High', 'Seller'],
+      ['30', 'Legal', 'Cap Table', 'Critical', 'Seller'],
+    ]);
+    const result = parseChecklistXlsx(buf);
+    expect(result.valid).toHaveLength(2);
+    expect(result.rejected).toHaveLength(0);
+    expect(result.valid[0]).toMatchObject({
+      sortOrder: 29, category: 'Legal', name: 'Corporate Formation Docs', priority: 'high', owner: 'seller',
+    });
+  });
+
+  it('skips fully blank rows silently (no spurious rejections)', () => {
+    const buf = buildSheetRaw([
+      ['#', 'Category', 'Item'],
+      ['29', 'Legal', 'A'],
+      ['', '', ''],
+      ['30', 'Legal', 'B'],
+    ]);
+    const result = parseChecklistXlsx(buf);
+    expect(result.valid).toHaveLength(2);
+    expect(result.rejected).toHaveLength(0);
+  });
+
+  it('tolerates section banner rows between data (rejects them, no valid items lost)', () => {
+    // A banner row with only "Legal" in column A is neither blank nor a valid
+    // row (missing Item). It lands in `rejected`, real data still parses.
+    const buf = buildSheetRaw([
+      ['#', 'Category', 'Item'],
+      ['Legal', '', ''],
+      ['29', 'Legal', 'Corporate Formation Docs'],
+      ['30', 'Legal', 'Cap Table'],
+    ]);
+    const result = parseChecklistXlsx(buf);
+    expect(result.valid).toHaveLength(2);
+    expect(result.rejected).toHaveLength(1);
+  });
+
+  it('reports a helpful error when no Category column is present anywhere', () => {
+    const buf = buildSheetRaw([
+      ['Title', '', ''],
+      ['Section', '', ''],
+      ['Some', 'Random', 'Text'],
+    ]);
+    const result = parseChecklistXlsx(buf);
+    expect(result.valid).toHaveLength(0);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.rejected[0].reason).toMatch(/Category.*column header/i);
   });
 });
