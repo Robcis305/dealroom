@@ -50,6 +50,13 @@
       "when": 1776788869043,
       "tag": "0006_mysterious_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777300000000,
+      "tag": "0007_lowercase_user_emails",
+      "breakpoints": true
     }
   ]
 }

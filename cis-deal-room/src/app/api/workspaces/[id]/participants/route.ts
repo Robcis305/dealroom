@@ -76,21 +76,25 @@ export async function POST(
   const workspace = await getWorkspace(workspaceId);
   if (!workspace) return Response.json({ error: 'Workspace not found' }, { status: 404 });
 
+  // Lowercase the email at the route boundary so the invite link, the token
+  // row, and the user row all key off the same canonical form.
+  const email = parsed.email.toLowerCase();
+
   const { participant, rawToken } = await inviteParticipant({
     workspaceId,
-    email: parsed.email,
+    email,
     role: parsed.role,
     folderIds: parsed.folderIds,
     viewOnlyShadowSide: parsed.viewOnlyShadowSide ?? null,
   });
 
   const appUrl = getAppUrl();
-  const inviteLink = `${appUrl}/api/auth/verify?token=${rawToken}&email=${encodeURIComponent(parsed.email)}`;
+  const inviteLink = `${appUrl}/api/auth/verify?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
   // Dev-mode convenience: surface the invite URL in the server log when
   // Resend is stubbed.
   if (!process.env.RESEND_API_KEY) {
-    console.log('[auth:invite-link]', parsed.email, '→', inviteLink);
+    console.log('[auth:invite-link]', email, '→', inviteLink);
   }
 
   // Resolve role label with contextual Rep naming
@@ -99,7 +103,7 @@ export async function POST(
   if (parsed.role === 'buyer_rep') roleLabel = 'Buyer Rep';
 
   await sendEmail({
-    to: parsed.email,
+    to: email,
     subject: `You're invited to ${workspace.name} on CIS Deal Room`,
     react: InvitationEmail({
       inviteLink,

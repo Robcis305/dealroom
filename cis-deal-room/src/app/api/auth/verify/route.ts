@@ -47,15 +47,18 @@ export async function GET(request: NextRequest) {
 
   // 5. Binding check: the query-param email must match the token row.
   // Prevents an attacker who observes a magic link from swapping ?email=
-  // to impersonate an arbitrary user.
-  if (tokenRow.email !== email) {
+  // to impersonate an arbitrary user. Compared case-insensitively so links
+  // mangled by email clients (e.g. lowercased) still resolve.
+  if (tokenRow.email.toLowerCase() !== email.toLowerCase()) {
     return Response.redirect(`${appUrl}/auth/verify?error=invalid`);
   }
 
   // 6. Valid token → consume it (single-use contract)
   await db.delete(magicLinkTokens).where(eq(magicLinkTokens.tokenHash, tokenHash));
 
-  // 7. Upsert user using tokenRow.email (authoritative, not the query param)
+  // 7. Upsert user using tokenRow.email (authoritative, not the query param).
+  // Token rows are written with lowercased emails, so the unique-key conflict
+  // target resolves deterministically.
   const [user] = await db
     .insert(users)
     .values({ email: tokenRow.email, isAdmin: false })
@@ -65,18 +68,20 @@ export async function GET(request: NextRequest) {
     })
     .returning({ id: users.id, firstName: users.firstName, lastName: users.lastName });
 
-  // 7. If invitation token, flip matching participant rows for this user to active
-  if (tokenRow.purpose === 'invitation') {
-    await db
-      .update(workspaceParticipants)
-      .set({ status: 'active', activatedAt: new Date() })
-      .where(
-        and(
-          eq(workspaceParticipants.userId, user.id),
-          eq(workspaceParticipants.status, 'invited')
-        )
-      );
-  }
+  // 8. Activate any pending participant rows for this authenticated user.
+  // Runs for every successful auth (login OR invitation), not just invitation
+  // tokens — otherwise a user who races their invite link with a /login link
+  // (the send route deletes prior tokens) ends up authenticated but with
+  // status='invited' and an empty deal-rooms list.
+  await db
+    .update(workspaceParticipants)
+    .set({ status: 'active', activatedAt: new Date() })
+    .where(
+      and(
+        eq(workspaceParticipants.userId, user.id),
+        eq(workspaceParticipants.status, 'invited')
+      )
+    );
 
   // 8. Create database session and set cookie
   const sessionId = await createSession(user.id);
