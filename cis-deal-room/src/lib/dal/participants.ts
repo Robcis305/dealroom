@@ -131,6 +131,11 @@ export async function inviteParticipant(input: InviteInput) {
 
   const shadowSide = validateShadowSide(input.role, input.viewOnlyShadowSide ?? null);
 
+  // Canonicalize email before any DB lookup so the unique constraint on
+  // users.email and the participant-flip lookup in /api/auth/verify all key
+  // off the same form regardless of how the inviter typed it.
+  const email = input.email.toLowerCase();
+
   const rawToken = generateToken();
   const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + INVITATION_EXPIRY_MS);
@@ -141,14 +146,14 @@ export async function inviteParticipant(input: InviteInput) {
     const [existingUser] = await tx
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.email, input.email))
+      .where(eq(users.email, email))
       .limit(1);
 
     const userId = existingUser
       ? existingUser.id
       : (await tx
           .insert(users)
-          .values({ email: input.email, isAdmin: false })
+          .values({ email, isAdmin: false })
           .returning({ id: users.id }))[0].id;
 
     // 2. Find-or-create participant row for this workspace
@@ -216,12 +221,12 @@ export async function inviteParticipant(input: InviteInput) {
       .delete(magicLinkTokens)
       .where(
         and(
-          eq(magicLinkTokens.email, input.email),
+          eq(magicLinkTokens.email, email),
           eq(magicLinkTokens.purpose, 'invitation')
         )
       );
     await tx.insert(magicLinkTokens).values({
-      email: input.email,
+      email,
       tokenHash,
       expiresAt,
       purpose: 'invitation',
@@ -237,7 +242,7 @@ export async function inviteParticipant(input: InviteInput) {
     action: 'invited',
     targetType: 'participant',
     targetId: result.id,
-    metadata: { email: input.email, role: input.role, folderIds: input.folderIds },
+    metadata: { email, role: input.role, folderIds: input.folderIds },
   });
 
   return { participant: result, rawToken };
