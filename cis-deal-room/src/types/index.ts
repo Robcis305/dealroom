@@ -62,7 +62,8 @@ export type ActivityAction =
   | 'checklist_item_na'
   | 'checklist_item_assigned'
   | 'playbook_item_blocked'
-  | 'buyer_invite_with_outstanding';
+  | 'buyer_invite_with_outstanding'
+  | 'file_moved';
 
 export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant';
 

@@ -62,6 +62,7 @@ export const activityActionEnum = pgEnum('activity_action', [
   'checklist_item_assigned',
   'playbook_item_blocked',
   'buyer_invite_with_outstanding',
+  'file_moved',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
