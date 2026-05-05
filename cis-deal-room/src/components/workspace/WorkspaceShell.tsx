@@ -72,7 +72,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   const [participantsRefresh, setParticipantsRefresh] = useState(0);
   const [hasChecklist, setHasChecklist] = useState(false);
   const [openChecklistCount, setOpenChecklistCount] = useState(0);
-  const [checklistItems, setChecklistItems] = useState<Array<{ id: string; name: string; folderId: string }>>([]);
+  const [checklistItems, setChecklistItems] = useState<Array<{ id: string; name: string; folderId: string | null }>>([]);
   const [uploadItemHint, setUploadItemHint] = useState<string | null>(null);
 
   // Derived for backward-compat with UploadModal's initialFolderId
@@ -95,16 +95,33 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
       if (!checklistRes.ok) return;
       const data = await checklistRes.json();
       setHasChecklist(!!data.checklist);
-      const open = (data.items as { status: string }[]).filter(
-        (i) => i.status === 'not_started' || i.status === 'in_progress'
-      ).length;
+
+      // Two response shapes:
+      //   - { checklist, items }                            ← buyer-side / view_only / no playbook
+      //   - { checklist, playbook: { canonical, custom } }  ← seller-side / cis_team
+      let normalized: Array<{ id: string; name: string; folderId: string | null; status: string }> = [];
+
+      if (Array.isArray(data.items)) {
+        normalized = (data.items as Array<{ id: string; name: string; folderId: string | null; status: string }>).map(
+          (i) => ({ id: i.id, name: i.name, folderId: i.folderId, status: i.status }),
+        );
+      } else if (data.playbook) {
+        // canonical rows: itemId may be null (virtual). Skip nulls — they have no DB row to upload against.
+        const canonical = (
+          data.playbook.canonical as Array<{ itemId: string | null; name: string; folderId: string | null; status: string }>
+        )
+          .filter((r) => r.itemId !== null)
+          .map((r) => ({ id: r.itemId as string, name: r.name, folderId: r.folderId, status: r.status }));
+        const custom = (
+          data.playbook.custom as Array<{ itemId: string; name: string; folderId: string | null; status: string }>
+        ).map((r) => ({ id: r.itemId, name: r.name, folderId: r.folderId, status: r.status }));
+        normalized = [...canonical, ...custom];
+      }
+
+      const open = normalized.filter((i) => i.status === 'not_started' || i.status === 'in_progress').length;
       setOpenChecklistCount(open);
       setChecklistItems(
-        (data.items as { id: string; name: string; folderId: string }[]).map((i) => ({
-          id: i.id,
-          name: i.name,
-          folderId: i.folderId,
-        })),
+        normalized.map((i) => ({ id: i.id, name: i.name, folderId: i.folderId })),
       );
     } catch {
       // silently ignore — sidebar just won't show checklist meta
