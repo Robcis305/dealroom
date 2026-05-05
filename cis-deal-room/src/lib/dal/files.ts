@@ -1,4 +1,4 @@
-import { desc, eq, and, count, inArray, sql } from 'drizzle-orm';
+import { desc, eq, and, count, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { files, folders, users, checklistItems, checklistItemFiles } from '@/db/schema';
 import { verifySession } from './index';
@@ -24,7 +24,7 @@ export async function getFileCountsByFolder(
       count: count(files.id),
     })
     .from(files)
-    .where(inArray(files.folderId, folderIds))
+    .where(and(inArray(files.folderId, folderIds), isNull(files.deletedAt)))
     .groupBy(files.folderId);
 
   // Seed every requested folder with 0 so the UI can render consistently
@@ -59,7 +59,7 @@ export async function getFilesForFolder(folderId: string) {
     })
     .from(files)
     .innerJoin(users, eq(users.id, files.uploadedBy))
-    .where(eq(files.folderId, folderId))
+    .where(and(eq(files.folderId, folderId), isNull(files.deletedAt)))
     .orderBy(desc(files.createdAt));
 }
 
@@ -73,7 +73,7 @@ export async function getFileById(fileId: string) {
   const [file] = await db
     .select()
     .from(files)
-    .where(eq(files.id, fileId))
+    .where(and(eq(files.id, fileId), isNull(files.deletedAt)))
     .limit(1);
 
   return file ?? null;
@@ -89,7 +89,7 @@ export async function getFileVersions(fileId: string) {
   const [anchor] = await db
     .select({ folderId: files.folderId, name: files.name })
     .from(files)
-    .where(eq(files.id, fileId))
+    .where(and(eq(files.id, fileId), isNull(files.deletedAt)))
     .limit(1);
 
   if (!anchor) return [];
@@ -108,7 +108,13 @@ export async function getFileVersions(fileId: string) {
     })
     .from(files)
     .innerJoin(users, eq(users.id, files.uploadedBy))
-    .where(and(eq(files.folderId, anchor.folderId), eq(files.name, anchor.name)))
+    .where(
+      and(
+        eq(files.folderId, anchor.folderId),
+        eq(files.name, anchor.name),
+        isNull(files.deletedAt),
+      ),
+    )
     .orderBy(desc(files.version));
 }
 
@@ -123,7 +129,7 @@ export async function checkDuplicate(folderId: string, name: string) {
   const [existing] = await db
     .select()
     .from(files)
-    .where(and(eq(files.folderId, folderId), eq(files.name, name)))
+    .where(and(eq(files.folderId, folderId), eq(files.name, name), isNull(files.deletedAt)))
     .orderBy(desc(files.version))
     .limit(1);
 
@@ -224,7 +230,7 @@ export async function getFilesForBulkDownload(fileIds: string[]) {
     })
     .from(files)
     .innerJoin(folders, eq(folders.id, files.folderId))
-    .where(inArray(files.id, fileIds));
+    .where(and(inArray(files.id, fileIds), isNull(files.deletedAt)));
 
   // Preserve input order
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -232,9 +238,11 @@ export async function getFilesForBulkDownload(fileIds: string[]) {
 }
 
 /**
- * Deletes a file row by ID and logs the 'deleted' activity.
+ * Soft-deletes a file row by ID (sets deleted_at) and logs the 'deleted' activity.
  * Fetches the file + parent folder in one join to get workspaceId for the activity log.
- * Admin-only. Does NOT delete the S3 object — the route handler does that.
+ * Admin-only. Does NOT delete the S3 object — it is preserved so a subsequent
+ * /restore call can recover the file. Hard-delete and S3 cleanup are handled
+ * by scripts/hard-delete-expired.mjs (deferred).
  *
  * Checklist interactions:
  * 1. If the file is linked to any checklist item in a terminal state
@@ -242,15 +250,18 @@ export async function getFilesForBulkDownload(fileIds: string[]) {
  *    must reset the item's status before deleting, so the explicit "accepted"
  *    decision isn't silently undone.
  * 2. For non-terminal items that lose their last link as a result of this
- *    delete, revert in_progress → not_started. The DB cascade removes the
- *    checklist_item_files row, but the status revert is app-level.
+ *    soft-delete, revert in_progress → not_started (since the file is no
+ *    longer visible in the UI). The checklist_item_files row is NOT removed
+ *    by the DB cascade (the file row still exists); we handle this via an
+ *    explicit count check that treats soft-deleted files as absent.
  */
 export async function deleteFile(fileId: string) {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
   if (!session.isAdmin) throw new Error('Admin required');
 
-  // Fetch file + folder to get workspaceId
+  // Fetch file + folder (including already-soft-deleted rows so the call is
+  // idempotent — caller sees the same file regardless of current deleted_at).
   const [row] = await db
     .select({ file: files, folder: folders })
     .from(files)
@@ -285,7 +296,7 @@ export async function deleteFile(fileId: string) {
   }
 
   // (2) Collect non-terminal items linked to this file so we can revert their
-  // status after the DB cascade wipes the link rows.
+  // status if this file was their only link.
   const affectedItems = await db
     .select({ itemId: checklistItemFiles.itemId })
     .from(checklistItemFiles)
@@ -293,15 +304,27 @@ export async function deleteFile(fileId: string) {
   const affectedItemIds = affectedItems.map((r) => r.itemId);
 
   await db.transaction(async (tx) => {
-    await tx.delete(files).where(eq(files.id, fileId));
+    // Soft-delete: set deleted_at, leave the row + S3 object intact.
+    await tx
+      .update(files)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(files.id, fileId), isNull(files.deletedAt)));
 
+    // Revert in_progress → not_started for items whose only remaining
+    // active (non-soft-deleted) linked file is this one.
     for (const itemId of affectedItemIds) {
-      const [{ count: linkCount }] = await tx
+      const [{ count: activeLinkCount }] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(checklistItemFiles)
-        .where(eq(checklistItemFiles.itemId, itemId));
+        .innerJoin(files, eq(files.id, checklistItemFiles.fileId))
+        .where(
+          and(
+            eq(checklistItemFiles.itemId, itemId),
+            isNull(files.deletedAt),
+          ),
+        );
 
-      if (linkCount === 0) {
+      if (activeLinkCount === 0) {
         const [item] = await tx
           .select({ status: checklistItems.status })
           .from(checklistItems)
@@ -347,7 +370,7 @@ interface MoveFilesResult {
  * Validates that every file exists and belongs to the same workspace as
  * the destination folder. Files in different workspaces, or referencing
  * a missing destination, are returned in `failed` rather than failing
- * the whole batch.
+ * the whole batch. Soft-deleted files are excluded.
  *
  * Each successful move emits one `file_moved` activity log entry whose
  * metadata records the source folder. The whole operation runs in a
@@ -374,7 +397,7 @@ export async function moveFiles(input: MoveFilesInput): Promise<MoveFilesResult>
       };
     }
 
-    // Look up every file's current folder + workspace
+    // Look up every file's current folder + workspace (active files only)
     const rows = await tx
       .select({
         id: files.id,
@@ -383,7 +406,7 @@ export async function moveFiles(input: MoveFilesInput): Promise<MoveFilesResult>
       })
       .from(files)
       .innerJoin(folders, eq(folders.id, files.folderId))
-      .where(inArray(files.id, input.fileIds));
+      .where(and(inArray(files.id, input.fileIds), isNull(files.deletedAt)));
 
     const moved: string[] = [];
     const failed: Array<{ id: string; reason: string }> = [];
@@ -430,5 +453,53 @@ export async function moveFiles(input: MoveFilesInput): Promise<MoveFilesResult>
     }
 
     return { moved, failed };
+  });
+}
+
+// ─── Restore ──────────────────────────────────────────────────────────────────
+
+/**
+ * Restore a soft-deleted file. Admin-only. Logs activity. Returns
+ * `{ restored: boolean }`. Idempotent on already-active files (no-op + no
+ * activity entry).
+ */
+export async function restoreFile(fileId: string) {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        id: files.id,
+        deletedAt: files.deletedAt,
+        folderId: files.folderId,
+        workspaceId: folders.workspaceId,
+      })
+      .from(files)
+      .innerJoin(folders, eq(folders.id, files.folderId))
+      .where(eq(files.id, fileId))
+      .limit(1);
+    if (!row) throw new Error('File not found');
+
+    if (row.deletedAt === null) {
+      // already active — silent no-op
+      return { restored: false };
+    }
+
+    await tx
+      .update(files)
+      .set({ deletedAt: null })
+      .where(eq(files.id, fileId));
+
+    await logActivity(tx, {
+      workspaceId: row.workspaceId,
+      userId: session.userId,
+      action: 'restored',
+      targetType: 'file',
+      targetId: fileId,
+    });
+
+    return { restored: true };
   });
 }

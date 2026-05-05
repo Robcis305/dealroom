@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq, inArray, and, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   files,
@@ -50,11 +50,11 @@ export async function POST(
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Fetch file rows
+  // Fetch file rows (exclude soft-deleted — they shouldn't appear in notifications)
   const fileRows = await db
     .select({ id: files.id, name: files.name, sizeBytes: files.sizeBytes })
     .from(files)
-    .where(inArray(files.id, fileIds));
+    .where(and(inArray(files.id, fileIds), isNull(files.deletedAt)));
 
   if (fileRows.length === 0) {
     return Response.json({ error: 'No matching files' }, { status: 400 });

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { verifySession } from '@/lib/dal/index';
 import { db } from '@/db';
 import { users, files } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, and, isNull, desc } from 'drizzle-orm';
 import { requireFolderAccess } from '@/lib/dal/access';
 
 const schema = z.object({ folderId: z.string().uuid() });
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
       })
       .from(files)
       .innerJoin(users, eq(files.uploadedBy, users.id))
-      .where(eq(files.folderId, parsed.data.folderId))
+      .where(and(eq(files.folderId, parsed.data.folderId), isNull(files.deletedAt)))
       .orderBy(desc(files.createdAt));
 
     return Response.json(rows);

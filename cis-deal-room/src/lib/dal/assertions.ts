@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { folders, files, workspaceParticipants } from '@/db/schema';
 
@@ -30,7 +30,7 @@ export async function assertFileInWorkspace(fileId: string, workspaceId: string)
     .select({ workspaceId: folders.workspaceId })
     .from(files)
     .innerJoin(folders, eq(folders.id, files.folderId))
-    .where(eq(files.id, fileId))
+    .where(and(eq(files.id, fileId), isNull(files.deletedAt)))
     .limit(1);
   if (!row) throw new Error('Not found');
   if (row.workspaceId !== workspaceId) throw new Error('Forbidden');

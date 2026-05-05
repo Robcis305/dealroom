@@ -215,6 +215,15 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
         }
         return results.every((r) => r.ok);
       },
+      performRestore: async () => {
+        const results = await Promise.all(
+          toDelete.map(async (f) => {
+            const res = await fetchWithAuth(`/api/files/${f.id}/restore`, { method: 'POST' });
+            return res.ok;
+          })
+        );
+        return results.every(Boolean);
+      },
     });
   }
 
