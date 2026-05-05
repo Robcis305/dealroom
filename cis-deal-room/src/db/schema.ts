@@ -71,6 +71,23 @@ export const activityTargetTypeEnum = pgEnum('activity_target_type', [
   'participant',
 ]);
 
+export const playbookCategoryEnum = pgEnum('playbook_category', [
+  'corporate_legal',
+  'financial',
+  'commercial',
+  'team_hr',
+  'ip_technical',
+  'operations_risk',
+]);
+
+export const dealKillerGroupEnum = pgEnum('deal_killer_group', [
+  'cap_table',
+  'eighty_three_b',
+  'customer_coc',
+  'ip_assignment',
+  'revenue_bridge',
+]);
+
 export const checklistPriorityEnum = pgEnum('checklist_priority', [
   'critical',
   'high',
@@ -89,6 +106,7 @@ export const checklistOwnerEnum = pgEnum('checklist_owner', [
 export const checklistStatusEnum = pgEnum('checklist_status', [
   'not_started',
   'in_progress',
+  'blocked',
   'received',
   'waived',
   'n_a',
