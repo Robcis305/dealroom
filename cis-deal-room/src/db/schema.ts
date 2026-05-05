@@ -60,6 +60,8 @@ export const activityActionEnum = pgEnum('activity_action', [
   'checklist_item_waived',
   'checklist_item_na',
   'checklist_item_assigned',
+  'playbook_item_blocked',
+  'buyer_invite_with_outstanding',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
@@ -296,3 +298,15 @@ export const checklistItemFiles = pgTable(
   },
   (table) => [primaryKey({ columns: [table.itemId, table.fileId] })],
 );
+
+export const playbookItems = pgTable('playbook_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  number: integer('number').notNull().unique(),
+  category: playbookCategoryEnum('category').notNull(),
+  name: text('name').notNull(),
+  rationale: text('rationale').notNull(),
+  dealKillerGroup: dealKillerGroupEnum('deal_killer_group'),
+  defaultPriority: checklistPriorityEnum('default_priority').notNull().default('medium'),
+  sortOrder: integer('sort_order').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
