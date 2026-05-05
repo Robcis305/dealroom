@@ -21,6 +21,10 @@ function makeWhereResult() {
   };
 }
 
+const mockInsertChain = vi.fn().mockResolvedValue([{ id: 'new-ci-id' }]);
+const mockUpdateChain = vi.fn().mockResolvedValue([]);
+const mockTransactionFn = vi.fn();
+
 vi.mock('@/db', () => ({
   db: {
     select: () => ({
@@ -28,6 +32,7 @@ vi.mock('@/db', () => ({
         where: () => makeWhereResult(),
       }),
     }),
+    transaction: (...args: Parameters<typeof mockTransactionFn>) => mockTransactionFn(...args),
   },
 }));
 
@@ -40,7 +45,7 @@ vi.mock('@/lib/dal/activity', () => ({
 }));
 
 import { verifySession } from '@/lib/dal/index';
-import { ownerFilterForSession, listItemsForViewer } from '@/lib/dal/checklist';
+import { ownerFilterForSession, listItemsForViewer, setCanonicalItemStatus } from '@/lib/dal/checklist';
 
 const WORKSPACE_ID = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -88,6 +93,58 @@ describe('ownerFilterForSession', () => {
     expect(
       ownerFilterForSession({ isAdmin: false, role: 'counsel', shadowSide: null, cisAdvisorySide: 'buyer_side' }),
     ).toEqual([]);
+  });
+});
+
+describe('setCanonicalItemStatus', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockInsertChain.mockResolvedValue([{ id: 'new-ci-id' }]);
+    mockUpdateChain.mockResolvedValue([]);
+  });
+
+  it('inserts a checklist_items row when none exists for the (checklist, playbook_item)', async () => {
+    const session = { userId: 'admin', isAdmin: true, userEmail: 'a@a' };
+    vi.mocked(verifySession).mockResolvedValueOnce(session as any);
+
+    // tx mock: resolves select calls in order:
+    //   1. playbookItems lookup → [{ id, category, name, defaultPriority, number }]
+    //   2. checklists lookup → [{ id, workspaceId }]
+    //   3. existing checklistItems lookup → [] (no row yet)
+    const txSelectChain = vi.fn()
+      .mockResolvedValueOnce([{ id: 'pb-5', category: 'corporate', name: 'Test Item', defaultPriority: 'medium', number: 5 }])
+      .mockResolvedValueOnce([{ id: 'cl-1', workspaceId: 'ws-1' }])
+      .mockResolvedValueOnce([]); // no existing checklist_items row
+
+    const tx = {
+      select: () => ({ from: () => ({ where: () => ({ limit: txSelectChain }) }) }),
+      insert: () => ({ values: () => ({ returning: mockInsertChain }) }),
+      update: () => ({ set: () => ({ where: mockUpdateChain }) }),
+    };
+
+    mockTransactionFn.mockImplementation(async (fn: (tx: typeof tx) => Promise<unknown>) => fn(tx));
+
+    await setCanonicalItemStatus({
+      checklistId: 'cl-1',
+      playbookItemId: 'pb-5',
+      target: 'received',
+    });
+
+    expect(verifySession).toHaveBeenCalled();
+    expect(mockInsertChain).toHaveBeenCalled();
+  });
+
+  it('rejects non-admin callers', async () => {
+    vi.mocked(verifySession).mockResolvedValueOnce({
+      userId: 'u1', isAdmin: false, userEmail: 'u@u',
+    } as any);
+    await expect(
+      setCanonicalItemStatus({
+        checklistId: 'cl-1',
+        playbookItemId: 'pb-5',
+        target: 'received',
+      }),
+    ).rejects.toThrow('Admin required');
   });
 });
 

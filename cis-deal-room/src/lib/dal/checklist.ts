@@ -6,6 +6,7 @@ import {
   checklistItemFiles,
   workspaces,
   workspaceParticipants,
+  playbookItems,
 } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
@@ -384,6 +385,123 @@ export async function linkFileToItem(itemId: string, fileId: string) {
     });
 
     return { transitioned };
+  });
+}
+
+interface SetCanonicalStatusInput {
+  checklistId: string;
+  playbookItemId: string;
+  target: ChecklistStatus | 'reset';
+}
+
+/**
+ * Set status for a CANONICAL playbook item. Upserts a checklist_items row
+ * keyed by (checklist_id, playbook_item_id) if one doesn't exist yet.
+ * Admin-only. Logs activity. Returns the resulting item id.
+ */
+export async function setCanonicalItemStatus(input: SetCanonicalStatusInput): Promise<string> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+
+  return db.transaction(async (tx) => {
+    // Resolve the playbook item context
+    const [pb] = await tx
+      .select({
+        id: playbookItems.id,
+        category: playbookItems.category,
+        name: playbookItems.name,
+        defaultPriority: playbookItems.defaultPriority,
+        number: playbookItems.number,
+      })
+      .from(playbookItems)
+      .where(eq(playbookItems.id, input.playbookItemId))
+      .limit(1);
+    if (!pb) throw new Error('Playbook item not found');
+
+    const [cl] = await tx
+      .select({ id: checklists.id, workspaceId: checklists.workspaceId })
+      .from(checklists)
+      .where(eq(checklists.id, input.checklistId))
+      .limit(1);
+    if (!cl) throw new Error('Checklist not found');
+
+    // Find existing row (if any)
+    const [existing] = await tx
+      .select({ id: checklistItems.id, status: checklistItems.status })
+      .from(checklistItems)
+      .where(
+        and(
+          eq(checklistItems.checklistId, input.checklistId),
+          eq(checklistItems.playbookItemId, input.playbookItemId),
+        ),
+      )
+      .limit(1);
+
+    let nextStatus: ChecklistStatus;
+    if (input.target === 'reset') {
+      nextStatus = 'not_started';
+    } else {
+      nextStatus = input.target;
+    }
+
+    let itemId: string;
+    if (existing) {
+      const patch: Partial<typeof checklistItems.$inferInsert> = {
+        status: nextStatus,
+        updatedAt: new Date(),
+      };
+      if (nextStatus === 'received') {
+        patch.receivedAt = new Date();
+        patch.receivedBy = session.userId;
+      } else {
+        patch.receivedAt = null;
+        patch.receivedBy = null;
+      }
+      await tx.update(checklistItems).set(patch).where(eq(checklistItems.id, existing.id));
+      itemId = existing.id;
+    } else {
+      const [inserted] = await tx
+        .insert(checklistItems)
+        .values({
+          checklistId: input.checklistId,
+          playbookItemId: input.playbookItemId,
+          folderId: null,
+          category: pb.category,
+          name: pb.name,
+          priority: pb.defaultPriority,
+          owner: 'unassigned',
+          status: nextStatus,
+          sortOrder: pb.number,
+          ...(nextStatus === 'received'
+            ? { receivedAt: new Date(), receivedBy: session.userId }
+            : {}),
+        })
+        .returning({ id: checklistItems.id });
+      itemId = inserted.id;
+    }
+
+    // Activity logging
+    const action: import('@/types').ActivityAction | null = (() => {
+      if (nextStatus === 'received') return 'checklist_item_received';
+      if (nextStatus === 'waived') return 'checklist_item_waived';
+      if (nextStatus === 'n_a') return 'checklist_item_na';
+      // 'blocked' will map to 'playbook_item_blocked' once Task 2.6 extends
+      // the ActivityAction type. For now return null (no activity logged).
+      return null;
+    })();
+    if (action) {
+      await logActivity(tx, {
+        workspaceId: cl.workspaceId,
+        userId: session.userId,
+        action,
+        targetType: 'file',
+        targetId: itemId,
+        metadata: { playbookItemId: input.playbookItemId, number: pb.number },
+      });
+    }
+
+    return itemId;
   });
 }
 
