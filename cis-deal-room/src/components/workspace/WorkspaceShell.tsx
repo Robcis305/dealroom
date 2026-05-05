@@ -15,7 +15,7 @@ import { FileList } from './FileList';
 import { UploadModal } from './UploadModal';
 import { ParticipantFormModal } from './ParticipantFormModal';
 import { ChecklistView } from './ChecklistView';
-import type { WorkspaceStatus } from '@/types';
+import type { WorkspaceStatus, ParticipantRole } from '@/types';
 
 interface Workspace {
   id: string;
@@ -45,6 +45,8 @@ interface WorkspaceShellProps {
   isAdmin: boolean;
   activeClientCount: number;
   userEmail: string;
+  /** Current user's participant role in this workspace. Defaults to 'admin' for admins. */
+  participantRole: ParticipantRole;
 }
 
 type FileCounts = Record<string, number>;
@@ -58,7 +60,7 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, activeClientCount, userEmail }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, activeClientCount, userEmail, participantRole }: WorkspaceShellProps) {
   const [view, setView] = useState<CenterView>({ kind: 'overview' });
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -284,6 +286,9 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               folders={folders}
               fileCounts={fileCounts}
               onFolderSelect={(folderId) => setView({ kind: 'folder', folderId })}
+              isAdmin={isAdmin}
+              role={participantRole}
+              onOpenChecklist={() => setView({ kind: 'checklist' })}
             />
           ) : view.kind === 'checklist' ? (
             <ChecklistView

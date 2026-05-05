@@ -1,8 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Folder } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
-import type { WorkspaceStatus } from '@/types';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import { ReadinessPanel } from './ReadinessPanel';
+import type { WorkspaceStatus, ParticipantRole } from '@/types';
 
 interface Workspace {
   id: string;
@@ -27,19 +30,46 @@ interface DealOverviewProps {
   fileCounts: Record<string, number>;
   /** Select a folder (navigate the center panel to its FileList) */
   onFolderSelect: (folderId: string) => void;
+  /** New: viewer role + admin flag, for readiness gating. */
+  isAdmin: boolean;
+  role: ParticipantRole;
+  /** New: open the checklist tab (set view to {kind:'checklist'}). */
+  onOpenChecklist: () => void;
 }
 
-const ADVISORY_LABELS: Record<'buyer_side' | 'seller_side', string> = {
+const ADVISORY_LABELS = {
   buyer_side: 'Buyer-side Advisory',
   seller_side: 'Seller-side Advisory',
-};
+} as const;
 
-export function DealOverview({ workspace, status, folders, fileCounts, onFolderSelect }: DealOverviewProps) {
+const PLAYBOOK_VISIBLE_ROLES = new Set<ParticipantRole>([
+  'admin', 'cis_team', 'seller_rep', 'seller_counsel',
+]);
+
+export function DealOverview({
+  workspace, status, folders, fileCounts, onFolderSelect,
+  isAdmin, role, onOpenChecklist,
+}: DealOverviewProps) {
+  const showReadiness =
+    isAdmin ||
+    PLAYBOOK_VISIBLE_ROLES.has(role) ||
+    (role === 'client' && workspace.cisAdvisorySide === 'seller_side');
+
+  const [summary, setSummary] = useState<Parameters<typeof ReadinessPanel>[0]['summary'] | null>(null);
+
+  useEffect(() => {
+    if (!showReadiness) return;
+    let cancelled = false;
+    fetchWithAuth(`/api/workspaces/${workspace.id}/readiness`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled && data) setSummary(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [showReadiness, workspace.id]);
+
   const createdDate = new Date(workspace.createdAt);
   const formattedDate = createdDate.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
+    month: 'long', day: 'numeric', year: 'numeric',
   });
   const formattedTime = createdDate.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -53,16 +83,22 @@ export function DealOverview({ workspace, status, folders, fileCounts, onFolderS
       <h1 className="text-2xl md:text-3xl font-semibold text-text-primary mb-3">{workspace.name}</h1>
 
       {/* Metadata row */}
-      <div className="flex flex-wrap items-center gap-3 mb-8">
+      <div className="flex flex-wrap items-center gap-3 mb-6">
         <Badge status={status} />
-        <span className="text-sm text-text-secondary">
-          {ADVISORY_LABELS[workspace.cisAdvisorySide]}
-        </span>
+        <span className="text-sm text-text-secondary">{ADVISORY_LABELS[workspace.cisAdvisorySide]}</span>
         <span className="text-xs text-text-muted">&#8226;</span>
         <span className="text-xs font-mono text-text-muted">
           Created {formattedDate} at {formattedTime}
         </span>
       </div>
+
+      {showReadiness && summary && (
+        <ReadinessPanel
+          summary={summary}
+          onOpenChecklist={onOpenChecklist}
+          onChipClick={() => onOpenChecklist()}
+        />
+      )}
 
       {/* Folder count grid */}
       <div>
