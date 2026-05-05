@@ -122,9 +122,13 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
     });
   }
 
-  function handleUploadForItem(folderId: string, itemId: string, _itemName: string) {
+  function handleUploadForItem(folderId: string | null, itemId: string, _itemName: string) {
     setUploadItemHint(itemId);
-    setView({ kind: 'folder', folderId });
+    if (folderId) {
+      setView({ kind: 'folder', folderId });
+    }
+    // If folderId is null (canonical playbook item has no folder yet), open the
+    // upload modal without pre-selecting a folder — the user picks one in the modal.
     setShowUploadModal(true);
   }
 
