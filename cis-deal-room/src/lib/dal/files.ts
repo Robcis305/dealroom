@@ -204,6 +204,34 @@ export async function getChecklistLocksForFiles(fileIds: string[]) {
 }
 
 /**
+ * Load file metadata for a bulk download. Returns rows in the SAME order as
+ * the input ids (for the zip's stable ordering). Includes workspaceId so the
+ * caller can authorize and log activity.
+ *
+ * Files not found are silently skipped — the caller should compare the
+ * returned row count to the input count if it cares about partial misses.
+ */
+export async function getFilesForBulkDownload(fileIds: string[]) {
+  if (fileIds.length === 0) return [];
+
+  const rows = await db
+    .select({
+      id: files.id,
+      name: files.name,
+      s3Key: files.s3Key,
+      folderId: files.folderId,
+      workspaceId: folders.workspaceId,
+    })
+    .from(files)
+    .innerJoin(folders, eq(folders.id, files.folderId))
+    .where(inArray(files.id, fileIds));
+
+  // Preserve input order
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return fileIds.map((id) => byId.get(id)).filter((r): r is NonNullable<typeof r> => Boolean(r));
+}
+
+/**
  * Deletes a file row by ID and logs the 'deleted' activity.
  * Fetches the file + parent folder in one join to get workspaceId for the activity log.
  * Admin-only. Does NOT delete the S3 object — the route handler does that.
