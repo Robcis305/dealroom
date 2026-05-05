@@ -31,7 +31,8 @@ export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem
   const [showImport, setShowImport] = useState(false);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    // Don't toggle `loading` here — that unmounts the playbook view and resets scroll.
+    // Only the initial mount sets loading=true; from then on, just swap data in place.
     const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/checklist`);
     if (res.ok) {
       const data = await res.json();
@@ -39,7 +40,7 @@ export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem
       setPlaybook(data.playbook ?? null);
       setItems(data.items ?? []);
     }
-    setLoading(false);
+    setLoading(false);  // first call also clears the initial-mount loading state
   }, [workspaceId]);
 
   useEffect(() => { refresh(); }, [refresh]);
