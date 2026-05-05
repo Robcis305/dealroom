@@ -266,9 +266,10 @@ export const checklistItems = pgTable('checklist_items', {
   checklistId: uuid('checklist_id')
     .notNull()
     .references(() => checklists.id, { onDelete: 'cascade' }),
-  folderId: uuid('folder_id')
-    .notNull()
-    .references(() => folders.id, { onDelete: 'restrict' }),
+  playbookItemId: uuid('playbook_item_id').references(() => playbookItems.id, {
+    onDelete: 'restrict',
+  }),
+  folderId: uuid('folder_id').references(() => folders.id, { onDelete: 'restrict' }),
   sortOrder: integer('sort_order').notNull().default(0),
   category: text('category').notNull(),
   name: text('name').notNull(),
