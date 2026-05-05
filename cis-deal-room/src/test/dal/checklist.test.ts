@@ -122,7 +122,7 @@ describe('setCanonicalItemStatus', () => {
       update: () => ({ set: () => ({ where: mockUpdateChain }) }),
     };
 
-    mockTransactionFn.mockImplementation(async (fn: (tx: typeof tx) => Promise<unknown>) => fn(tx));
+    mockTransactionFn.mockImplementation(async (fn: (tx: any) => Promise<unknown>) => fn(tx));
 
     await setCanonicalItemStatus({
       checklistId: 'cl-1',
