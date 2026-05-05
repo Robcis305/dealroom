@@ -7,6 +7,14 @@ import { assignableRolesFor } from '@/lib/participants/roles';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { CisAdvisorySide, ParticipantRole } from '@/types';
 
+const GROUP_LABEL: Record<string, string> = {
+  cap_table: 'Cap Table',
+  eighty_three_b: '83(b) Filings',
+  customer_coc: 'Customer COC',
+  ip_assignment: 'IP Assignments',
+  revenue_bridge: 'Revenue Bridge',
+};
+
 interface Folder {
   id: string;
   name: string;
@@ -58,6 +66,10 @@ export function ParticipantFormModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  type Outstanding = { group: string; status: string; color: string };
+  const [outstanding, setOutstanding] = useState<Outstanding[] | null>(null);
+  const [acknowledgement, setAcknowledgement] = useState('');
+
   function toggleFolder(folderId: string) {
     setSelectedFolderIds((prev) => {
       const next = new Set(prev);
@@ -94,6 +106,7 @@ export function ParticipantFormModal({
             role,
             folderIds: Array.from(selectedFolderIds),
             viewOnlyShadowSide: role === 'view_only' ? viewOnlyShadowSide : null,
+            ...(acknowledgement ? { acknowledgement } : {}),
           }
         : {
             role,
@@ -110,6 +123,10 @@ export function ParticipantFormModal({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: 'Request failed' }));
+        if (res.status === 409 && Array.isArray(data?.outstanding)) {
+          setOutstanding(data.outstanding);
+          return;
+        }
         const message =
           typeof data.error === 'string'
             ? data.error
@@ -136,6 +153,8 @@ export function ParticipantFormModal({
     setSelectedFolderIds(new Set(existing?.folderIds ?? []));
     setViewOnlyShadowSide(existing?.viewOnlyShadowSide ?? '');
     setError(null);
+    setOutstanding(null);
+    setAcknowledgement('');
     onClose();
   }
 
@@ -228,6 +247,35 @@ export function ParticipantFormModal({
 
         {error && <p className="text-xs text-danger">{error}</p>}
 
+        {outstanding && (
+          <div className="mt-4 p-4 border border-accent/40 bg-accent/10 rounded-lg">
+            <h3 className="text-sm font-semibold text-accent mb-2">
+              {outstanding.length} deal-killer{outstanding.length === 1 ? '' : 's'} outstanding
+            </h3>
+            <p className="text-sm text-text-secondary mb-3">
+              You&apos;re inviting a buyer-side participant before resolving:
+            </p>
+            <ul className="text-xs text-text-secondary mb-3 space-y-1">
+              {outstanding.map((o) => (
+                <li key={o.group} className="font-mono">
+                  • {GROUP_LABEL[o.group] ?? o.group}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-text-muted mb-2">
+              Type <span className="font-mono text-text-primary">share anyway</span> to proceed.
+            </p>
+            <input
+              type="text"
+              value={acknowledgement}
+              onChange={(e) => setAcknowledgement(e.target.value)}
+              placeholder="share anyway"
+              className="w-full bg-surface-sunken border border-border rounded-lg px-3 py-2 text-sm
+                text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+          </div>
+        )}
+
         <div className="flex gap-3 pt-1">
           <button
             onClick={handleClose}
@@ -239,7 +287,7 @@ export function ParticipantFormModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={!(!submitting && (outstanding === null || acknowledgement.trim().toLowerCase() === 'share anyway'))}
             className="flex-1 py-2 rounded-lg text-sm font-medium bg-accent text-text-inverse
               hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
