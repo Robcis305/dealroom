@@ -60,7 +60,9 @@ export type ActivityAction =
   | 'checklist_item_received'
   | 'checklist_item_waived'
   | 'checklist_item_na'
-  | 'checklist_item_assigned';
+  | 'checklist_item_assigned'
+  | 'playbook_item_blocked'
+  | 'buyer_invite_with_outstanding';
 
 export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant';
 
@@ -84,3 +86,7 @@ export type ChecklistStatus =
   | 'n_a';
 
 export type ViewOnlyShadowSide = 'buyer' | 'seller';
+
+// ─── Playbook ─────────────────────────────────────────────────────────────────
+
+export type { PlaybookCategory, DealKillerGroup } from '@/lib/dal/playbook';

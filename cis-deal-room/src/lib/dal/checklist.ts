@@ -322,7 +322,7 @@ export async function setItemStatus(
       n_a: 'checklist_item_na',
       not_started: null,
       in_progress: null,
-      blocked: null,
+      blocked: 'playbook_item_blocked',
     };
     const action = actionMap[nextStatus];
     if (action) {
@@ -486,8 +486,7 @@ export async function setCanonicalItemStatus(input: SetCanonicalStatusInput): Pr
       if (nextStatus === 'received') return 'checklist_item_received';
       if (nextStatus === 'waived') return 'checklist_item_waived';
       if (nextStatus === 'n_a') return 'checklist_item_na';
-      // 'blocked' will map to 'playbook_item_blocked' once Task 2.6 extends
-      // the ActivityAction type. For now return null (no activity logged).
+      if (nextStatus === 'blocked') return 'playbook_item_blocked';
       return null;
     })();
     if (action) {
