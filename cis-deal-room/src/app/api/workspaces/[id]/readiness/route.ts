@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { workspaces, workspaceParticipants } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
-import { getChecklistForWorkspace } from '@/lib/dal/checklist';
+import { ensureChecklistForWorkspace } from '@/lib/dal/checklist';
 import { getReadinessSummary } from '@/lib/dal/playbook';
 import type { ParticipantRole, CisAdvisorySide } from '@/types';
 
@@ -63,23 +63,7 @@ export async function GET(
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const checklist = await getChecklistForWorkspace(workspaceId);
-  if (!checklist) {
-    return Response.json({
-      total: 0,
-      ready: 0,
-      byCategory: {
-        corporate_legal: { total: 0, ready: 0 },
-        financial: { total: 0, ready: 0 },
-        commercial: { total: 0, ready: 0 },
-        team_hr: { total: 0, ready: 0 },
-        ip_technical: { total: 0, ready: 0 },
-        operations_risk: { total: 0, ready: 0 },
-      },
-      dealKillerGroups: [],
-    });
-  }
-
+  const checklist = await ensureChecklistForWorkspace(workspaceId, session.userId);
   const summary = await getReadinessSummary(checklist.id);
   return Response.json(summary);
 }

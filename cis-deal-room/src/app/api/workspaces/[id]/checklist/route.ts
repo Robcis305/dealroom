@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { workspaces, workspaceParticipants } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
-import { getChecklistForWorkspace, listItemsForViewer } from '@/lib/dal/checklist';
+import { getChecklistForWorkspace, ensureChecklistForWorkspace, listItemsForViewer } from '@/lib/dal/checklist';
 import { getPlaybookView } from '@/lib/dal/playbook';
 import type { ParticipantRole, CisAdvisorySide } from '@/types';
 
@@ -50,11 +50,6 @@ export async function GET(
     .limit(1);
   if (workspace) cisAdvisorySide = workspace.cisAdvisorySide;
 
-  const checklist = await getChecklistForWorkspace(workspaceId);
-  if (!checklist) {
-    return Response.json({ checklist: null, items: [], playbook: null });
-  }
-
   // Decide whether this viewer sees the playbook overlay.
   // Hide playbook from buyer-side, view_only, and the deprecated counsel role.
   const isClientOnSellerSide = role === 'client' && cisAdvisorySide === 'seller_side';
@@ -65,6 +60,21 @@ export async function GET(
     role === 'seller_rep' ||
     role === 'seller_counsel' ||
     isClientOnSellerSide;
+
+  let checklist = await getChecklistForWorkspace(workspaceId);
+
+  // Auto-create the checklist shell when a playbook-eligible viewer opens
+  // a workspace that doesn't have one yet. This anchors the canonical 48-item
+  // playbook overlay without requiring a manual import step.
+  if (!checklist && showPlaybook) {
+    checklist = await ensureChecklistForWorkspace(workspaceId, session.userId);
+  }
+
+  if (!checklist) {
+    // Buyer-side / view_only viewers on workspaces with no imported checklist
+    // see the empty legacy response.
+    return Response.json({ checklist: null, items: [], playbook: null });
+  }
 
   if (showPlaybook) {
     const playbook = await getPlaybookView(checklist.id);

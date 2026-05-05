@@ -62,6 +62,32 @@ export async function getChecklistForWorkspace(workspaceId: string) {
 }
 
 /**
+ * Returns the workspace's checklist row, creating it if absent. Used by
+ * playbook GET endpoints so the canonical 48-item overlay can attach to
+ * any workspace without requiring a manual "Import" step. Auth must be
+ * verified by the caller (route handler does requireDealAccess + role gate).
+ *
+ * Idempotent: re-running on a workspace that already has a checklist returns
+ * the existing row.
+ */
+export async function ensureChecklistForWorkspace(
+  workspaceId: string,
+  createdBy: string,
+) {
+  const existing = await getChecklistForWorkspace(workspaceId);
+  if (existing) return existing;
+
+  const [created] = await db
+    .insert(checklists)
+    .values({ workspaceId, createdBy })
+    .returning();
+
+  // Don't log activity here — checklist auto-creation is invisible to users.
+  // The 'checklist_imported' action is reserved for the explicit import flow.
+  return created;
+}
+
+/**
  * Returns all checklist items for the viewer's workspace, filtered by their
  * owner-visibility scope. Admin/cis_team see all (including unassigned).
  */
