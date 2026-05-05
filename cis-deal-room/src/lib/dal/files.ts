@@ -300,3 +300,107 @@ export async function deleteFile(fileId: string) {
 
   return row.file;
 }
+
+// ─── Move ─────────────────────────────────────────────────────────────────────
+
+interface MoveFilesInput {
+  fileIds: string[];
+  destinationFolderId: string;
+}
+
+interface MoveFilesResult {
+  moved: string[];
+  failed: Array<{ id: string; reason: string }>;
+}
+
+/**
+ * Bulk-move files into a destination folder. Admin-only.
+ *
+ * Validates that every file exists and belongs to the same workspace as
+ * the destination folder. Files in different workspaces, or referencing
+ * a missing destination, are returned in `failed` rather than failing
+ * the whole batch.
+ *
+ * Each successful move emits one `file_moved` activity log entry whose
+ * metadata records the source folder. The whole operation runs in a
+ * single transaction.
+ */
+export async function moveFiles(input: MoveFilesInput): Promise<MoveFilesResult> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+
+  if (input.fileIds.length === 0) return { moved: [], failed: [] };
+
+  return db.transaction(async (tx) => {
+    // Resolve the destination folder + its workspace
+    const [dest] = await tx
+      .select({ id: folders.id, workspaceId: folders.workspaceId })
+      .from(folders)
+      .where(eq(folders.id, input.destinationFolderId))
+      .limit(1);
+    if (!dest) {
+      return {
+        moved: [],
+        failed: input.fileIds.map((id) => ({ id, reason: 'destination not found' })),
+      };
+    }
+
+    // Look up every file's current folder + workspace
+    const rows = await tx
+      .select({
+        id: files.id,
+        folderId: files.folderId,
+        folderWorkspaceId: folders.workspaceId,
+      })
+      .from(files)
+      .innerJoin(folders, eq(folders.id, files.folderId))
+      .where(inArray(files.id, input.fileIds));
+
+    const moved: string[] = [];
+    const failed: Array<{ id: string; reason: string }> = [];
+    const seen = new Set<string>(rows.map((r) => r.id));
+
+    for (const id of input.fileIds) {
+      if (!seen.has(id)) failed.push({ id, reason: 'file not found' });
+    }
+
+    const toMove: Array<{ id: string; sourceFolderId: string }> = [];
+    for (const row of rows) {
+      if (row.folderWorkspaceId !== dest.workspaceId) {
+        failed.push({ id: row.id, reason: 'cross-workspace move not allowed' });
+        continue;
+      }
+      if (row.folderId === dest.id) {
+        // Already in the destination — treat as a no-op success
+        moved.push(row.id);
+        continue;
+      }
+      toMove.push({ id: row.id, sourceFolderId: row.folderId });
+    }
+
+    if (toMove.length > 0) {
+      await tx
+        .update(files)
+        .set({ folderId: dest.id })
+        .where(inArray(files.id, toMove.map((m) => m.id)));
+
+      for (const m of toMove) {
+        await logActivity(tx, {
+          workspaceId: dest.workspaceId,
+          userId: session.userId,
+          action: 'file_moved',
+          targetType: 'file',
+          targetId: m.id,
+          metadata: {
+            sourceFolderId: m.sourceFolderId,
+            destinationFolderId: dest.id,
+          },
+        });
+        moved.push(m.id);
+      }
+    }
+
+    return { moved, failed };
+  });
+}
