@@ -15,7 +15,7 @@ import { FileList } from './FileList';
 import { UploadModal } from './UploadModal';
 import { ParticipantFormModal } from './ParticipantFormModal';
 import { ChecklistView } from './ChecklistView';
-import type { WorkspaceStatus, ParticipantRole } from '@/types';
+import type { WorkspaceStatus, ParticipantRole, DealKillerGroup } from '@/types';
 
 interface Workspace {
   id: string;
@@ -74,6 +74,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   const [openChecklistCount, setOpenChecklistCount] = useState(0);
   const [checklistItems, setChecklistItems] = useState<Array<{ id: string; name: string; folderId: string | null }>>([]);
   const [uploadItemHint, setUploadItemHint] = useState<string | null>(null);
+  const [pendingHighlight, setPendingHighlight] = useState<DealKillerGroup | null>(null);
 
   // Derived for backward-compat with UploadModal's initialFolderId
   const selectedFolderId = view.kind === 'folder' ? view.folderId : null;
@@ -306,6 +307,10 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               isAdmin={isAdmin}
               role={participantRole}
               onOpenChecklist={() => setView({ kind: 'checklist' })}
+              onChipClick={(group: DealKillerGroup) => {
+                setPendingHighlight(group);
+                setView({ kind: 'checklist' });
+              }}
             />
           ) : view.kind === 'checklist' ? (
             <ChecklistView
@@ -314,6 +319,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               onChanged={refreshChecklistMeta}
               onUploadForItem={handleUploadForItem}
               folders={folders}
+              highlightGroup={pendingHighlight}
+              onHighlightConsumed={() => setPendingHighlight(null)}
             />
           ) : (
             <FileList

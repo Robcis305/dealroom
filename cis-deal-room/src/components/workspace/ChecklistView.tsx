@@ -10,12 +10,16 @@ import { PlaybookChecklistView } from './PlaybookChecklistView';
 
 export type { ChecklistItemRow };
 
+import type { DealKillerGroup } from '@/types';
+
 interface Props {
   workspaceId: string;
   isAdmin: boolean;
   onChanged?: () => void;
   onUploadForItem: (folderId: string | null, itemId: string, itemName: string) => void;
   folders: Array<{ id: string; name: string }>;
+  highlightGroup?: DealKillerGroup | null;
+  onHighlightConsumed?: () => void;
 }
 
 interface PlaybookView {
@@ -23,7 +27,7 @@ interface PlaybookView {
   custom: Array<unknown>;
 }
 
-export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem, folders }: Props) {
+export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem, folders, highlightGroup, onHighlightConsumed }: Props) {
   const [loading, setLoading] = useState(true);
   const [checklist, setChecklist] = useState<{ id: string; name: string } | null>(null);
   const [playbook, setPlaybook] = useState<PlaybookView | null>(null);
@@ -94,6 +98,8 @@ export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem
         folders={folders}
         onChanged={() => { refresh(); onChanged?.(); }}
         onUploadForItem={(itemId, name) => onUploadForItem(null, itemId, name)}
+        highlightGroup={highlightGroup}
+        onHighlightConsumed={onHighlightConsumed}
       />
     );
   }

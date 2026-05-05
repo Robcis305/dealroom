@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, AlertCircle, Plus } from 'lucide-react';
 import clsx from 'clsx';
 import type {
@@ -51,6 +51,9 @@ interface Props {
   folders: Array<{ id: string; name: string }>;
   onChanged: () => void;
   onUploadForItem: (itemId: string, name: string) => void;
+  /** When set, scrolls the first matching deal-killer item into view and pulses it. */
+  highlightGroup?: DealKillerGroup | null;
+  onHighlightConsumed?: () => void;
 }
 
 const CATEGORY_LABEL: Record<PlaybookCategory, string> = {
@@ -79,7 +82,26 @@ export function PlaybookChecklistView({
   folders,
   onChanged,
   onUploadForItem,
+  highlightGroup,
+  onHighlightConsumed,
 }: Props) {
+  useEffect(() => {
+    if (!highlightGroup) return;
+    const target = document.querySelector<HTMLElement>(
+      `[data-deal-killer-group="${highlightGroup}"]`,
+    );
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-black');
+      const timer = setTimeout(() => {
+        target.classList.remove('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-black');
+        onHighlightConsumed?.();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+    onHighlightConsumed?.();
+  }, [highlightGroup, onHighlightConsumed]);
+
   return (
     <div className="px-8 pt-6 pb-12 max-w-5xl">
       <h2 className="text-lg font-semibold text-text-primary mb-1">Diligence Playbook</h2>
@@ -211,8 +233,9 @@ function PlaybookItemRow({
   return (
     <div
       data-testid="playbook-item"
+      data-deal-killer-group={item.dealKillerGroup ?? undefined}
       className={clsx(
-        'p-4 flex flex-col gap-2',
+        'p-4 flex flex-col gap-2 transition-shadow',
         isKiller && 'border-l-2 border-l-accent',
       )}
     >
