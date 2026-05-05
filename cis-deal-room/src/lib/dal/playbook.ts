@@ -252,3 +252,16 @@ export async function getReadinessSummary(checklistId: string): Promise<Readines
 
   return { total, ready, byCategory, dealKillerGroups };
 }
+
+/**
+ * Returns the deal-killer groups that have at least one member NOT in
+ * (received, waived, n_a). Used to gate buyer-side participant invites.
+ */
+export async function getOutstandingDealKillerGroups(
+  checklistId: string,
+): Promise<ReadinessSummary['dealKillerGroups']> {
+  const summary = await getReadinessSummary(checklistId);
+  return summary.dealKillerGroups.filter(
+    (g) => !READY_STATUSES.has(g.status),
+  );
+}

@@ -321,6 +321,7 @@ export async function setItemStatus(
       n_a: 'checklist_item_na',
       not_started: null,
       in_progress: null,
+      blocked: null,
     };
     const action = actionMap[nextStatus];
     if (action) {

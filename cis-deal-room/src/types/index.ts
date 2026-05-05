@@ -78,6 +78,7 @@ export type ChecklistOwner =
 export type ChecklistStatus =
   | 'not_started'
   | 'in_progress'
+  | 'blocked'
   | 'received'
   | 'waived'
   | 'n_a';

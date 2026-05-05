@@ -205,3 +205,47 @@ describe('getReadinessSummary', () => {
     expect(ip!.status).toBe('not_started');
   });
 });
+
+describe('getOutstandingDealKillerGroups', () => {
+  it('returns only groups with at least one non-ready member', async () => {
+    dbResults.playbook_join = [
+      // ip_assignment: one received, one not_started → outstanding
+      {
+        playbookItemId: 'pb-33', number: 33, category: 'team_hr',
+        name: 'A', rationale: 'r', dealKillerGroup: 'ip_assignment',
+        defaultPriority: 'critical', sortOrder: 33,
+        itemId: 'ci', status: 'received', owner: 'seller',
+        priority: 'critical', notes: null, receivedAt: null, folderId: null,
+      },
+      {
+        playbookItemId: 'pb-34', number: 34, category: 'team_hr',
+        name: 'B', rationale: 'r', dealKillerGroup: 'ip_assignment',
+        defaultPriority: 'critical', sortOrder: 34,
+        itemId: null, status: null, owner: null,
+        priority: null, notes: null, receivedAt: null, folderId: null,
+      },
+      // revenue_bridge: both received → not outstanding
+      {
+        playbookItemId: 'pb-14', number: 14, category: 'financial',
+        name: 'C', rationale: 'r', dealKillerGroup: 'revenue_bridge',
+        defaultPriority: 'critical', sortOrder: 14,
+        itemId: 'ci2', status: 'waived', owner: 'seller',
+        priority: 'critical', notes: null, receivedAt: null, folderId: null,
+      },
+      {
+        playbookItemId: 'pb-16', number: 16, category: 'financial',
+        name: 'D', rationale: 'r', dealKillerGroup: 'revenue_bridge',
+        defaultPriority: 'critical', sortOrder: 16,
+        itemId: 'ci3', status: 'received', owner: 'seller',
+        priority: 'critical', notes: null, receivedAt: null, folderId: null,
+      },
+    ];
+    dbResults.custom = [];
+
+    const { getOutstandingDealKillerGroups } = await import('@/lib/dal/playbook');
+    const result = await getOutstandingDealKillerGroups(CHECKLIST_ID);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].group).toBe('ip_assignment');
+  });
+});

@@ -38,7 +38,7 @@ const OWNER_LABEL: Record<ChecklistOwner, string> = {
   seller: 'Seller', buyer: 'Buyer', both: 'Both', cis_team: 'CIS Team', unassigned: 'Unassigned',
 };
 const STATUS_LABEL: Record<ChecklistStatus, string> = {
-  not_started: 'Not Started', in_progress: 'In Progress', received: 'Received', waived: 'Waived', n_a: 'N/A',
+  not_started: 'Not Started', in_progress: 'In Progress', blocked: 'Blocked', received: 'Received', waived: 'Waived', n_a: 'N/A',
 };
 
 const TERMINAL_STATUSES: ReadonlyArray<ChecklistStatus> = ['received', 'waived', 'n_a'];

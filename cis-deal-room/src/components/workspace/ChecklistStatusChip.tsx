@@ -9,6 +9,7 @@ import type { ChecklistStatus } from '@/types';
 const CHIP: Record<ChecklistStatus, { label: string; icon: React.ReactNode; className: string }> = {
   not_started:  { label: 'Not Started', icon: <CircleDashed size={12} />, className: 'bg-surface-elevated text-text-muted' },
   in_progress:  { label: 'In Progress', icon: <Clock size={12} />, className: 'bg-accent-subtle text-accent-on-subtle' },
+  blocked:      { label: 'Blocked',     icon: <XCircle size={12} />, className: 'bg-red-950 text-red-300 border border-red-800' },
   received:     { label: 'Received',    icon: <Check size={12} />, className: 'bg-emerald-950 text-emerald-300 border border-emerald-800' },
   waived:       { label: 'Waived',      icon: <XCircle size={12} />, className: 'bg-amber-950 text-amber-300 border border-amber-800' },
   n_a:          { label: 'N/A',         icon: <MinusCircle size={12} />, className: 'bg-surface-elevated text-text-muted' },
