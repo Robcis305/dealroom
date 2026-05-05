@@ -6,6 +6,10 @@ import { getWorkspace } from '@/lib/dal/workspaces';
 import { sendEmail } from '@/lib/email/send';
 import { InvitationEmail } from '@/lib/email/invitation';
 import { getAppUrl } from '@/lib/app-url';
+import { getOutstandingDealKillerGroups } from '@/lib/dal/playbook';
+import { getChecklistForWorkspace } from '@/lib/dal/checklist';
+import { logActivity } from '@/lib/dal/activity';
+import { db } from '@/db';
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -22,7 +26,10 @@ const inviteSchema = z.object({
   ]),
   folderIds: z.array(z.string().uuid()).default([]),
   viewOnlyShadowSide: z.enum(['buyer', 'seller']).nullable().optional(),
+  acknowledgement: z.string().optional(),
 });
+
+const BUYER_SIDE_ROLES = new Set(['buyer_rep', 'buyer_counsel']);
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
@@ -79,6 +86,39 @@ export async function POST(
   // Lowercase the email at the route boundary so the invite link, the token
   // row, and the user row all key off the same canonical form.
   const email = parsed.email.toLowerCase();
+
+  // Gate: buyer-side invites with outstanding deal-killers require acknowledgement.
+  // view_only with shadowSide='buyer' also counts as buyer-side.
+  const isBuyerSideInvite =
+    BUYER_SIDE_ROLES.has(parsed.role) ||
+    (parsed.role === 'view_only' && parsed.viewOnlyShadowSide === 'buyer');
+
+  if (isBuyerSideInvite) {
+    const checklist = await getChecklistForWorkspace(workspaceId);
+    if (checklist) {
+      const outstanding = await getOutstandingDealKillerGroups(checklist.id);
+      if (outstanding.length > 0) {
+        const ackOk = parsed.acknowledgement?.trim().toLowerCase() === 'share anyway';
+        if (!ackOk) {
+          return Response.json(
+            { error: 'Outstanding deal-killers', outstanding },
+            { status: 409 },
+          );
+        }
+        // Acknowledged — log to activity for audit trail.
+        await logActivity(db, {
+          workspaceId,
+          userId: session.userId,
+          action: 'buyer_invite_with_outstanding',
+          targetType: 'participant',
+          metadata: {
+            targetEmail: email,
+            outstandingGroups: outstanding.map((o) => o.group),
+          },
+        });
+      }
+    }
+  }
 
   const { participant, rawToken } = await inviteParticipant({
     workspaceId,
