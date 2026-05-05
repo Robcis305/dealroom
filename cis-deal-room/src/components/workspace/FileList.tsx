@@ -227,22 +227,23 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileIds: ids }),
       });
-      if (res.status === 501) {
-        toast.info('Bulk download coming soon', {
-          description: 'The zip endpoint isn\'t wired yet.',
+      if (!res.ok) {
+        toast.error('Failed to prepare download', {
+          description: res.status === 403 ? 'Admin access required.' : undefined,
         });
         return;
       }
-      if (!res.ok) {
-        toast.error('Failed to prepare download');
-        return;
-      }
-      const { url } = await res.json();
-      if (url) {
-        const a = document.createElement('a');
-        a.href = url;
-        a.click();
-      }
+      // Response is a streaming zip binary — read as blob and trigger download.
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const filename = `data-room-${new Date().toISOString().slice(0, 10)}.zip`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Download failed — please try again.');
     } finally {
       setDownloadingZip(false);
     }
