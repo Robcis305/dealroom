@@ -152,3 +152,103 @@ export async function getPlaybookView(checklistId: string): Promise<PlaybookView
 
   return { canonical, custom };
 }
+
+export type DealKillerGroupStatus = 'green' | 'yellow' | 'red' | 'gray';
+
+export interface ReadinessSummary {
+  total: number;
+  ready: number;
+  byCategory: Record<PlaybookCategory, { total: number; ready: number }>;
+  dealKillerGroups: Array<{
+    group: DealKillerGroup;
+    status: ChecklistStatus;
+    color: DealKillerGroupStatus;
+    members: Array<{ playbookItemId: string; number: number; status: ChecklistStatus }>;
+  }>;
+}
+
+const READY_STATUSES: ReadonlySet<ChecklistStatus> = new Set([
+  'received',
+  'waived',
+  'n_a',
+]);
+
+/** Worst-of ordering for deal-killer group status. Higher = worse. */
+const STATUS_RANK: Record<ChecklistStatus, number> = {
+  blocked: 4,
+  not_started: 3,
+  in_progress: 2,
+  received: 1,
+  waived: 1,
+  n_a: 1,
+};
+
+function statusToColor(status: ChecklistStatus): DealKillerGroupStatus {
+  if (status === 'blocked') return 'red';
+  if (status === 'not_started') return 'gray';
+  if (status === 'in_progress') return 'yellow';
+  return 'green';
+}
+
+export async function getReadinessSummary(checklistId: string): Promise<ReadinessSummary> {
+  const view = await getPlaybookView(checklistId);
+
+  const byCategory: ReadinessSummary['byCategory'] = {
+    corporate_legal: { total: 0, ready: 0 },
+    financial: { total: 0, ready: 0 },
+    commercial: { total: 0, ready: 0 },
+    team_hr: { total: 0, ready: 0 },
+    ip_technical: { total: 0, ready: 0 },
+    operations_risk: { total: 0, ready: 0 },
+  };
+
+  let total = 0;
+  let ready = 0;
+  for (const row of view.canonical) {
+    total += 1;
+    byCategory[row.category].total += 1;
+    if (READY_STATUSES.has(row.status)) {
+      ready += 1;
+      byCategory[row.category].ready += 1;
+    }
+  }
+
+  // Group deal-killer items by group, take worst-of status
+  const grouped = new Map<DealKillerGroup, PlaybookCanonicalRow[]>();
+  for (const row of view.canonical) {
+    if (row.dealKillerGroup) {
+      const list = grouped.get(row.dealKillerGroup) ?? [];
+      list.push(row);
+      grouped.set(row.dealKillerGroup, list);
+    }
+  }
+
+  const dealKillerGroups = Array.from(grouped.entries()).map(([group, members]) => {
+    const worst = members.reduce<ChecklistStatus>(
+      (acc, m) => (STATUS_RANK[m.status] > STATUS_RANK[acc] ? m.status : acc),
+      'received' as ChecklistStatus,
+    );
+    return {
+      group,
+      status: worst,
+      color: statusToColor(worst),
+      members: members.map((m) => ({
+        playbookItemId: m.playbookItemId,
+        number: m.number,
+        status: m.status,
+      })),
+    };
+  });
+
+  // Stable order: cap_table, eighty_three_b, customer_coc, ip_assignment, revenue_bridge
+  const ORDER: DealKillerGroup[] = [
+    'cap_table',
+    'eighty_three_b',
+    'customer_coc',
+    'ip_assignment',
+    'revenue_bridge',
+  ];
+  dealKillerGroups.sort((a, b) => ORDER.indexOf(a.group) - ORDER.indexOf(b.group));
+
+  return { total, ready, byCategory, dealKillerGroups };
+}

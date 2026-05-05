@@ -110,3 +110,98 @@ describe('getPlaybookView', () => {
     expect(view.custom[0].name).toBe('Custom thing');
   });
 });
+
+describe('getReadinessSummary', () => {
+  it('counts ready items as received/waived/n_a; returns 0/48 with no rows', async () => {
+    dbResults.playbook_join = Array.from({ length: 48 }, (_, i) => ({
+      playbookItemId: `pb-${i + 1}`,
+      number: i + 1,
+      category: i < 11 ? 'corporate_legal' : 'financial',
+      name: `Item ${i + 1}`,
+      rationale: 'r',
+      dealKillerGroup: null,
+      defaultPriority: 'medium',
+      sortOrder: i + 1,
+      itemId: null,
+      status: null,
+      owner: null,
+      priority: null,
+      notes: null,
+      receivedAt: null,
+      folderId: null,
+    }));
+    dbResults.custom = [];
+
+    const { getReadinessSummary } = await import('@/lib/dal/playbook');
+    const summary = await getReadinessSummary(CHECKLIST_ID);
+
+    expect(summary.total).toBe(48);
+    expect(summary.ready).toBe(0);
+    expect(summary.byCategory.corporate_legal.total).toBe(11);
+    expect(summary.byCategory.corporate_legal.ready).toBe(0);
+  });
+
+  it('counts received/waived/n_a as ready; blocked and not_started not ready', async () => {
+    const base = (status: string | null, dealKiller: string | null = null) => ({
+      playbookItemId: `pb-x`,
+      number: 1,
+      category: 'corporate_legal',
+      name: 'X',
+      rationale: 'r',
+      dealKillerGroup: dealKiller,
+      defaultPriority: 'medium',
+      sortOrder: 1,
+      itemId: 'ci',
+      status,
+      owner: 'seller',
+      priority: 'medium',
+      notes: null,
+      receivedAt: null,
+      folderId: null,
+    });
+    dbResults.playbook_join = [
+      base('received'),
+      base('waived'),
+      base('n_a'),
+      base('blocked'),
+      base('in_progress'),
+      base('not_started'),
+      base(null), // virtual = not_started
+    ];
+    dbResults.custom = [];
+
+    const { getReadinessSummary } = await import('@/lib/dal/playbook');
+    const summary = await getReadinessSummary(CHECKLIST_ID);
+
+    expect(summary.total).toBe(7);
+    expect(summary.ready).toBe(3);
+  });
+
+  it('groups deal-killers by deal_killer_group with worst-of status', async () => {
+    dbResults.playbook_join = [
+      {
+        playbookItemId: 'pb-33', number: 33, category: 'team_hr',
+        name: 'Offers', rationale: 'r', dealKillerGroup: 'ip_assignment',
+        defaultPriority: 'critical', sortOrder: 33,
+        itemId: 'ci-a', status: 'received', owner: 'seller',
+        priority: 'critical', notes: null, receivedAt: null, folderId: null,
+      },
+      {
+        playbookItemId: 'pb-34', number: 34, category: 'team_hr',
+        name: 'Contractors', rationale: 'r', dealKillerGroup: 'ip_assignment',
+        defaultPriority: 'critical', sortOrder: 34,
+        itemId: null, status: null, owner: null,
+        priority: null, notes: null, receivedAt: null, folderId: null,
+      },
+    ];
+    dbResults.custom = [];
+
+    const { getReadinessSummary } = await import('@/lib/dal/playbook');
+    const summary = await getReadinessSummary(CHECKLIST_ID);
+
+    const ip = summary.dealKillerGroups.find((g) => g.group === 'ip_assignment');
+    expect(ip).toBeDefined();
+    // worst-of: received + not_started → not_started
+    expect(ip!.status).toBe('not_started');
+  });
+});
