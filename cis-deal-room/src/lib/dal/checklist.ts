@@ -173,7 +173,7 @@ export async function createChecklist(workspaceId: string) {
 interface CreateItemInput {
   checklistId: string;
   workspaceId: string;
-  folderId: string;
+  folderId?: string | null;
   category: string;
   name: string;
   description?: string | null;
@@ -192,7 +192,7 @@ export async function createItem(input: CreateItemInput) {
     .insert(checklistItems)
     .values({
       checklistId: input.checklistId,
-      folderId: input.folderId,
+      folderId: input.folderId ?? null,
       category: input.category,
       name: input.name,
       description: input.description ?? null,

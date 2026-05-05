@@ -4,8 +4,15 @@ import { requireDealAccess } from '@/lib/dal/access';
 import { getChecklistForWorkspace, createItem } from '@/lib/dal/checklist';
 
 const schema = z.object({
-  folderId: z.string().uuid(),
-  category: z.string().min(1),
+  folderId: z.string().uuid().nullable().optional(),
+  category: z.enum([
+    'corporate_legal',
+    'financial',
+    'commercial',
+    'team_hr',
+    'ip_technical',
+    'operations_risk',
+  ]),
   name: z.string().min(1),
   description: z.string().nullable().optional(),
   priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),

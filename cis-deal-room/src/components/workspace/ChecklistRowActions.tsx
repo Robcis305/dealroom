@@ -64,6 +64,7 @@ export function ChecklistRowActions({ workspaceId, item, folders, onChanged }: P
 
       {editing && (
         <ChecklistItemEditModal
+          mode="edit"
           workspaceId={workspaceId}
           item={item}
           folders={folders}

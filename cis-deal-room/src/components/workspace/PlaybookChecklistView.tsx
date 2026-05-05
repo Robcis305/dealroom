@@ -11,6 +11,7 @@ import type {
   DealKillerGroup,
 } from '@/types';
 import { ChecklistStatusChip } from './ChecklistStatusChip';
+import { ChecklistItemEditModal } from './ChecklistItemEditModal';
 
 interface CanonicalRow {
   playbookItemId: string;
@@ -75,6 +76,7 @@ export function PlaybookChecklistView({
   isAdmin,
   canonical,
   custom,
+  folders,
   onChanged,
   onUploadForItem,
 }: Props) {
@@ -98,11 +100,13 @@ export function PlaybookChecklistView({
         return (
           <CategorySection
             key={cat}
+            category={cat}
             label={CATEGORY_LABEL[cat]}
             items={items}
             customItems={customItems}
             isAdmin={isAdmin}
             workspaceId={workspaceId}
+            folders={folders}
             onChanged={onChanged}
             onUploadForItem={onUploadForItem}
           />
@@ -113,24 +117,30 @@ export function PlaybookChecklistView({
 }
 
 interface CategorySectionProps {
+  category: PlaybookCategory;
   label: string;
   items: CanonicalRow[];
   customItems: CustomRow[];
   isAdmin: boolean;
   workspaceId: string;
+  folders: Array<{ id: string; name: string }>;
   onChanged: () => void;
   onUploadForItem: (itemId: string, name: string) => void;
 }
 
 function CategorySection({
+  category,
   label,
   items,
   customItems,
   isAdmin,
   workspaceId,
+  folders,
   onChanged,
   onUploadForItem,
 }: CategorySectionProps) {
+  const [showAddModal, setShowAddModal] = useState(false);
+
   return (
     <section className="mb-8">
       <h3 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
@@ -160,15 +170,22 @@ function CategorySection({
       </div>
       {isAdmin && (
         <button
-          className="mt-3 flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors"
-          onClick={() => {
-            // Wired in Task 4.4.
-            console.log('add custom item to', label);
-          }}
+          className="mt-3 flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
+          onClick={() => setShowAddModal(true)}
         >
           <Plus size={12} />
           Add custom item
         </button>
+      )}
+      {showAddModal && (
+        <ChecklistItemEditModal
+          mode="create"
+          workspaceId={workspaceId}
+          defaultCategory={category}
+          folders={folders}
+          onClose={() => setShowAddModal(false)}
+          onSaved={() => { setShowAddModal(false); onChanged(); }}
+        />
       )}
     </section>
   );
