@@ -1,10 +1,14 @@
 import { notFound, redirect } from 'next/navigation';
+import { and, eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { workspaceParticipants } from '@/db/schema';
 import { getWorkspace } from '@/lib/dal/workspaces';
 import { getFoldersForWorkspace } from '@/lib/dal/folders';
 import { getFileCountsByFolder } from '@/lib/dal/files';
 import { countActiveClientParticipants } from '@/lib/dal/participants';
 import { verifySession } from '@/lib/dal';
 import { WorkspaceShell } from '@/components/workspace/WorkspaceShell';
+import type { ParticipantRole } from '@/types';
 
 interface WorkspacePageProps {
   params: Promise<{ workspaceId: string }>;
@@ -38,6 +42,24 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
 
   const fileCounts = await getFileCountsByFolder(folders.map((f) => f.id));
 
+  // Resolve participant role for the current user.
+  // Admins don't have a participant row — use 'admin' as the role.
+  let participantRole: ParticipantRole = 'admin';
+  if (!session.isAdmin) {
+    const [participant] = await db
+      .select({ role: workspaceParticipants.role })
+      .from(workspaceParticipants)
+      .where(
+        and(
+          eq(workspaceParticipants.workspaceId, workspaceId),
+          eq(workspaceParticipants.userId, session.userId),
+          eq(workspaceParticipants.status, 'active'),
+        ),
+      )
+      .limit(1);
+    if (participant) participantRole = participant.role;
+  }
+
   return (
     <WorkspaceShell
       workspace={workspace}
@@ -46,6 +68,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       isAdmin={session.isAdmin}
       activeClientCount={activeClientCount}
       userEmail={session.userEmail}
+      participantRole={participantRole}
     />
   );
 }

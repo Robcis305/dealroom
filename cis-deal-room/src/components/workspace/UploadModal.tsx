@@ -23,7 +23,7 @@ interface UploadModalProps {
   /** Pre-selects a checklist item in the "Link to checklist item" dropdown. */
   initialChecklistItemId?: string | null;
   /** Checklist items available for linking. When omitted the dropdown is hidden. */
-  checklistItems?: Array<{ id: string; name: string; folderId: string }>;
+  checklistItems?: Array<{ id: string; name: string; folderId: string | null }>;
 }
 
 const ACCEPTED_TYPES = {

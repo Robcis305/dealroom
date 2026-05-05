@@ -60,6 +60,8 @@ export const activityActionEnum = pgEnum('activity_action', [
   'checklist_item_waived',
   'checklist_item_na',
   'checklist_item_assigned',
+  'playbook_item_blocked',
+  'buyer_invite_with_outstanding',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
@@ -69,6 +71,23 @@ export const activityTargetTypeEnum = pgEnum('activity_target_type', [
   'folder',
   'file',
   'participant',
+]);
+
+export const playbookCategoryEnum = pgEnum('playbook_category', [
+  'corporate_legal',
+  'financial',
+  'commercial',
+  'team_hr',
+  'ip_technical',
+  'operations_risk',
+]);
+
+export const dealKillerGroupEnum = pgEnum('deal_killer_group', [
+  'cap_table',
+  'eighty_three_b',
+  'customer_coc',
+  'ip_assignment',
+  'revenue_bridge',
 ]);
 
 export const checklistPriorityEnum = pgEnum('checklist_priority', [
@@ -89,6 +108,7 @@ export const checklistOwnerEnum = pgEnum('checklist_owner', [
 export const checklistStatusEnum = pgEnum('checklist_status', [
   'not_started',
   'in_progress',
+  'blocked',
   'received',
   'waived',
   'n_a',
@@ -246,9 +266,10 @@ export const checklistItems = pgTable('checklist_items', {
   checklistId: uuid('checklist_id')
     .notNull()
     .references(() => checklists.id, { onDelete: 'cascade' }),
-  folderId: uuid('folder_id')
-    .notNull()
-    .references(() => folders.id, { onDelete: 'restrict' }),
+  playbookItemId: uuid('playbook_item_id').references(() => playbookItems.id, {
+    onDelete: 'restrict',
+  }),
+  folderId: uuid('folder_id').references(() => folders.id, { onDelete: 'restrict' }),
   sortOrder: integer('sort_order').notNull().default(0),
   category: text('category').notNull(),
   name: text('name').notNull(),
@@ -278,3 +299,15 @@ export const checklistItemFiles = pgTable(
   },
   (table) => [primaryKey({ columns: [table.itemId, table.fileId] })],
 );
+
+export const playbookItems = pgTable('playbook_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  number: integer('number').notNull().unique(),
+  category: playbookCategoryEnum('category').notNull(),
+  name: text('name').notNull(),
+  rationale: text('rationale').notNull(),
+  dealKillerGroup: dealKillerGroupEnum('deal_killer_group'),
+  defaultPriority: checklistPriorityEnum('default_priority').notNull().default('medium'),
+  sortOrder: integer('sort_order').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});

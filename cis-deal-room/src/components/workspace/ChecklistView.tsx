@@ -6,6 +6,7 @@ import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { ChecklistImportModal } from './ChecklistImportModal';
 import { ChecklistTable } from './ChecklistTable';
 import type { ChecklistItemRow } from './ChecklistTable';
+import { PlaybookChecklistView } from './PlaybookChecklistView';
 
 export type { ChecklistItemRow };
 
@@ -13,25 +14,33 @@ interface Props {
   workspaceId: string;
   isAdmin: boolean;
   onChanged?: () => void;
-  onUploadForItem: (folderId: string, itemId: string, itemName: string) => void;
+  onUploadForItem: (folderId: string | null, itemId: string, itemName: string) => void;
   folders: Array<{ id: string; name: string }>;
+}
+
+interface PlaybookView {
+  canonical: Array<unknown>;
+  custom: Array<unknown>;
 }
 
 export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem, folders }: Props) {
   const [loading, setLoading] = useState(true);
   const [checklist, setChecklist] = useState<{ id: string; name: string } | null>(null);
+  const [playbook, setPlaybook] = useState<PlaybookView | null>(null);
   const [items, setItems] = useState<ChecklistItemRow[]>([]);
   const [showImport, setShowImport] = useState(false);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    // Don't toggle `loading` here — that unmounts the playbook view and resets scroll.
+    // Only the initial mount sets loading=true; from then on, just swap data in place.
     const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/checklist`);
     if (res.ok) {
       const data = await res.json();
       setChecklist(data.checklist);
-      setItems(data.items);
+      setPlaybook(data.playbook ?? null);
+      setItems(data.items ?? []);
     }
-    setLoading(false);
+    setLoading(false);  // first call also clears the initial-mount loading state
   }, [workspaceId]);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -73,6 +82,20 @@ export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem
       );
     }
     return <div className="p-8 text-text-muted text-sm">No checklist yet.</div>;
+  }
+
+  if (playbook) {
+    return (
+      <PlaybookChecklistView
+        workspaceId={workspaceId}
+        isAdmin={isAdmin}
+        canonical={playbook.canonical as never}
+        custom={playbook.custom as never}
+        folders={folders}
+        onChanged={() => { refresh(); onChanged?.(); }}
+        onUploadForItem={(itemId, name) => onUploadForItem(null, itemId, name)}
+      />
+    );
   }
 
   return (

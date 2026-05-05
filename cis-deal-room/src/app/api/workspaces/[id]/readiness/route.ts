@@ -3,9 +3,16 @@ import { db } from '@/db';
 import { workspaces, workspaceParticipants } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
-import { getChecklistForWorkspace, ensureChecklistForWorkspace, listItemsForViewer } from '@/lib/dal/checklist';
-import { getPlaybookView } from '@/lib/dal/playbook';
+import { ensureChecklistForWorkspace } from '@/lib/dal/checklist';
+import { getReadinessSummary } from '@/lib/dal/playbook';
 import type { ParticipantRole, CisAdvisorySide } from '@/types';
+
+const PLAYBOOK_VISIBLE_ROLES = new Set<ParticipantRole>([
+  'admin',
+  'cis_team',
+  'seller_rep',
+  'seller_counsel',
+]);
 
 export async function GET(
   _request: Request,
@@ -22,8 +29,7 @@ export async function GET(
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Resolve the viewer's role and the workspace advisory side so we can decide
-  // whether to serve the playbook overlay or the legacy items list.
+  // Resolve role and cisAdvisorySide for gating
   let role: ParticipantRole = 'admin';
   let cisAdvisorySide: CisAdvisorySide = 'seller_side';
 
@@ -50,37 +56,14 @@ export async function GET(
     .limit(1);
   if (workspace) cisAdvisorySide = workspace.cisAdvisorySide;
 
-  // Decide whether this viewer sees the playbook overlay.
-  // Hide playbook from buyer-side, view_only, and the deprecated counsel role.
   const isClientOnSellerSide = role === 'client' && cisAdvisorySide === 'seller_side';
-  const showPlaybook =
-    session.isAdmin ||
-    role === 'admin' ||
-    role === 'cis_team' ||
-    role === 'seller_rep' ||
-    role === 'seller_counsel' ||
-    isClientOnSellerSide;
-
-  let checklist = await getChecklistForWorkspace(workspaceId);
-
-  // Auto-create the checklist shell when a playbook-eligible viewer opens
-  // a workspace that doesn't have one yet. This anchors the canonical 48-item
-  // playbook overlay without requiring a manual import step.
-  if (!checklist && showPlaybook) {
-    checklist = await ensureChecklistForWorkspace(workspaceId, session.userId);
+  const allowed =
+    session.isAdmin || PLAYBOOK_VISIBLE_ROLES.has(role) || isClientOnSellerSide;
+  if (!allowed) {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  if (!checklist) {
-    // Buyer-side / view_only viewers on workspaces with no imported checklist
-    // see the empty legacy response.
-    return Response.json({ checklist: null, items: [], playbook: null });
-  }
-
-  if (showPlaybook) {
-    const playbook = await getPlaybookView(checklist.id);
-    return Response.json({ checklist, playbook });
-  }
-
-  const items = await listItemsForViewer(workspaceId);
-  return Response.json({ checklist, items });
+  const checklist = await ensureChecklistForWorkspace(workspaceId, session.userId);
+  const summary = await getReadinessSummary(checklist.id);
+  return Response.json(summary);
 }

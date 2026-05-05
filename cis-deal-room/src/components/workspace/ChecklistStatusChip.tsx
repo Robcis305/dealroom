@@ -9,6 +9,7 @@ import type { ChecklistStatus } from '@/types';
 const CHIP: Record<ChecklistStatus, { label: string; icon: React.ReactNode; className: string }> = {
   not_started:  { label: 'Not Started', icon: <CircleDashed size={12} />, className: 'bg-surface-elevated text-text-muted' },
   in_progress:  { label: 'In Progress', icon: <Clock size={12} />, className: 'bg-accent-subtle text-accent-on-subtle' },
+  blocked:      { label: 'Blocked',     icon: <XCircle size={12} />, className: 'bg-red-950 text-red-300 border border-red-800' },
   received:     { label: 'Received',    icon: <Check size={12} />, className: 'bg-emerald-950 text-emerald-300 border border-emerald-800' },
   waived:       { label: 'Waived',      icon: <XCircle size={12} />, className: 'bg-amber-950 text-amber-300 border border-amber-800' },
   n_a:          { label: 'N/A',         icon: <MinusCircle size={12} />, className: 'bg-surface-elevated text-text-muted' },
@@ -20,22 +21,24 @@ interface Props {
   status: ChecklistStatus;
   isAdmin: boolean;
   onChanged: () => void;
+  /** When set, status changes route to /checklist/playbook/[playbookItemId]/status */
+  playbookItemId?: string | null;
 }
 
-export function ChecklistStatusChip({ workspaceId, itemId, status, isAdmin, onChanged }: Props) {
+export function ChecklistStatusChip({ workspaceId, itemId, status, isAdmin, onChanged, playbookItemId }: Props) {
   const [open, setOpen] = useState(false);
   const chip = CHIP[status];
 
   async function setStatus(target: ChecklistStatus | 'reset') {
     setOpen(false);
-    const res = await fetchWithAuth(
-      `/api/workspaces/${workspaceId}/checklist/items/${itemId}/status`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target }),
-      },
-    );
+    const url = playbookItemId
+      ? `/api/workspaces/${workspaceId}/checklist/playbook/${playbookItemId}/status`
+      : `/api/workspaces/${workspaceId}/checklist/items/${itemId}/status`;
+    const res = await fetchWithAuth(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target }),
+    });
     if (!res.ok) {
       toast.error('Failed to update status');
       return;
@@ -61,7 +64,7 @@ export function ChecklistStatusChip({ workspaceId, itemId, status, isAdmin, onCh
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-full mt-1 z-20 bg-surface border border-border rounded-lg shadow-md overflow-hidden min-w-[140px]">
-            {(['received', 'waived', 'n_a'] as const).map((t) => (
+            {(['in_progress', 'blocked', 'received', 'waived', 'n_a'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setStatus(t)}

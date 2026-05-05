@@ -6,6 +6,10 @@ import { getWorkspace } from '@/lib/dal/workspaces';
 import { sendEmail } from '@/lib/email/send';
 import { InvitationEmail } from '@/lib/email/invitation';
 import { getAppUrl } from '@/lib/app-url';
+import { getOutstandingDealKillerGroups } from '@/lib/dal/playbook';
+import { getChecklistForWorkspace } from '@/lib/dal/checklist';
+import { logActivity } from '@/lib/dal/activity';
+import { db } from '@/db';
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -22,6 +26,7 @@ const inviteSchema = z.object({
   ]),
   folderIds: z.array(z.string().uuid()).default([]),
   viewOnlyShadowSide: z.enum(['buyer', 'seller']).nullable().optional(),
+  acknowledgement: z.string().optional(),
 });
 
 const ROLE_LABELS: Record<string, string> = {
@@ -79,6 +84,48 @@ export async function POST(
   // Lowercase the email at the route boundary so the invite link, the token
   // row, and the user row all key off the same canonical form.
   const email = parsed.email.toLowerCase();
+
+  // Gate: external-side invites with outstanding deal-killers require acknowledgement.
+  // The trigger set flips based on cisAdvisorySide:
+  //   seller_side advisory → buyer roles are external (buyer_rep, buyer_counsel, view_only@buyer)
+  //   buyer_side advisory  → seller roles are external (seller_rep, seller_counsel, view_only@seller)
+  const externalRoles =
+    workspace.cisAdvisorySide === 'seller_side'
+      ? new Set(['buyer_rep', 'buyer_counsel'])
+      : new Set(['seller_rep', 'seller_counsel']);
+  const externalShadow =
+    workspace.cisAdvisorySide === 'seller_side' ? 'buyer' : 'seller';
+
+  const isExternalInvite =
+    externalRoles.has(parsed.role) ||
+    (parsed.role === 'view_only' && parsed.viewOnlyShadowSide === externalShadow);
+
+  if (isExternalInvite) {
+    const checklist = await getChecklistForWorkspace(workspaceId);
+    if (checklist) {
+      const outstanding = await getOutstandingDealKillerGroups(checklist.id);
+      if (outstanding.length > 0) {
+        const ackOk = parsed.acknowledgement?.trim().toLowerCase() === 'share anyway';
+        if (!ackOk) {
+          return Response.json(
+            { error: 'Outstanding deal-killers', outstanding },
+            { status: 409 },
+          );
+        }
+        // Acknowledged — log to activity for audit trail.
+        await logActivity(db, {
+          workspaceId,
+          userId: session.userId,
+          action: 'buyer_invite_with_outstanding',
+          targetType: 'participant',
+          metadata: {
+            targetEmail: email,
+            outstandingGroups: outstanding.map((o) => o.group),
+          },
+        });
+      }
+    }
+  }
 
   const { participant, rawToken } = await inviteParticipant({
     workspaceId,
