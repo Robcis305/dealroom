@@ -9,7 +9,10 @@ import type {
   ChecklistOwner,
   ChecklistPriority,
   DealKillerGroup,
+  PendingHighlight,
+  Stage,
 } from '@/types';
+import { CATEGORY_TO_STAGE, STAGE_META } from '@/lib/dal/playbook';
 import { ChecklistStatusChip } from './ChecklistStatusChip';
 import { ChecklistItemEditModal } from './ChecklistItemEditModal';
 
@@ -51,8 +54,8 @@ interface Props {
   folders: Array<{ id: string; name: string }>;
   onChanged: () => void;
   onUploadForItem: (itemId: string, name: string) => void;
-  /** When set, scrolls the first matching deal-killer item into view and pulses it. */
-  highlightGroup?: DealKillerGroup | null;
+  /** When set, scrolls the matching item into view and pulses it. */
+  highlightTarget?: PendingHighlight | null;
   onHighlightConsumed?: () => void;
 }
 
@@ -82,25 +85,34 @@ export function PlaybookChecklistView({
   folders,
   onChanged,
   onUploadForItem,
-  highlightGroup,
+  highlightTarget,
   onHighlightConsumed,
 }: Props) {
   useEffect(() => {
-    if (!highlightGroup) return;
-    const target = document.querySelector<HTMLElement>(
-      `[data-deal-killer-group="${highlightGroup}"]`,
-    );
+    if (!highlightTarget) return;
+
+    let target: HTMLElement | null = null;
+    if (highlightTarget.kind === 'deal_killer') {
+      target = document.querySelector<HTMLElement>(
+        `[data-deal-killer-group="${highlightTarget.group}"]`,
+      );
+    } else if (highlightTarget.kind === 'stage') {
+      target = document.querySelector<HTMLElement>(
+        `[data-stage="${highlightTarget.stage}"][data-stage-first="true"]`,
+      );
+    }
+
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       target.classList.add('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-black');
       const timer = setTimeout(() => {
-        target.classList.remove('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-black');
+        target!.classList.remove('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-black');
         onHighlightConsumed?.();
       }, 2000);
       return () => clearTimeout(timer);
     }
     onHighlightConsumed?.();
-  }, [highlightGroup, onHighlightConsumed]);
+  }, [highlightTarget, onHighlightConsumed]);
 
   return (
     <div className="px-8 pt-6 pb-12 max-w-5xl">
@@ -109,7 +121,7 @@ export function PlaybookChecklistView({
         48-item Data Room Construction Playbook. Resolve every item before sharing the room.
       </p>
 
-      {CATEGORY_ORDER.map((cat) => {
+      {CATEGORY_ORDER.map((cat, idx) => {
         const items = canonical.filter((c) => c.category === cat);
         const customItems = custom.filter((c) => c.category === cat);
         items.sort((a, b) => {
@@ -119,11 +131,17 @@ export function PlaybookChecklistView({
           return a.sortOrder - b.sortOrder;
         });
 
+        const stage = CATEGORY_TO_STAGE[cat];
+        const prevCat = idx > 0 ? CATEGORY_ORDER[idx - 1] : null;
+        const isFirstInStage = !prevCat || CATEGORY_TO_STAGE[prevCat] !== stage;
+
         return (
           <CategorySection
             key={cat}
             category={cat}
             label={CATEGORY_LABEL[cat]}
+            stage={stage}
+            isFirstInStage={isFirstInStage}
             items={items}
             customItems={customItems}
             isAdmin={isAdmin}
@@ -141,6 +159,8 @@ export function PlaybookChecklistView({
 interface CategorySectionProps {
   category: PlaybookCategory;
   label: string;
+  stage: Stage;
+  isFirstInStage: boolean;
   items: CanonicalRow[];
   customItems: CustomRow[];
   isAdmin: boolean;
@@ -153,6 +173,8 @@ interface CategorySectionProps {
 function CategorySection({
   category,
   label,
+  stage,
+  isFirstInStage,
   items,
   customItems,
   isAdmin,
@@ -162,9 +184,19 @@ function CategorySection({
   onUploadForItem,
 }: CategorySectionProps) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const meta = STAGE_META[stage];
 
   return (
-    <section className="mb-8">
+    <section
+      className={clsx('mb-8', isFirstInStage ? 'pt-6' : 'pt-2')}
+      data-stage={stage}
+      data-stage-first={isFirstInStage ? 'true' : 'false'}
+    >
+      {isFirstInStage && (
+        <div className="text-[10px] font-mono font-normal text-text-muted/70 uppercase tracking-[0.15em] mb-0.5">
+          Stage {stage} · {meta.dayRange}
+        </div>
+      )}
       <h3 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
         {label}
       </h3>

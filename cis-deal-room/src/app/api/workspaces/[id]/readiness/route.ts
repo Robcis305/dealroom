@@ -4,7 +4,7 @@ import { workspaces, workspaceParticipants } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { ensureChecklistForWorkspace } from '@/lib/dal/checklist';
-import { getReadinessSummary } from '@/lib/dal/playbook';
+import { getReadinessSummary, STAGE_META } from '@/lib/dal/playbook';
 import type { ParticipantRole, CisAdvisorySide } from '@/types';
 
 const PLAYBOOK_VISIBLE_ROLES = new Set<ParticipantRole>([
@@ -64,6 +64,29 @@ export async function GET(
   }
 
   const checklist = await ensureChecklistForWorkspace(workspaceId, session.userId);
+
+  if (!checklist) {
+    return Response.json({
+      total: 0,
+      ready: 0,
+      byCategory: {
+        corporate_legal: { total: 0, ready: 0 },
+        financial: { total: 0, ready: 0 },
+        commercial: { total: 0, ready: 0 },
+        team_hr: { total: 0, ready: 0 },
+        ip_technical: { total: 0, ready: 0 },
+        operations_risk: { total: 0, ready: 0 },
+      },
+      byStage: {
+        1: { total: 0, ready: 0, label: STAGE_META[1].label, dayRange: STAGE_META[1].dayRange },
+        2: { total: 0, ready: 0, label: STAGE_META[2].label, dayRange: STAGE_META[2].dayRange },
+        3: { total: 0, ready: 0, label: STAGE_META[3].label, dayRange: STAGE_META[3].dayRange },
+        4: { total: 0, ready: 0, label: STAGE_META[4].label, dayRange: STAGE_META[4].dayRange },
+      },
+      dealKillerGroups: [],
+    });
+  }
+
   const summary = await getReadinessSummary(checklist.id);
   return Response.json(summary);
 }

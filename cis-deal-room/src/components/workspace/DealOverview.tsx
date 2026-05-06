@@ -5,7 +5,7 @@ import { Folder } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { ReadinessPanel } from './ReadinessPanel';
-import type { WorkspaceStatus, ParticipantRole, DealKillerGroup } from '@/types';
+import type { WorkspaceStatus, ParticipantRole, DealKillerGroup, Stage } from '@/types';
 
 interface Workspace {
   id: string;
@@ -37,6 +37,8 @@ interface DealOverviewProps {
   onOpenChecklist: () => void;
   /** Open checklist and highlight a specific deal-killer group. */
   onChipClick: (group: DealKillerGroup) => void;
+  /** Open checklist and highlight a specific stage. */
+  onStageClick: (stage: Stage) => void;
 }
 
 const ADVISORY_LABELS = {
@@ -50,7 +52,7 @@ const PLAYBOOK_VISIBLE_ROLES = new Set<ParticipantRole>([
 
 export function DealOverview({
   workspace, status, folders, fileCounts, onFolderSelect,
-  isAdmin, role, onOpenChecklist, onChipClick,
+  isAdmin, role, onOpenChecklist, onChipClick, onStageClick,
 }: DealOverviewProps) {
   const showReadiness =
     isAdmin ||
@@ -99,6 +101,7 @@ export function DealOverview({
           summary={summary}
           onOpenChecklist={onOpenChecklist}
           onChipClick={onChipClick}
+          onStageClick={onStageClick}
         />
       )}
 

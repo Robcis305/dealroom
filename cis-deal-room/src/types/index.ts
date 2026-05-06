@@ -91,4 +91,4 @@ export type ViewOnlyShadowSide = 'buyer' | 'seller';
 
 // ─── Playbook ─────────────────────────────────────────────────────────────────
 
-export type { PlaybookCategory, DealKillerGroup } from '@/lib/dal/playbook';
+export type { PlaybookCategory, DealKillerGroup, PendingHighlight, Stage } from '@/lib/dal/playbook';

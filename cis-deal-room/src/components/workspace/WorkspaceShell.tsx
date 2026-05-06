@@ -15,7 +15,7 @@ import { FileList } from './FileList';
 import { UploadModal } from './UploadModal';
 import { ParticipantFormModal } from './ParticipantFormModal';
 import { ChecklistView } from './ChecklistView';
-import type { WorkspaceStatus, ParticipantRole, DealKillerGroup } from '@/types';
+import type { WorkspaceStatus, ParticipantRole, DealKillerGroup, PendingHighlight } from '@/types';
 
 interface Workspace {
   id: string;
@@ -74,7 +74,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   const [openChecklistCount, setOpenChecklistCount] = useState(0);
   const [checklistItems, setChecklistItems] = useState<Array<{ id: string; name: string; folderId: string | null }>>([]);
   const [uploadItemHint, setUploadItemHint] = useState<string | null>(null);
-  const [pendingHighlight, setPendingHighlight] = useState<DealKillerGroup | null>(null);
+  const [pendingHighlight, setPendingHighlight] = useState<PendingHighlight | null>(null);
 
   // Derived for backward-compat with UploadModal's initialFolderId
   const selectedFolderId = view.kind === 'folder' ? view.folderId : null;
@@ -308,7 +308,11 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               role={participantRole}
               onOpenChecklist={() => setView({ kind: 'checklist' })}
               onChipClick={(group: DealKillerGroup) => {
-                setPendingHighlight(group);
+                setPendingHighlight({ kind: 'deal_killer', group });
+                setView({ kind: 'checklist' });
+              }}
+              onStageClick={(stage) => {
+                setPendingHighlight({ kind: 'stage', stage });
                 setView({ kind: 'checklist' });
               }}
             />
@@ -319,7 +323,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               onChanged={refreshChecklistMeta}
               onUploadForItem={handleUploadForItem}
               folders={folders}
-              highlightGroup={pendingHighlight}
+              highlightTarget={pendingHighlight}
               onHighlightConsumed={() => setPendingHighlight(null)}
             />
           ) : (

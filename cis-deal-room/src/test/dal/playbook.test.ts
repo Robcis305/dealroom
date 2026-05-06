@@ -249,3 +249,104 @@ describe('getOutstandingDealKillerGroups', () => {
     expect(result[0].group).toBe('ip_assignment');
   });
 });
+
+describe('getReadinessSummary.byStage', () => {
+  it('returns zeroed byStage when no items', async () => {
+    dbResults.playbook_join = [];
+    dbResults.custom = [];
+
+    const { getReadinessSummary } = await import('@/lib/dal/playbook');
+    const summary = await getReadinessSummary(CHECKLIST_ID);
+
+    expect(summary.byStage[1]).toEqual({ total: 0, ready: 0, label: 'Cap & Corp', dayRange: 'Day 1-3' });
+    expect(summary.byStage[2]).toEqual({ total: 0, ready: 0, label: 'Financial', dayRange: 'Day 3-10' });
+    expect(summary.byStage[3]).toEqual({ total: 0, ready: 0, label: 'Commercial', dayRange: 'Day 10-15' });
+    expect(summary.byStage[4]).toEqual({ total: 0, ready: 0, label: 'Legal · IP · HR · Ops', dayRange: 'Day 15-21' });
+  });
+
+  it('rolls Stage 4 across team_hr + ip_technical + operations_risk', async () => {
+    const baseRow = (category: string, status: string | null) => ({
+      playbookItemId: `pb-${category}`,
+      number: 1,
+      category,
+      name: 'X',
+      rationale: 'r',
+      dealKillerGroup: null,
+      defaultPriority: 'medium',
+      sortOrder: 1,
+      itemId: status ? 'ci' : null,
+      status,
+      owner: status ? 'seller' : null,
+      priority: 'medium',
+      notes: null,
+      receivedAt: null,
+      folderId: null,
+    });
+    dbResults.playbook_join = [
+      baseRow('team_hr', 'received'),
+      baseRow('team_hr', null),
+      baseRow('ip_technical', 'waived'),
+      baseRow('ip_technical', null),
+      baseRow('operations_risk', 'received'),
+    ];
+    dbResults.custom = [];
+
+    const { getReadinessSummary } = await import('@/lib/dal/playbook');
+    const summary = await getReadinessSummary(CHECKLIST_ID);
+
+    expect(summary.byStage[4].total).toBe(5);
+    expect(summary.byStage[4].ready).toBe(3);
+  });
+
+  it('counts received/waived/n_a as ready in byStage exactly like byCategory', async () => {
+    dbResults.playbook_join = [
+      {
+        playbookItemId: 'pb-x', number: 1, category: 'financial',
+        name: 'X', rationale: 'r', dealKillerGroup: null,
+        defaultPriority: 'medium', sortOrder: 1,
+        itemId: 'ci', status: 'received', owner: 'seller',
+        priority: 'medium', notes: null, receivedAt: null, folderId: null,
+      },
+      {
+        playbookItemId: 'pb-y', number: 2, category: 'financial',
+        name: 'Y', rationale: 'r', dealKillerGroup: null,
+        defaultPriority: 'medium', sortOrder: 2,
+        itemId: 'ci', status: 'blocked', owner: 'seller',
+        priority: 'medium', notes: null, receivedAt: null, folderId: null,
+      },
+    ];
+    dbResults.custom = [];
+
+    const { getReadinessSummary } = await import('@/lib/dal/playbook');
+    const summary = await getReadinessSummary(CHECKLIST_ID);
+
+    expect(summary.byCategory.financial.total).toBe(2);
+    expect(summary.byCategory.financial.ready).toBe(1);
+    expect(summary.byStage[2].total).toBe(2);
+    expect(summary.byStage[2].ready).toBe(1);
+  });
+});
+
+describe('CATEGORY_TO_STAGE mapping', () => {
+  it('covers all 6 canonical categories with no gaps', async () => {
+    const { CATEGORY_TO_STAGE } = await import('@/lib/dal/playbook');
+
+    expect(CATEGORY_TO_STAGE.corporate_legal).toBe(1);
+    expect(CATEGORY_TO_STAGE.financial).toBe(2);
+    expect(CATEGORY_TO_STAGE.commercial).toBe(3);
+    expect(CATEGORY_TO_STAGE.team_hr).toBe(4);
+    expect(CATEGORY_TO_STAGE.ip_technical).toBe(4);
+    expect(CATEGORY_TO_STAGE.operations_risk).toBe(4);
+  });
+});
+
+describe('STAGE_META', () => {
+  it('exposes label + dayRange for each of the 4 stages', async () => {
+    const { STAGE_META } = await import('@/lib/dal/playbook');
+
+    expect(STAGE_META[1]).toEqual({ label: 'Cap & Corp', dayRange: 'Day 1-3' });
+    expect(STAGE_META[2]).toEqual({ label: 'Financial', dayRange: 'Day 3-10' });
+    expect(STAGE_META[3]).toEqual({ label: 'Commercial', dayRange: 'Day 10-15' });
+    expect(STAGE_META[4]).toEqual({ label: 'Legal · IP · HR · Ops', dayRange: 'Day 15-21' });
+  });
+});

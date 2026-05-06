@@ -2,22 +2,16 @@
 
 import { ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
-
-type DealKillerGroup =
-  | 'cap_table'
-  | 'eighty_three_b'
-  | 'customer_coc'
-  | 'ip_assignment'
-  | 'revenue_bridge';
+import type { DealKillerGroup, Stage } from '@/types';
 
 type ChipColor = 'green' | 'yellow' | 'red' | 'gray';
 
 interface Summary {
   total: number;
   ready: number;
-  byCategory: Record<
-    'corporate_legal' | 'financial' | 'commercial' | 'team_hr' | 'ip_technical' | 'operations_risk',
-    { total: number; ready: number }
+  byStage: Record<
+    1 | 2 | 3 | 4,
+    { total: number; ready: number; label: string; dayRange: string }
   >;
   dealKillerGroups: Array<{
     group: DealKillerGroup;
@@ -29,6 +23,7 @@ interface Props {
   summary: Summary;
   onOpenChecklist: () => void;
   onChipClick: (group: DealKillerGroup) => void;
+  onStageClick: (stage: Stage) => void;
 }
 
 const GROUP_LABEL: Record<DealKillerGroup, string> = {
@@ -46,29 +41,14 @@ const COLOR_CLASS: Record<ChipColor, string> = {
   gray: 'bg-surface text-text-muted border-border',
 };
 
-const CATEGORY_LABEL = {
-  corporate_legal: 'Corporate',
-  financial: 'Financial',
-  commercial: 'Commercial',
-  team_hr: 'Team',
-  ip_technical: 'IP/Tech',
-  operations_risk: 'Ops',
-} as const;
+const STAGES: Stage[] = [1, 2, 3, 4];
 
-const CATEGORY_ORDER = [
-  'corporate_legal',
-  'financial',
-  'commercial',
-  'team_hr',
-  'ip_technical',
-  'operations_risk',
-] as const;
-
-export function ReadinessPanel({ summary, onOpenChecklist, onChipClick }: Props) {
+export function ReadinessPanel({ summary, onOpenChecklist, onChipClick, onStageClick }: Props) {
   const pct = summary.total === 0 ? 0 : Math.round((summary.ready / summary.total) * 100);
 
   return (
     <section className="border border-border rounded-xl bg-surface p-5 mb-6">
+      {/* Headline */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="text-xs font-medium text-text-muted uppercase tracking-wider mb-1">
@@ -88,6 +68,7 @@ export function ReadinessPanel({ summary, onOpenChecklist, onChipClick }: Props)
         </button>
       </div>
 
+      {/* Deal-killer chips — UNCHANGED */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-5">
         {summary.dealKillerGroups.map((g) => (
           <button
@@ -103,25 +84,99 @@ export function ReadinessPanel({ summary, onOpenChecklist, onChipClick }: Props)
         ))}
       </div>
 
-      <div className="space-y-2">
-        {CATEGORY_ORDER.map((cat) => {
-          const c = summary.byCategory[cat];
-          const ratio = c.total === 0 ? 0 : (c.ready / c.total) * 100;
-          return (
-            <div key={cat} className="flex items-center gap-3 text-xs">
-              <span className="w-20 text-text-muted shrink-0">{CATEGORY_LABEL[cat]}</span>
-              <div className="flex-1 h-1.5 bg-surface-sunken rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-700/60 transition-all"
-                  style={{ width: `${ratio}%` }}
-                />
-              </div>
-              <span className="w-12 font-mono text-text-muted text-right shrink-0">
-                {c.ready}/{c.total}
-              </span>
-            </div>
-          );
-        })}
+      {/* Per-stage rows */}
+      <div className="border-t border-border pt-4 mt-1">
+        <div className="text-[10px] font-medium text-text-muted uppercase tracking-wider mb-2">
+          By Stage
+        </div>
+
+        <div className="space-y-1">
+          {STAGES.map((stage) => {
+            const s = summary.byStage[stage];
+            const ratio = s.total === 0 ? 0 : (s.ready / s.total) * 100;
+            const complete = s.total > 0 && s.ready === s.total;
+
+            return (
+              <button
+                key={stage}
+                onClick={() => onStageClick(stage)}
+                aria-label={`Stage ${stage} · ${s.label}`}
+                className={clsx(
+                  'w-full text-left rounded-md px-2 py-2 min-h-[44px]',
+                  'cursor-pointer transition-colors duration-150',
+                  'focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 focus:ring-offset-surface',
+                  complete
+                    ? 'hover:bg-emerald-950/30'
+                    : 'hover:bg-surface-sunken/60',
+                )}
+              >
+                {/* Desktop: single row */}
+                <div className="hidden sm:flex items-center gap-3 text-xs">
+                  <span className="font-mono text-[11px] text-text-muted shrink-0 w-12 tabular-nums">
+                    Stage {stage}
+                  </span>
+                  <span className="text-text-primary font-medium shrink-0 w-36">
+                    {s.label}
+                  </span>
+                  <span className="font-mono text-[11px] text-text-muted shrink-0 w-20 tabular-nums">
+                    {s.dayRange}
+                  </span>
+                  <div className="flex-1 h-1.5 bg-surface-sunken rounded-full overflow-hidden">
+                    <div
+                      className={clsx(
+                        'h-full rounded-full motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out',
+                        complete ? 'bg-emerald-500' : 'bg-emerald-700/50',
+                      )}
+                      style={{ width: `${ratio}%` }}
+                    />
+                  </div>
+                  <span
+                    className={clsx(
+                      'font-mono text-[11px] shrink-0 w-10 text-right tabular-nums',
+                      complete ? 'text-emerald-400' : 'text-text-muted',
+                    )}
+                  >
+                    {s.ready}/{s.total}
+                  </span>
+                </div>
+
+                {/* Mobile: two-line stack */}
+                <div className="sm:hidden space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-mono text-[11px] text-text-muted tabular-nums">
+                        Stage {stage}
+                      </span>
+                      <span className="text-xs font-medium text-text-primary">{s.label}</span>
+                    </div>
+                    <span
+                      className={clsx(
+                        'font-mono text-[11px] tabular-nums',
+                        complete ? 'text-emerald-400' : 'text-text-muted',
+                      )}
+                    >
+                      {s.ready}/{s.total}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] text-text-muted tabular-nums shrink-0">
+                      {s.dayRange}
+                    </span>
+                    <div className="flex-1 h-1.5 bg-surface-sunken rounded-full overflow-hidden">
+                      <div
+                        className={clsx(
+                          'h-full rounded-full motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out',
+                          complete ? 'bg-emerald-500' : 'bg-emerald-700/50',
+                        )}
+                        style={{ width: `${ratio}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
