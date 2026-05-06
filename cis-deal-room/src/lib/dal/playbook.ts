@@ -22,6 +22,24 @@ export type DealKillerGroup =
   | 'ip_assignment'
   | 'revenue_bridge';
 
+export type Stage = 1 | 2 | 3 | 4;
+
+export const CATEGORY_TO_STAGE: Record<PlaybookCategory, Stage> = {
+  corporate_legal: 1,
+  financial: 2,
+  commercial: 3,
+  team_hr: 4,
+  ip_technical: 4,
+  operations_risk: 4,
+};
+
+export const STAGE_META: Record<Stage, { label: string; dayRange: string }> = {
+  1: { label: 'Cap & Corp', dayRange: 'Day 1-3' },
+  2: { label: 'Financial', dayRange: 'Day 3-10' },
+  3: { label: 'Commercial', dayRange: 'Day 10-15' },
+  4: { label: 'Legal · IP · HR · Ops', dayRange: 'Day 15-21' },
+};
+
 export interface PlaybookCanonicalRow {
   playbookItemId: string;
   number: number;
@@ -159,6 +177,7 @@ export interface ReadinessSummary {
   total: number;
   ready: number;
   byCategory: Record<PlaybookCategory, { total: number; ready: number }>;
+  byStage: Record<Stage, { total: number; ready: number; label: string; dayRange: string }>;
   dealKillerGroups: Array<{
     group: DealKillerGroup;
     status: ChecklistStatus;

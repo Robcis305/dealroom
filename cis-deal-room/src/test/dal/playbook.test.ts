@@ -249,3 +249,27 @@ describe('getOutstandingDealKillerGroups', () => {
     expect(result[0].group).toBe('ip_assignment');
   });
 });
+
+describe('CATEGORY_TO_STAGE mapping', () => {
+  it('covers all 6 canonical categories with no gaps', async () => {
+    const { CATEGORY_TO_STAGE } = await import('@/lib/dal/playbook');
+
+    expect(CATEGORY_TO_STAGE.corporate_legal).toBe(1);
+    expect(CATEGORY_TO_STAGE.financial).toBe(2);
+    expect(CATEGORY_TO_STAGE.commercial).toBe(3);
+    expect(CATEGORY_TO_STAGE.team_hr).toBe(4);
+    expect(CATEGORY_TO_STAGE.ip_technical).toBe(4);
+    expect(CATEGORY_TO_STAGE.operations_risk).toBe(4);
+  });
+});
+
+describe('STAGE_META', () => {
+  it('exposes label + dayRange for each of the 4 stages', async () => {
+    const { STAGE_META } = await import('@/lib/dal/playbook');
+
+    expect(STAGE_META[1]).toEqual({ label: 'Cap & Corp', dayRange: 'Day 1-3' });
+    expect(STAGE_META[2]).toEqual({ label: 'Financial', dayRange: 'Day 3-10' });
+    expect(STAGE_META[3]).toEqual({ label: 'Commercial', dayRange: 'Day 10-15' });
+    expect(STAGE_META[4]).toEqual({ label: 'Legal · IP · HR · Ops', dayRange: 'Day 15-21' });
+  });
+});
