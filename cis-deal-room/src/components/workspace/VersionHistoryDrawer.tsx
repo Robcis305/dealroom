@@ -74,7 +74,7 @@ export function VersionHistoryDrawer({
   }
 
   function performDelete(version: Version) {
-    // Optimistic local remove; soft-delete handles server call after 10s undo window
+    // Optimistic local remove; soft-delete fires immediately, undo calls /restore
     setVersions((prev) => prev.filter((v) => v.id !== version.id));
     softDelete({
       id: version.id,
@@ -90,6 +90,10 @@ export function VersionHistoryDrawer({
           return true;
         }
         return false;
+      },
+      performRestore: async () => {
+        const res = await fetchWithAuth(`/api/files/${version.id}/restore`, { method: 'POST' });
+        return res.ok;
       },
     });
   }

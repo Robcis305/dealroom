@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { files, folders } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
@@ -25,7 +25,7 @@ export async function POST(
     })
     .from(files)
     .innerJoin(folders, eq(folders.id, files.folderId))
-    .where(eq(files.id, fileId))
+    .where(and(eq(files.id, fileId), isNull(files.deletedAt)))
     .limit(1);
 
   if (rows.length === 0) {

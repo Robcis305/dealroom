@@ -63,6 +63,7 @@ export const activityActionEnum = pgEnum('activity_action', [
   'playbook_item_blocked',
   'buyer_invite_with_outstanding',
   'file_moved',
+  'restored',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
@@ -218,6 +219,7 @@ export const files = pgTable('files', {
     .notNull()
     .references(() => users.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
   // No updatedAt — file rows are immutable once confirmed. Versioning creates new rows.
 });
 
