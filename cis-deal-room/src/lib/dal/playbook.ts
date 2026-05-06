@@ -221,14 +221,24 @@ export async function getReadinessSummary(checklistId: string): Promise<Readines
     operations_risk: { total: 0, ready: 0 },
   };
 
+  const byStage: ReadinessSummary['byStage'] = {
+    1: { total: 0, ready: 0, label: STAGE_META[1].label, dayRange: STAGE_META[1].dayRange },
+    2: { total: 0, ready: 0, label: STAGE_META[2].label, dayRange: STAGE_META[2].dayRange },
+    3: { total: 0, ready: 0, label: STAGE_META[3].label, dayRange: STAGE_META[3].dayRange },
+    4: { total: 0, ready: 0, label: STAGE_META[4].label, dayRange: STAGE_META[4].dayRange },
+  };
+
   let total = 0;
   let ready = 0;
   for (const row of view.canonical) {
     total += 1;
     byCategory[row.category].total += 1;
+    const stage = CATEGORY_TO_STAGE[row.category];
+    byStage[stage].total += 1;
     if (READY_STATUSES.has(row.status)) {
       ready += 1;
       byCategory[row.category].ready += 1;
+      byStage[stage].ready += 1;
     }
   }
 
@@ -269,7 +279,7 @@ export async function getReadinessSummary(checklistId: string): Promise<Readines
   ];
   dealKillerGroups.sort((a, b) => ORDER.indexOf(a.group) - ORDER.indexOf(b.group));
 
-  return { total, ready, byCategory, dealKillerGroups };
+  return { total, ready, byCategory, byStage, dealKillerGroups };
 }
 
 /**
