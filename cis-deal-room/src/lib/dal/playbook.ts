@@ -24,6 +24,10 @@ export type DealKillerGroup =
 
 export type Stage = 1 | 2 | 3 | 4;
 
+export type PendingHighlight =
+  | { kind: 'deal_killer'; group: DealKillerGroup }
+  | { kind: 'stage'; stage: Stage };
+
 export const CATEGORY_TO_STAGE: Record<PlaybookCategory, Stage> = {
   corporate_legal: 1,
   financial: 2,

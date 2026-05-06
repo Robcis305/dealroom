@@ -9,6 +9,7 @@ import type {
   ChecklistOwner,
   ChecklistPriority,
   DealKillerGroup,
+  PendingHighlight,
 } from '@/types';
 import { ChecklistStatusChip } from './ChecklistStatusChip';
 import { ChecklistItemEditModal } from './ChecklistItemEditModal';
@@ -51,8 +52,8 @@ interface Props {
   folders: Array<{ id: string; name: string }>;
   onChanged: () => void;
   onUploadForItem: (itemId: string, name: string) => void;
-  /** When set, scrolls the first matching deal-killer item into view and pulses it. */
-  highlightGroup?: DealKillerGroup | null;
+  /** When set, scrolls the matching item into view and pulses it. */
+  highlightTarget?: PendingHighlight | null;
   onHighlightConsumed?: () => void;
 }
 
@@ -82,25 +83,34 @@ export function PlaybookChecklistView({
   folders,
   onChanged,
   onUploadForItem,
-  highlightGroup,
+  highlightTarget,
   onHighlightConsumed,
 }: Props) {
   useEffect(() => {
-    if (!highlightGroup) return;
-    const target = document.querySelector<HTMLElement>(
-      `[data-deal-killer-group="${highlightGroup}"]`,
-    );
+    if (!highlightTarget) return;
+
+    let target: HTMLElement | null = null;
+    if (highlightTarget.kind === 'deal_killer') {
+      target = document.querySelector<HTMLElement>(
+        `[data-deal-killer-group="${highlightTarget.group}"]`,
+      );
+    } else if (highlightTarget.kind === 'stage') {
+      target = document.querySelector<HTMLElement>(
+        `[data-stage="${highlightTarget.stage}"][data-stage-first="true"]`,
+      );
+    }
+
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       target.classList.add('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-black');
       const timer = setTimeout(() => {
-        target.classList.remove('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-black');
+        target!.classList.remove('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-black');
         onHighlightConsumed?.();
       }, 2000);
       return () => clearTimeout(timer);
     }
     onHighlightConsumed?.();
-  }, [highlightGroup, onHighlightConsumed]);
+  }, [highlightTarget, onHighlightConsumed]);
 
   return (
     <div className="px-8 pt-6 pb-12 max-w-5xl">

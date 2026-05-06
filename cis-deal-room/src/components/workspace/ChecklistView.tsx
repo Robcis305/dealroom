@@ -10,7 +10,7 @@ import { PlaybookChecklistView } from './PlaybookChecklistView';
 
 export type { ChecklistItemRow };
 
-import type { DealKillerGroup } from '@/types';
+import type { PendingHighlight } from '@/types';
 
 interface Props {
   workspaceId: string;
@@ -18,7 +18,7 @@ interface Props {
   onChanged?: () => void;
   onUploadForItem: (folderId: string | null, itemId: string, itemName: string) => void;
   folders: Array<{ id: string; name: string }>;
-  highlightGroup?: DealKillerGroup | null;
+  highlightTarget?: PendingHighlight | null;
   onHighlightConsumed?: () => void;
 }
 
@@ -27,7 +27,7 @@ interface PlaybookView {
   custom: Array<unknown>;
 }
 
-export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem, folders, highlightGroup, onHighlightConsumed }: Props) {
+export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem, folders, highlightTarget, onHighlightConsumed }: Props) {
   const [loading, setLoading] = useState(true);
   const [checklist, setChecklist] = useState<{ id: string; name: string } | null>(null);
   const [playbook, setPlaybook] = useState<PlaybookView | null>(null);
@@ -98,7 +98,7 @@ export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem
         folders={folders}
         onChanged={() => { refresh(); onChanged?.(); }}
         onUploadForItem={(itemId, name) => onUploadForItem(null, itemId, name)}
-        highlightGroup={highlightGroup}
+        highlightTarget={highlightTarget}
         onHighlightConsumed={onHighlightConsumed}
       />
     );
