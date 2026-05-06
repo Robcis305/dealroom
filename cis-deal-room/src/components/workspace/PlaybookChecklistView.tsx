@@ -193,7 +193,7 @@ function CategorySection({
       data-stage-first={isFirstInStage ? 'true' : 'false'}
     >
       {isFirstInStage && (
-        <div className="text-[10px] font-mono font-normal text-[#4A4A4A] uppercase tracking-[0.15em] mb-0.5">
+        <div className="text-[10px] font-mono font-normal text-text-muted/70 uppercase tracking-[0.15em] mb-0.5">
           Stage {stage} · {meta.dayRange}
         </div>
       )}
