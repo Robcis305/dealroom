@@ -311,6 +311,10 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
                 setPendingHighlight({ kind: 'deal_killer', group });
                 setView({ kind: 'checklist' });
               }}
+              onStageClick={(stage) => {
+                setPendingHighlight({ kind: 'stage', stage });
+                setView({ kind: 'checklist' });
+              }}
             />
           ) : view.kind === 'checklist' ? (
             <ChecklistView
