@@ -73,7 +73,10 @@ export function ChecklistImportModal({ workspaceId, onClose, onImported }: Props
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] },
+    accept: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'text/csv': ['.csv'],
+    },
     maxFiles: 1,
   });
 
@@ -135,7 +138,7 @@ export function ChecklistImportModal({ workspaceId, onClose, onImported }: Props
           >
             <input {...getInputProps()} />
             <p className="text-sm text-text-secondary">
-              Drop an .xlsx file here, or click to browse.
+              Drop a .csv or .xlsx file here, or click to browse.
             </p>
           </div>
         ) : (
