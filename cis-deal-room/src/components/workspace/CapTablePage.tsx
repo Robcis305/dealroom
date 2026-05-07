@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
-import { Upload, Eye, EyeOff, Download, ChevronDown, Table2 } from 'lucide-react';
+import { ArrowLeft, Upload, Eye, EyeOff, Download, ChevronDown, Table2 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { CapTableUploadModal } from './CapTableUploadModal';
 import { CapTableRoundsSummary } from './CapTableRoundsSummary';
@@ -96,12 +97,21 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
   // ── Buyer viewing draft (hidden) ─────────────────────────────────────────
   if (hidden) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
+      <div className="p-8 max-w-7xl mx-auto">
+        <Link
+          href={`/workspace/${workspaceId}`}
+          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-4"
+        >
+          <ArrowLeft size={14} />
+          Back to workspace
+        </Link>
+        <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
         <Table2 className="w-10 h-10 text-text-muted/40 mb-4" />
         <h1 className="text-base font-medium text-text-secondary mb-2">Cap table not yet shared</h1>
         <p className="text-sm text-text-muted max-w-xs">
           The seller hasn&apos;t published the cap table yet. Check back when it&apos;s available.
         </p>
+        </div>
       </div>
     );
   }
@@ -110,15 +120,31 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
   if (!capTable) {
     if (!isAdmin) {
       return (
-        <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
-          <Table2 className="w-10 h-10 text-text-muted/40 mb-4" />
-          <h1 className="text-base font-medium text-text-secondary mb-2">No cap table uploaded</h1>
-          <p className="text-sm text-text-muted max-w-xs">No cap table has been uploaded to this workspace yet.</p>
+        <div className="p-8 max-w-7xl mx-auto">
+          <Link
+            href={`/workspace/${workspaceId}`}
+            className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-4"
+          >
+            <ArrowLeft size={14} />
+            Back to workspace
+          </Link>
+          <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
+            <Table2 className="w-10 h-10 text-text-muted/40 mb-4" />
+            <h1 className="text-base font-medium text-text-secondary mb-2">No cap table uploaded</h1>
+            <p className="text-sm text-text-muted max-w-xs">No cap table has been uploaded to this workspace yet.</p>
+          </div>
         </div>
       );
     }
     return (
       <div className="p-8 max-w-2xl mx-auto">
+        <Link
+          href={`/workspace/${workspaceId}`}
+          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-4"
+        >
+          <ArrowLeft size={14} />
+          Back to workspace
+        </Link>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
@@ -162,6 +188,13 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
 
   return (
     <div className="p-6 sm:p-8 max-w-7xl mx-auto">
+      <Link
+        href={`/workspace/${workspaceId}`}
+        className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-4"
+      >
+        <ArrowLeft size={14} />
+        Back to workspace
+      </Link>
       {/* Header bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         {/* Title + status pill + timestamp */}
