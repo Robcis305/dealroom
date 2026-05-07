@@ -1,0 +1,6 @@
+Holder,Class,Instrument,Shares,Ownership %,Price per Share,Amount Invested,Round,Round Valuation,Vesting Start,Vesting Schedule,Certificate / Grant #,Notes
+Alice Founder,Common,common,8000000,50,0.0001,800,Founders,,2024-01-01,4yr/1yr cliff,CS-1,Co-founder
+Bob Founder,Common,common,4000000,25,0.0001,400,Founders,,2024-01-01,4yr/1yr cliff,CS-2,Co-founder
+ESOP Pool,Stock Plan,option,2000000,12.5,0.50,0,ESOP,,,,,Reserved for grants
+Series A Lead,Series A,preferred,1600000,10,3.125,5000000,Series A,30000000,,,SA-1,Lead investor — Acme Capital
+Series A Co-investor,Series A,preferred,400000,2.5,3.125,1250000,Series A,30000000,,,SA-2,Co-investor — Beta Ventures

@@ -9,6 +9,9 @@ import {
   integer,
   jsonb,
   primaryKey,
+  numeric,
+  bigint,
+  date,
 } from 'drizzle-orm/pg-core';
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -64,6 +67,9 @@ export const activityActionEnum = pgEnum('activity_action', [
   'buyer_invite_with_outstanding',
   'file_moved',
   'restored',
+  'cap_table_uploaded',
+  'cap_table_published',
+  'cap_table_unpublished',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
@@ -119,6 +125,21 @@ export const checklistStatusEnum = pgEnum('checklist_status', [
 export const viewOnlyShadowSideEnum = pgEnum('view_only_shadow_side', [
   'buyer',
   'seller',
+]);
+
+export const capTableStatusEnum = pgEnum('cap_table_status', [
+  'draft',
+  'published',
+]);
+
+export const capTableInstrumentEnum = pgEnum('cap_table_instrument', [
+  'common',
+  'preferred',
+  'option',
+  'rsu',
+  'safe',
+  'convertible_note',
+  'warrant',
 ]);
 
 // ─── Tables ───────────────────────────────────────────────────────────────────
@@ -208,7 +229,6 @@ export const folderAccess = pgTable('folder_access', {
 export const files = pgTable('files', {
   id: uuid('id').primaryKey().defaultRandom(),
   folderId: uuid('folder_id')
-    .notNull()
     .references(() => folders.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   s3Key: text('s3_key').notNull(),
@@ -312,5 +332,46 @@ export const playbookItems = pgTable('playbook_items', {
   dealKillerGroup: dealKillerGroupEnum('deal_killer_group'),
   defaultPriority: checklistPriorityEnum('default_priority').notNull().default('medium'),
   sortOrder: integer('sort_order').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const capTables = pgTable('cap_tables', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .unique()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  fileId: uuid('file_id')
+    .notNull()
+    .references(() => files.id, { onDelete: 'restrict' }),
+  status: capTableStatusEnum('status').notNull().default('draft'),
+  uploadedBy: uuid('uploaded_by').notNull().references(() => users.id),
+  uploadedAt: timestamp('uploaded_at').notNull().defaultNow(),
+  publishedAt: timestamp('published_at'),
+  publishedBy: uuid('published_by').references(() => users.id),
+  parseWarnings: jsonb('parse_warnings').notNull().default([]),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const capTableRows = pgTable('cap_table_rows', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  capTableId: uuid('cap_table_id')
+    .notNull()
+    .references(() => capTables.id, { onDelete: 'cascade' }),
+  rowNumber: integer('row_number').notNull(),
+  holder: text('holder').notNull(),
+  className: text('class').notNull(),
+  instrument: capTableInstrumentEnum('instrument').notNull(),
+  shares: bigint('shares', { mode: 'number' }).notNull(),
+  ownershipPercent: numeric('ownership_percent', { precision: 7, scale: 4 }).notNull(),
+  pricePerShare: numeric('price_per_share', { precision: 20, scale: 8 }).notNull(),
+  amountInvested: numeric('amount_invested', { precision: 20, scale: 2 }).notNull(),
+  round: text('round'),
+  roundValuation: numeric('round_valuation', { precision: 20, scale: 2 }),
+  vestingStart: date('vesting_start'),
+  vestingSchedule: text('vesting_schedule'),
+  certificateNumber: text('certificate_number'),
+  notes: text('notes'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

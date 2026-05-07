@@ -31,7 +31,9 @@ export async function getFileCountsByFolder(
   const counts: Record<string, number> = Object.fromEntries(
     folderIds.map((id) => [id, 0])
   );
-  for (const row of rows) counts[row.folderId] = Number(row.count);
+  for (const row of rows) {
+    if (row.folderId !== null) counts[row.folderId] = Number(row.count);
+  }
   return counts;
 }
 
@@ -93,6 +95,8 @@ export async function getFileVersions(fileId: string) {
     .limit(1);
 
   if (!anchor) return [];
+  // Cap-table files have no folderId; versioning is not applicable for them.
+  if (!anchor.folderId) return [];
 
   return db
     .select({
@@ -427,7 +431,7 @@ export async function moveFiles(input: MoveFilesInput): Promise<MoveFilesResult>
         moved.push(row.id);
         continue;
       }
-      toMove.push({ id: row.id, sourceFolderId: row.folderId });
+      toMove.push({ id: row.id, sourceFolderId: row.folderId! });
     }
 
     if (toMove.length > 0) {

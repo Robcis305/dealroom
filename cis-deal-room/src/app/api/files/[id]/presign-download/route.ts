@@ -24,6 +24,10 @@ export async function GET(
   const file = await getFileById(fileId);
   if (!file) return Response.json({ error: 'File not found' }, { status: 404 });
 
+  if (!file.folderId) {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     await requireFolderAccess(file.folderId, session, 'download');
   } catch {

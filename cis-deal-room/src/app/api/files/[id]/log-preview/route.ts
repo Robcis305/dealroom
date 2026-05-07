@@ -38,6 +38,10 @@ export async function POST(
   const { success } = await previewLogLimiter.limit(identifier);
   if (!success) return new Response(null, { status: 204 }); // silent drop
 
+  if (!file.folderId) {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     await requireFolderAccess(file.folderId, session, 'download');
   } catch {
