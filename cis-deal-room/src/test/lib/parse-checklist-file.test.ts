@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseChecklistXlsx } from '@/lib/checklist/parse-xlsx';
+import { parseChecklistFile } from '@/lib/checklist/parse-checklist-file';
 import * as XLSX from 'xlsx';
 
 function buildSheet(rows: Array<Record<string, string>>): ArrayBuffer {
@@ -22,13 +22,13 @@ function buildSheetRaw(rows: unknown[][]): ArrayBuffer {
   return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 }
 
-describe('parseChecklistXlsx', () => {
+describe('parseChecklistFile — XLSX input', () => {
   it('parses valid rows with all columns', () => {
     const buf = buildSheet([
       { '#': '29', Category: 'Legal', Item: 'Corporate Formation Documents',
         Description: 'Articles…', Priority: 'High', Owner: 'Seller', Notes: '' },
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid).toHaveLength(1);
     expect(result.valid[0]).toMatchObject({
       sortOrder: 29,
@@ -45,7 +45,7 @@ describe('parseChecklistXlsx', () => {
     const buf = buildSheet([
       { Item: 'Cap Table', Owner: 'Seller' },
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid).toHaveLength(0);
     expect(result.rejected).toHaveLength(1);
     expect(result.rejected[0].reason).toMatch(/Category/);
@@ -55,7 +55,7 @@ describe('parseChecklistXlsx', () => {
     const buf = buildSheet([
       { Category: 'Legal', Owner: 'Seller' },
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid).toHaveLength(0);
     expect(result.rejected[0].reason).toMatch(/Item/);
   });
@@ -64,7 +64,7 @@ describe('parseChecklistXlsx', () => {
     const buf = buildSheet([
       { Category: 'Legal', Item: 'Foo', Priority: 'Extreme' },
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid[0].priority).toBe('medium');
   });
 
@@ -72,7 +72,7 @@ describe('parseChecklistXlsx', () => {
     const buf = buildSheet([
       { Category: 'Legal', Item: 'Foo', Owner: 'Whoever' },
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid[0].owner).toBe('unassigned');
   });
 
@@ -80,7 +80,7 @@ describe('parseChecklistXlsx', () => {
     const buf = buildSheet([
       { Category: 'Legal', Item: 'Foo', 'Request Detail': 'body' },
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid[0].description).toBe('body');
   });
 
@@ -88,7 +88,7 @@ describe('parseChecklistXlsx', () => {
     const buf = buildSheet([
       { category: 'Legal', item: 'Foo' },
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid).toHaveLength(1);
   });
 
@@ -97,7 +97,7 @@ describe('parseChecklistXlsx', () => {
       { Category: 'Legal', Item: 'A' },
       { Category: 'Legal', Item: 'B' },
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid[0].sortOrder).toBe(1);
     expect(result.valid[1].sortOrder).toBe(2);
   });
@@ -111,7 +111,7 @@ describe('parseChecklistXlsx', () => {
       ['29', 'Legal', 'Corporate Formation Docs', 'High', 'Seller'],
       ['30', 'Legal', 'Cap Table', 'Critical', 'Seller'],
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid).toHaveLength(2);
     expect(result.rejected).toHaveLength(0);
     expect(result.valid[0]).toMatchObject({
@@ -126,7 +126,7 @@ describe('parseChecklistXlsx', () => {
       ['', '', ''],
       ['30', 'Legal', 'B'],
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid).toHaveLength(2);
     expect(result.rejected).toHaveLength(0);
   });
@@ -140,7 +140,7 @@ describe('parseChecklistXlsx', () => {
       ['29', 'Legal', 'Corporate Formation Docs'],
       ['30', 'Legal', 'Cap Table'],
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid).toHaveLength(2);
     expect(result.rejected).toHaveLength(1);
   });
@@ -151,7 +151,7 @@ describe('parseChecklistXlsx', () => {
       ['Section', '', ''],
       ['Some', 'Random', 'Text'],
     ]);
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid).toHaveLength(0);
     expect(result.rejected).toHaveLength(1);
     expect(result.rejected[0].reason).toMatch(/Category.*column header/i);
@@ -180,7 +180,7 @@ describe('parseChecklistXlsx', () => {
     XLSX.utils.book_append_sheet(wb, summary, 'Summary');
     const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 
-    const result = parseChecklistXlsx(buf);
+    const result = parseChecklistFile({ buffer: buf, filename: 'fixture.xlsx' });
     expect(result.valid).toHaveLength(2);
     expect(result.valid.map((v) => v.name)).toEqual([
       'Corporate Formation Docs',
@@ -189,5 +189,56 @@ describe('parseChecklistXlsx', () => {
     // The "Legal" banner row lands in rejected (it has 'Legal' in column A,
     // so the Category column is empty → Missing Category). Real data still parses.
     expect(result.rejected).toHaveLength(1);
+  });
+});
+
+describe('parseChecklistFile — CSV input', () => {
+  it('parses a minimal CSV with the same shape as XLSX', () => {
+    const csv = `#,Category,Item,Description,Priority,Owner,Notes
+1,Financial,Audited Financials,Last 3 years,critical,seller,
+2,Legal,Cap Table,Reconciled with Carta,critical,seller,Use Carta export`;
+    const buffer = new TextEncoder().encode(csv).buffer;
+
+    const result = parseChecklistFile({ buffer, filename: 'request-list.csv' });
+    expect(result.valid).toHaveLength(2);
+    expect(result.valid[0]).toMatchObject({
+      sortOrder: 1,
+      category: 'Financial',
+      name: 'Audited Financials',
+      priority: 'critical',
+      owner: 'seller',
+    });
+  });
+
+  it('detects format from filename extension (case-insensitive)', () => {
+    const csv = `#,Category,Item,Priority,Owner
+1,X,Y,medium,buyer`;
+    const buffer = new TextEncoder().encode(csv).buffer;
+
+    const upper = parseChecklistFile({ buffer, filename: 'list.CSV' });
+    const lower = parseChecklistFile({ buffer, filename: 'list.csv' });
+    expect(upper.valid).toHaveLength(1);
+    expect(lower.valid).toHaveLength(1);
+  });
+
+  it('rejects CSV rows missing Category', () => {
+    const csv = `#,Item,Priority
+1,Cap Table,high`;
+    const buffer = new TextEncoder().encode(csv).buffer;
+
+    const result = parseChecklistFile({ buffer, filename: 'test.csv' });
+    expect(result.valid).toHaveLength(0);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.rejected[0].reason).toMatch(/Category/);
+  });
+
+  it('coerces unknown Priority and Owner in CSV', () => {
+    const csv = `#,Category,Item,Priority,Owner
+1,Legal,Foo,Extreme,Whoever`;
+    const buffer = new TextEncoder().encode(csv).buffer;
+
+    const result = parseChecklistFile({ buffer, filename: 'test.csv' });
+    expect(result.valid[0].priority).toBe('medium');
+    expect(result.valid[0].owner).toBe('unassigned');
   });
 });

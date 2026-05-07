@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { folders, checklistItems } from '@/db/schema';
+import { folders, checklistItems, workspaces } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { getChecklistForWorkspace, createChecklist } from '@/lib/dal/checklist';
+import { shouldShowCanonicalPlaybook } from '@/lib/dal/playbook';
 import { enqueueChecklistAssignedNotifications } from '@/lib/notifications/enqueue-checklist-assigned';
 import { resolveFolderMatches } from '@/lib/checklist/folder-match';
 import type { ChecklistOwner } from '@/types';
@@ -48,13 +49,34 @@ export async function POST(
     return Response.json({ error: 'Invalid payload', details: parsed.error.issues }, { status: 400 });
   }
 
-  // Reject if a checklist already exists (MVP = one per workspace)
+  // Look up workspace to determine advisory side.
+  const [workspace] = await db
+    .select({ cisAdvisorySide: workspaces.cisAdvisorySide })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  if (!workspace) {
+    return Response.json({ error: 'Workspace not found' }, { status: 404 });
+  }
+
+  const isBuySide = !shouldShowCanonicalPlaybook(workspace);
+
   const existing = await getChecklistForWorkspace(workspaceId);
-  if (existing) {
+
+  if (existing && !isBuySide) {
+    // Sell-side: preserves the v1.3 invariant (canonical playbook IS the
+    // checklist; replacing via this endpoint would clobber playbook state).
     return Response.json({ error: 'Checklist already exists for this workspace' }, { status: 409 });
   }
 
-  const checklist = await createChecklist(workspaceId);
+  let checklist = existing;
+  if (existing && isBuySide) {
+    // Buy-side: cascade-delete existing items, keep the checklists row, then
+    // insert new items below. This is the v1.6 replace-on-reupload behavior.
+    await db.delete(checklistItems).where(eq(checklistItems.checklistId, existing.id));
+  } else if (!existing) {
+    checklist = await createChecklist(workspaceId);
+  }
 
   // Resolve each category → folderId. The client may have explicitly chosen
   // a mapping for some categories (folderMapping); anything unspecified falls
@@ -116,7 +138,7 @@ export async function POST(
 
   // Bulk insert items
   const values = parsed.data.rows.map((r) => ({
-    checklistId: checklist.id,
+    checklistId: checklist!.id,
     folderId: nameToId.get(r.category)!,
     sortOrder: r.sortOrder,
     category: r.category,
@@ -147,5 +169,5 @@ export async function POST(
       ),
   );
 
-  return Response.json({ checklistId: checklist.id, itemCount: values.length });
+  return Response.json({ checklistId: checklist!.id, itemCount: values.length });
 }

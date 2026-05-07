@@ -10,6 +10,7 @@ import {
 } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
+import { shouldShowCanonicalPlaybook } from './playbook';
 import type { CisAdvisorySide, ChecklistOwner, ChecklistPriority, ChecklistStatus, ParticipantRole, ViewOnlyShadowSide } from '@/types';
 
 interface SessionScope {
@@ -69,11 +70,28 @@ export async function getChecklistForWorkspace(workspaceId: string) {
  *
  * Idempotent: re-running on a workspace that already has a checklist returns
  * the existing row.
+ *
+ * On buy-side workspaces the canonical playbook is not used — the advisor
+ * uploads their own request list via the explicit import flow (v1.6 spec).
+ * This function no-ops on buy-side: it returns whatever checklist exists
+ * without ever auto-creating one.
  */
 export async function ensureChecklistForWorkspace(
   workspaceId: string,
   createdBy: string,
 ) {
+  // Look up workspace; on buy-side, do NOT auto-create (defer to explicit
+  // import flow). On sell-side, preserve the v1.3 auto-create behavior.
+  const [ws] = await db
+    .select({ cisAdvisorySide: workspaces.cisAdvisorySide })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+
+  if (ws && !shouldShowCanonicalPlaybook(ws)) {
+    return await getChecklistForWorkspace(workspaceId);
+  }
+
   const existing = await getChecklistForWorkspace(workspaceId);
   if (existing) return existing;
 

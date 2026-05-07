@@ -5,7 +5,21 @@ import type {
   ChecklistOwner,
   ChecklistPriority,
   ChecklistStatus,
+  CisAdvisorySide,
 } from '@/types';
+
+/**
+ * Whether a workspace should display the canonical 48-item Data Room
+ * Construction Playbook overlay. On sell-side advisory engagements the
+ * playbook is the diligence prep checklist. On buy-side, the playbook is
+ * not used — the buyer-side advisor uploads their own request list per
+ * engagement (see v1.6 spec).
+ */
+export function shouldShowCanonicalPlaybook(
+  workspace: { cisAdvisorySide: CisAdvisorySide },
+): boolean {
+  return workspace.cisAdvisorySide === 'seller_side';
+}
 
 export type PlaybookCategory =
   | 'corporate_legal'

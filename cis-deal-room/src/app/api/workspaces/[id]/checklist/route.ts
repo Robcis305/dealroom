@@ -4,7 +4,7 @@ import { workspaces, workspaceParticipants } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { getChecklistForWorkspace, ensureChecklistForWorkspace, listItemsForViewer } from '@/lib/dal/checklist';
-import { getPlaybookView } from '@/lib/dal/playbook';
+import { getPlaybookView, shouldShowCanonicalPlaybook } from '@/lib/dal/playbook';
 import type { ParticipantRole, CisAdvisorySide } from '@/types';
 
 export async function GET(
@@ -50,22 +50,32 @@ export async function GET(
     .limit(1);
   if (workspace) cisAdvisorySide = workspace.cisAdvisorySide;
 
-  // Decide whether this viewer sees the playbook overlay.
-  // Hide playbook from buyer-side, view_only, and the deprecated counsel role.
+  // Gate 1: does this workspace use the canonical playbook at all?
+  // Buy-side workspaces never show the canonical 48-item overlay — the advisor
+  // imports their own request list per engagement (v1.6 spec).
+  const canonicalPlaybookForWorkspace = workspace
+    ? shouldShowCanonicalPlaybook(workspace)
+    : cisAdvisorySide === 'seller_side';
+
+  // Gate 2: does this viewer's role entitle them to see the playbook overlay?
+  // Hide playbook from view_only and the deprecated counsel role even on sell-side.
   const isClientOnSellerSide = role === 'client' && cisAdvisorySide === 'seller_side';
   const showPlaybook =
-    session.isAdmin ||
-    role === 'admin' ||
-    role === 'cis_team' ||
-    role === 'seller_rep' ||
-    role === 'seller_counsel' ||
-    isClientOnSellerSide;
+    canonicalPlaybookForWorkspace &&
+    (session.isAdmin ||
+      role === 'admin' ||
+      role === 'cis_team' ||
+      role === 'seller_rep' ||
+      role === 'seller_counsel' ||
+      isClientOnSellerSide);
 
   let checklist = await getChecklistForWorkspace(workspaceId);
 
   // Auto-create the checklist shell when a playbook-eligible viewer opens
   // a workspace that doesn't have one yet. This anchors the canonical 48-item
   // playbook overlay without requiring a manual import step.
+  // On buy-side, ensureChecklistForWorkspace is a no-op (won't auto-create),
+  // but we skip the call entirely for clarity.
   if (!checklist && showPlaybook) {
     checklist = await ensureChecklistForWorkspace(workspaceId, session.userId);
   }

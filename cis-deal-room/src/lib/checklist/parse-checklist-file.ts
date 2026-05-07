@@ -80,8 +80,11 @@ function isAllBlank(rowArr: unknown[]): boolean {
   return rowArr.every((v) => String(v ?? '').trim() === '');
 }
 
-export function parseChecklistXlsx(input: ArrayBuffer | Buffer): ParseResult {
-  const wb = XLSX.read(input, { type: input instanceof ArrayBuffer ? 'array' : 'buffer' });
+export function parseChecklistFile(input: { buffer: ArrayBuffer; filename: string }): ParseResult {
+  const isCsv = input.filename.toLowerCase().endsWith('.csv');
+  const wb = isCsv
+    ? XLSX.read(new TextDecoder().decode(input.buffer), { type: 'string' })
+    : XLSX.read(input.buffer, { type: 'array' });
   if (wb.SheetNames.length === 0) return { valid: [], rejected: [] };
 
   // Workbooks often have helper sheets (Instructions, Summary) alongside the
