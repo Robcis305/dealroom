@@ -350,3 +350,15 @@ describe('STAGE_META', () => {
     expect(STAGE_META[4]).toEqual({ label: 'Legal · IP · HR · Ops', dayRange: 'Day 15-21' });
   });
 });
+
+describe('shouldShowCanonicalPlaybook', () => {
+  it('returns true for sell-side workspaces', async () => {
+    const { shouldShowCanonicalPlaybook } = await import('@/lib/dal/playbook');
+    expect(shouldShowCanonicalPlaybook({ cisAdvisorySide: 'seller_side' })).toBe(true);
+  });
+
+  it('returns false for buy-side workspaces', async () => {
+    const { shouldShowCanonicalPlaybook } = await import('@/lib/dal/playbook');
+    expect(shouldShowCanonicalPlaybook({ cisAdvisorySide: 'buyer_side' })).toBe(false);
+  });
+});
