@@ -1,11 +1,15 @@
-import { and, eq } from 'drizzle-orm';
+import { and, count, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { workspaces, workspaceParticipants } from '@/db/schema';
+import { workspaces, workspaceParticipants, checklistItems } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
-import { ensureChecklistForWorkspace } from '@/lib/dal/checklist';
-import { getReadinessSummary, STAGE_META } from '@/lib/dal/playbook';
-import type { ParticipantRole, CisAdvisorySide } from '@/types';
+import {
+  ensureChecklistForWorkspace,
+  getChecklistForWorkspace,
+  ownerFilterForSession,
+} from '@/lib/dal/checklist';
+import { getReadinessSummary, shouldShowCanonicalPlaybook, STAGE_META } from '@/lib/dal/playbook';
+import type { ParticipantRole, ViewOnlyShadowSide } from '@/types';
 
 const PLAYBOOK_VISIBLE_ROLES = new Set<ParticipantRole>([
   'admin',
@@ -29,13 +33,24 @@ export async function GET(
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Resolve role and cisAdvisorySide for gating
+  // Workspace lookup
+  const [workspace] = await db
+    .select({ cisAdvisorySide: workspaces.cisAdvisorySide })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  if (!workspace) return Response.json({ error: 'Workspace not found' }, { status: 404 });
+
+  // Resolve viewer role + shadow side (mirrors listItemsForViewer pattern)
   let role: ParticipantRole = 'admin';
-  let cisAdvisorySide: CisAdvisorySide = 'seller_side';
+  let shadowSide: ViewOnlyShadowSide | null = null;
 
   if (!session.isAdmin) {
     const [participant] = await db
-      .select({ role: workspaceParticipants.role })
+      .select({
+        role: workspaceParticipants.role,
+        shadow: workspaceParticipants.viewOnlyShadowSide,
+      })
       .from(workspaceParticipants)
       .where(
         and(
@@ -47,16 +62,49 @@ export async function GET(
       .limit(1);
     if (!participant) return Response.json({ error: 'Forbidden' }, { status: 403 });
     role = participant.role;
+    shadowSide = participant.shadow;
   }
 
-  const [workspace] = await db
-    .select({ cisAdvisorySide: workspaces.cisAdvisorySide })
-    .from(workspaces)
-    .where(eq(workspaces.id, workspaceId))
-    .limit(1);
-  if (workspace) cisAdvisorySide = workspace.cisAdvisorySide;
+  if (!shouldShowCanonicalPlaybook(workspace)) {
+    // Buy-side: simple counter from custom checklist items
+    const checklist = await getChecklistForWorkspace(workspaceId);
+    if (!checklist) {
+      return Response.json({ mode: 'simple', total: 0, ready: 0 });
+    }
 
-  const isClientOnSellerSide = role === 'client' && cisAdvisorySide === 'seller_side';
+    const ownerFilter = ownerFilterForSession({
+      isAdmin: session.isAdmin,
+      role,
+      shadowSide,
+      cisAdvisorySide: workspace.cisAdvisorySide,
+    });
+    if (ownerFilter !== null && ownerFilter.length === 0) {
+      return Response.json({ mode: 'simple', total: 0, ready: 0 });
+    }
+
+    const baseWhere = ownerFilter === null
+      ? eq(checklistItems.checklistId, checklist.id)
+      : and(eq(checklistItems.checklistId, checklist.id), inArray(checklistItems.owner, ownerFilter));
+
+    const [{ value: total }] = await db
+      .select({ value: count() })
+      .from(checklistItems)
+      .where(baseWhere);
+
+    const [{ value: ready }] = await db
+      .select({ value: count() })
+      .from(checklistItems)
+      .where(and(baseWhere, inArray(checklistItems.status, ['received', 'waived', 'n_a'])));
+
+    return Response.json({
+      mode: 'simple',
+      total: Number(total),
+      ready: Number(ready),
+    });
+  }
+
+  // Sell-side: canonical v1.4 readiness summary
+  const isClientOnSellerSide = role === 'client' && workspace.cisAdvisorySide === 'seller_side';
   const allowed =
     session.isAdmin || PLAYBOOK_VISIBLE_ROLES.has(role) || isClientOnSellerSide;
   if (!allowed) {
@@ -67,6 +115,7 @@ export async function GET(
 
   if (!checklist) {
     return Response.json({
+      mode: 'canonical',
       total: 0,
       ready: 0,
       byCategory: {
@@ -88,5 +137,5 @@ export async function GET(
   }
 
   const summary = await getReadinessSummary(checklist.id);
-  return Response.json(summary);
+  return Response.json({ mode: 'canonical', ...summary });
 }

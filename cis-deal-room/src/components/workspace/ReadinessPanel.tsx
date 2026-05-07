@@ -6,18 +6,25 @@ import type { DealKillerGroup, Stage } from '@/types';
 
 type ChipColor = 'green' | 'yellow' | 'red' | 'gray';
 
-interface Summary {
-  total: number;
-  ready: number;
-  byStage: Record<
-    1 | 2 | 3 | 4,
-    { total: number; ready: number; label: string; dayRange: string }
-  >;
-  dealKillerGroups: Array<{
-    group: DealKillerGroup;
-    color: ChipColor;
-  }>;
-}
+type Summary =
+  | {
+      mode: 'canonical';
+      total: number;
+      ready: number;
+      byStage: Record<
+        1 | 2 | 3 | 4,
+        { total: number; ready: number; label: string; dayRange: string }
+      >;
+      dealKillerGroups: Array<{
+        group: DealKillerGroup;
+        color: ChipColor;
+      }>;
+    }
+  | {
+      mode: 'simple';
+      total: number;
+      ready: number;
+    };
 
 interface Props {
   summary: Summary;
@@ -46,6 +53,48 @@ const STAGES: Stage[] = [1, 2, 3, 4];
 export function ReadinessPanel({ summary, onOpenChecklist, onChipClick, onStageClick }: Props) {
   const pct = summary.total === 0 ? 0 : Math.round((summary.ready / summary.total) * 100);
 
+  // Simple mode — buy-side advisory workspaces
+  if (summary.mode === 'simple') {
+    return (
+      <section className="border border-border rounded-xl bg-surface p-5 mb-6">
+        <div className="flex items-start sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <div className="text-xs font-medium text-text-muted uppercase tracking-wider mb-1">
+              Items received
+            </div>
+            <div className="text-2xl font-semibold text-text-primary tabular-nums">
+              {summary.ready} / {summary.total}{' '}
+              <span className="text-base font-normal text-text-muted ml-1">({pct}%)</span>
+            </div>
+          </div>
+          <button
+            onClick={onOpenChecklist}
+            className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors duration-150 cursor-pointer shrink-0"
+          >
+            Open checklist
+            <ArrowRight size={14} />
+          </button>
+        </div>
+
+        {summary.total > 0 && (
+          <div className="h-1.5 bg-surface-sunken rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-emerald-700/50 motion-safe:transition-[width] motion-safe:duration-300 motion-safe:ease-out"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        )}
+
+        {summary.total === 0 && (
+          <div className="text-xs text-text-muted py-1">
+            No checklist uploaded yet. Open the checklist tab to import a CSV or XLSX request list.
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  // Canonical mode — sell-side advisory workspaces (v1.4 layout, unchanged)
   return (
     <section className="border border-border rounded-xl bg-surface p-5 mb-6">
       {/* Headline */}

@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { ReadinessPanel } from '@/components/workspace/ReadinessPanel';
 
 const summary = {
+  mode: 'canonical' as const,
   total: 48,
   ready: 12,
   byCategory: {
@@ -121,5 +122,58 @@ describe('ReadinessPanel', () => {
     expect(screen.queryByText('Corporate')).not.toBeInTheDocument();
     expect(screen.queryByText('IP/Tech')).not.toBeInTheDocument();
     expect(screen.queryByText('Ops')).not.toBeInTheDocument();
+  });
+});
+
+describe('ReadinessPanel — simple mode (buy-side)', () => {
+  it('renders the simple counter with total and ready counts', () => {
+    render(
+      <ReadinessPanel
+        summary={{ mode: 'simple', total: 24, ready: 5 }}
+        onOpenChecklist={() => {}}
+        onChipClick={() => {}}
+        onStageClick={() => {}}
+      />,
+    );
+    expect(screen.getByText(/5 \/ 24/)).toBeInTheDocument();
+    expect(screen.getByText(/Items received/i)).toBeInTheDocument();
+  });
+
+  it('does NOT render deal-killer chips in simple mode', () => {
+    render(
+      <ReadinessPanel
+        summary={{ mode: 'simple', total: 24, ready: 5 }}
+        onOpenChecklist={() => {}}
+        onChipClick={() => {}}
+        onStageClick={() => {}}
+      />,
+    );
+    expect(screen.queryByText('Cap Table')).not.toBeInTheDocument();
+    expect(screen.queryByText('83(b) Filings')).not.toBeInTheDocument();
+  });
+
+  it('does NOT render stage rows in simple mode', () => {
+    render(
+      <ReadinessPanel
+        summary={{ mode: 'simple', total: 24, ready: 5 }}
+        onOpenChecklist={() => {}}
+        onChipClick={() => {}}
+        onStageClick={() => {}}
+      />,
+    );
+    expect(screen.queryByText(/Stage 1/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Stage 4/i)).not.toBeInTheDocument();
+  });
+
+  it('shows 0/0 when no items', () => {
+    render(
+      <ReadinessPanel
+        summary={{ mode: 'simple', total: 0, ready: 0 }}
+        onOpenChecklist={() => {}}
+        onChipClick={() => {}}
+        onStageClick={() => {}}
+      />,
+    );
+    expect(screen.getByText(/0 \/ 0/)).toBeInTheDocument();
   });
 });
