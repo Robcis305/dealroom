@@ -64,7 +64,10 @@ export type ActivityAction =
   | 'playbook_item_blocked'
   | 'buyer_invite_with_outstanding'
   | 'file_moved'
-  | 'restored';
+  | 'restored'
+  | 'cap_table_uploaded'
+  | 'cap_table_published'
+  | 'cap_table_unpublished';
 
 export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant';
 
@@ -88,6 +91,19 @@ export type ChecklistStatus =
   | 'n_a';
 
 export type ViewOnlyShadowSide = 'buyer' | 'seller';
+
+// ─── Cap Table ────────────────────────────────────────────────────────────────
+
+export type CapTableStatus = 'draft' | 'published';
+
+export type CapTableInstrument =
+  | 'common'
+  | 'preferred'
+  | 'option'
+  | 'rsu'
+  | 'safe'
+  | 'convertible_note'
+  | 'warrant';
 
 // ─── Playbook ─────────────────────────────────────────────────────────────────
 
