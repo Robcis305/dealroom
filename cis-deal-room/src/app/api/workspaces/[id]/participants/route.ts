@@ -6,7 +6,7 @@ import { getWorkspace } from '@/lib/dal/workspaces';
 import { sendEmail } from '@/lib/email/send';
 import { InvitationEmail } from '@/lib/email/invitation';
 import { getAppUrl } from '@/lib/app-url';
-import { getOutstandingDealKillerGroups } from '@/lib/dal/playbook';
+import { getOutstandingDealKillerGroups, shouldShowCanonicalPlaybook } from '@/lib/dal/playbook';
 import { getChecklistForWorkspace } from '@/lib/dal/checklist';
 import { logActivity } from '@/lib/dal/activity';
 import { db } from '@/db';
@@ -100,7 +100,7 @@ export async function POST(
     externalRoles.has(parsed.role) ||
     (parsed.role === 'view_only' && parsed.viewOnlyShadowSide === externalShadow);
 
-  if (isExternalInvite) {
+  if (isExternalInvite && shouldShowCanonicalPlaybook(workspace)) {
     const checklist = await getChecklistForWorkspace(workspaceId);
     if (checklist) {
       const outstanding = await getOutstandingDealKillerGroups(checklist.id);
