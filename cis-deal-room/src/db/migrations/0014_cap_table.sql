@@ -1,3 +1,7 @@
+-- Allow files rows without a folder (used by cap-table CSV uploads).
+ALTER TABLE "public"."files" ALTER COLUMN "folder_id" DROP NOT NULL;
+--> statement-breakpoint
+
 -- Cap table state machine.
 CREATE TYPE "public"."cap_table_status" AS ENUM('draft', 'published');
 --> statement-breakpoint

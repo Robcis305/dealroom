@@ -229,7 +229,6 @@ export const folderAccess = pgTable('folder_access', {
 export const files = pgTable('files', {
   id: uuid('id').primaryKey().defaultRandom(),
   folderId: uuid('folder_id')
-    .notNull()
     .references(() => folders.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   s3Key: text('s3_key').notNull(),

@@ -19,7 +19,20 @@ async function typeExists(typname) {
   return exists;
 }
 
-console.log('=== 1. CREATE TYPE cap_table_status ===');
+console.log('=== 0. ALTER files.folder_id — drop NOT NULL ===');
+// Check if folder_id is still NOT NULL; if so, relax it.
+const [folderIdConstraint] = await sql`
+  SELECT is_nullable FROM information_schema.columns
+  WHERE table_schema = 'public' AND table_name = 'files' AND column_name = 'folder_id'
+`;
+if (folderIdConstraint && folderIdConstraint.is_nullable === 'NO') {
+  await sql`ALTER TABLE "public"."files" ALTER COLUMN "folder_id" DROP NOT NULL`;
+  console.log('altered');
+} else {
+  console.log('already nullable (or column missing)');
+}
+
+console.log('\n=== 1. CREATE TYPE cap_table_status ===');
 if (await typeExists('cap_table_status')) {
   console.log('already exists');
 } else {
