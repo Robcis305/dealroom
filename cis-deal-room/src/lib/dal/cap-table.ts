@@ -198,11 +198,11 @@ export async function uploadCapTable(input: UploadCapTableInput) {
 
 /**
  * Look up playbook item #5 ("Cap table") and call setCanonicalItemStatus.
- * Helper used by publishCapTable / unpublishCapTable.
+ * Helper used by publishCapTable / unpublishCapTable / deleteCapTable.
  */
 async function setItem5Status(
   workspaceId: string,
-  target: 'received' | 'in_progress',
+  target: 'received' | 'in_progress' | 'not_started',
 ) {
   const checklist = await getChecklistForWorkspace(workspaceId);
   if (!checklist) return; // No checklist → nothing to update
@@ -293,4 +293,60 @@ export async function unpublishCapTable(workspaceId: string) {
   await setItem5Status(workspaceId, 'in_progress');
 
   return updated;
+}
+
+/**
+ * Delete the workspace's cap table entirely (cap_table_rows cascade-deleted).
+ * Admin only. Transactional. If the cap table was published, logs a
+ * 'cap_table_unpublished' activity entry with reason 'cleared'.
+ * Item-5 revert to 'not_started' is best-effort (won't block the delete).
+ * S3 file is intentionally NOT deleted — same soft-delete convention as PR #16.
+ */
+export async function deleteCapTable(workspaceId: string): Promise<{ deleted: boolean }> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(capTables)
+      .where(eq(capTables.workspaceId, workspaceId))
+      .limit(1);
+    if (!row) throw new Error('Cap table not found');
+
+    if (row.status === 'published') {
+      const [{ count: rowCount }] = await tx
+        .select({ count: drizzleSql<number>`count(*)::int` })
+        .from(capTableRows)
+        .where(eq(capTableRows.capTableId, row.id));
+
+      await logActivity(tx, {
+        workspaceId,
+        userId: session.userId,
+        action: 'cap_table_unpublished',
+        targetType: 'workspace',
+        targetId: workspaceId,
+        metadata: {
+          reason: 'cleared',
+          previousFileId: row.fileId,
+          previousUploadedAt: row.uploadedAt,
+          previousRowCount: Number(rowCount ?? 0),
+        },
+      });
+    }
+
+    // Cascade deletes cap_table_rows
+    await tx.delete(capTables).where(eq(capTables.id, row.id));
+  });
+
+  // Item-5 coupling: revert to not_started if a checklist exists.
+  // Best-effort — a failure here must not block the delete.
+  try {
+    await setItem5Status(workspaceId, 'not_started');
+  } catch (e) {
+    console.error('[deleteCapTable] item-5 reset failed:', e);
+  }
+
+  return { deleted: true };
 }

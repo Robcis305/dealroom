@@ -143,3 +143,18 @@ describe('cap-table DAL — visibility gate (getCapTableForViewer)', () => {
     expect(result).toEqual({ visible: false });
   });
 });
+
+describe('deleteCapTable', () => {
+  beforeEach(() => {
+    vi.mocked(verifySession).mockReset();
+    vi.mocked(setCanonicalItemStatus).mockReset();
+  });
+
+  it('rejects non-admin sessions', async () => {
+    vi.mocked(verifySession).mockResolvedValueOnce({
+      userId: 'u1', userEmail: 'u@u', isAdmin: false,
+    } as any);
+    const { deleteCapTable } = await import('@/lib/dal/cap-table');
+    await expect(deleteCapTable('ws-1')).rejects.toThrow('Admin required');
+  });
+});

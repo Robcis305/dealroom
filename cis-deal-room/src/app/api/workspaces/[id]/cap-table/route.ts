@@ -7,6 +7,7 @@ import {
   applyCapTableVisibilityGate,
   getCapTableForWorkspace,
   getCapTableRows,
+  deleteCapTable,
 } from '@/lib/dal/cap-table';
 import type { ParticipantRole, ViewOnlyShadowSide } from '@/types';
 
@@ -76,4 +77,31 @@ export async function GET(
 
   const rows = await getCapTableRows(ct.id);
   return Response.json({ capTable: ct, rows });
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const session = await verifySession();
+  if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
+
+  const { id: workspaceId } = await params;
+
+  try {
+    await requireDealAccess(workspaceId, session);
+  } catch {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  try {
+    const result = await deleteCapTable(workspaceId);
+    return Response.json(result);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'Cap table not found') {
+      return Response.json({ error: 'Cap table not found' }, { status: 404 });
+    }
+    throw e;
+  }
 }

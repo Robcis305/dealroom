@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
-import { ArrowLeft, Upload, Eye, EyeOff, Download, ChevronDown, Table2 } from 'lucide-react';
+import { ArrowLeft, Upload, Eye, EyeOff, Download, ChevronDown, Table2, Trash2 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { CapTableUploadModal } from './CapTableUploadModal';
 import { CapTableRoundsSummary } from './CapTableRoundsSummary';
 import { CapTableRowsView } from './CapTableRowsView';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { CapTableStatus, CapTableInstrument } from '@/types';
 
 interface CapTableMeta {
@@ -48,6 +49,7 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
   const [showUpload, setShowUpload] = useState(false);
   const [warningsExpanded, setWarningsExpanded] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const refresh = useCallback(async () => {
     const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/cap-table`);
@@ -86,6 +88,16 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
     if (res.ok) {
       const data = await res.json();
       window.location.href = data.url;
+    }
+  }
+
+  async function clearCapTable() {
+    const res = await fetchWithAuth(
+      `/api/workspaces/${workspaceId}/cap-table`,
+      { method: 'DELETE' },
+    );
+    if (res.ok) {
+      refresh();
     }
   }
 
@@ -229,6 +241,12 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
               <Download size={12} />
               Download
             </button>
+            <button
+              onClick={() => setShowClearConfirm(true)}
+              className="flex items-center gap-1.5 text-xs text-accent px-3 py-1.5 bg-accent/10 hover:bg-accent/20 border border-accent/20 rounded-lg transition-colors duration-150 cursor-pointer"
+            >
+              <Trash2 size={12} /> Clear
+            </button>
             {isPublished ? (
               <button
                 onClick={togglePublish}
@@ -296,6 +314,23 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
         onSuccess={refresh}
         workspaceId={workspaceId}
       />
+
+      {/* Clear confirmation dialog */}
+      {showClearConfirm && (
+        <ConfirmDialog
+          open
+          onClose={() => setShowClearConfirm(false)}
+          onConfirm={async () => {
+            setShowClearConfirm(false);
+            await clearCapTable();
+          }}
+          title="Clear cap table?"
+          description="This removes all cap table rows for this workspace. The original CSV file is preserved in storage; you can re-upload at any time. Item #5 'Cap table' on the playbook checklist will be reset to Not Started."
+          confirmLabel="Clear"
+          tone="destructive"
+          preserves={['Original CSV file in storage', 'Activity log audit trail']}
+        />
+      )}
     </div>
   );
 }
