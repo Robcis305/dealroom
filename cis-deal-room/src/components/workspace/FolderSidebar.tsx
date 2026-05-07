@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil, ClipboardList, Combine } from 'lucide-react';
+import Link from 'next/link';
+import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil, ClipboardList, Combine, Table2 } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { FolderMergeModal } from './FolderMergeModal';
@@ -206,6 +207,20 @@ export function FolderSidebar({
             </button>
           </div>
         )}
+
+        {/* Cap table entry */}
+        <div className="mx-1 mb-1">
+          <Link
+            href={`/workspace/${workspaceId}/cap-table`}
+            className={clsx(
+              'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
+              'text-text-secondary hover:bg-surface-elevated hover:text-text-primary'
+            )}
+          >
+            <Table2 size={14} />
+            Cap table
+          </Link>
+        </div>
 
         {folders.map((folder) => {
           const isSelected = folder.id === selectedFolderId;
