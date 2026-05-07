@@ -16,23 +16,37 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t0 = Date.now();
+  const log = (step: string) => console.log(`[cap-table:upload] +${Date.now() - t0}ms ${step}`);
+
+  log('START');
+
   const session = await verifySession();
+  log(`verifySession done (session=${!!session})`);
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
 
   const { id: workspaceId } = await params;
+  log(`workspaceId=${workspaceId}`);
 
   try {
     await requireDealAccess(workspaceId, session);
+    log('requireDealAccess ok');
   } catch {
+    log('requireDealAccess FAILED');
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  log('about to read formData');
   const formData = await request.formData();
+  log('formData parsed');
+
   const file = formData.get('file');
   if (!(file instanceof File)) {
+    log('no file in formData');
     return Response.json({ error: 'No file uploaded' }, { status: 400 });
   }
+  log(`file received name=${file.name} size=${file.size}`);
   if (file.size > MAX_SIZE_BYTES) {
     return Response.json(
       { error: `File too large (${file.size} bytes; max ${MAX_SIZE_BYTES})` },
@@ -40,8 +54,13 @@ export async function POST(
     );
   }
 
+  log('reading file text');
   const text = await file.text();
+  log(`text read, length=${text.length}`);
+
+  log('parsing CSV');
   const parsed = parseCsv(text);
+  log(`parsed: ${parsed.rows.length} rows, ${parsed.errors.length} errors, ${parsed.warnings.length} warnings`);
 
   if (parsed.errors.length > 0) {
     return Response.json({ errors: parsed.errors }, { status: 400 });
@@ -49,6 +68,7 @@ export async function POST(
 
   // Persist CSV to S3 first; if S3 fails, the whole upload fails before any DB write.
   const s3Key = `cap-tables/${workspaceId}/${Date.now()}-${file.name}`;
+  log(`s3 putObject START bucket=${S3_BUCKET} key=${s3Key}`);
   await getS3Client().send(
     new PutObjectCommand({
       Bucket: S3_BUCKET,
@@ -57,8 +77,10 @@ export async function POST(
       ContentType: 'text/csv',
     }),
   );
+  log('s3 putObject DONE');
 
   // Create files row (folder_id = null since cap-table CSVs aren't in a folder)
+  log('inserting files row');
   const [filesRow] = await db
     .insert(files)
     .values({
@@ -70,13 +92,16 @@ export async function POST(
       s3Key,
     })
     .returning();
+  log(`files row inserted id=${filesRow.id}`);
 
+  log('uploadCapTable DAL START');
   const created = await uploadCapTable({
     workspaceId,
     fileId: filesRow.id,
     rows: parsed.rows,
     warnings: parsed.warnings,
   });
+  log(`uploadCapTable DAL DONE id=${created.id}`);
 
   return Response.json({
     capTable: created,
