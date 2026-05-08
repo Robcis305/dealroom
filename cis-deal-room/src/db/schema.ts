@@ -70,6 +70,9 @@ export const activityActionEnum = pgEnum('activity_action', [
   'cap_table_uploaded',
   'cap_table_published',
   'cap_table_unpublished',
+  'ai_analyzed',
+  'ai_published',
+  'ai_unpublished',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
@@ -375,3 +378,83 @@ export const capTableRows = pgTable('cap_table_rows', {
   notes: text('notes'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+// ─── AI analyses ─────────────────────────────────────────────────────────────
+
+export const aiAnalysisStatusEnum = pgEnum('ai_analysis_status', [
+  'queued', 'running', 'complete', 'failed',
+]);
+
+export const aiAnalysisTriggerEnum = pgEnum('ai_analysis_trigger', [
+  'checklist_link', 'manual',
+]);
+
+export const aiRiskLevelEnum = pgEnum('ai_risk_level', [
+  'HIGH', 'MEDIUM', 'LOW', 'FAVORABLE',
+]);
+
+export const aiAnalyses = pgTable('ai_analyses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  fileId: uuid('file_id').notNull()
+    .references(() => files.id, { onDelete: 'cascade' }),
+  fileVersion: integer('file_version').notNull(),
+  triggeredBy: uuid('triggered_by').notNull().references(() => users.id),
+  trigger: aiAnalysisTriggerEnum('trigger').notNull(),
+  checklistItemId: uuid('checklist_item_id')
+    .references(() => checklistItems.id, { onDelete: 'set null' }),
+
+  status: aiAnalysisStatusEnum('status').notNull().default('queued'),
+  errorMessage: text('error_message'),
+
+  riskScore: integer('risk_score'),
+  summary: text('summary'),
+  priorityActions: jsonb('priority_actions'),
+
+  modelUsed: text('model_used'),
+  promptVersion: text('prompt_version'),
+  tokensInput: integer('tokens_input'),
+  tokensOutput: integer('tokens_output'),
+  durationMs: integer('duration_ms'),
+
+  publishedAt: timestamp('published_at'),
+  publishedBy: uuid('published_by').references(() => users.id),
+
+  // Self-ref: Drizzle can't express a self-FK fluently — leave as plain uuid
+  // and add the foreign key constraint in the migration SQL.
+  supersededAt: timestamp('superseded_at'),
+  supersededBy: uuid('superseded_by'),
+
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const aiFindings = pgTable('ai_findings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  analysisId: uuid('analysis_id').notNull()
+    .references(() => aiAnalyses.id, { onDelete: 'cascade' }),
+  ordinal: integer('ordinal').notNull(),
+
+  clauseText: text('clause_text').notNull(),
+  category: text('category').notNull(),
+  riskLevel: aiRiskLevelEnum('risk_level').notNull(),
+  impactSummary: text('impact_summary').notNull(),
+  benchmarkComparison: text('benchmark_comparison').notNull(),
+  recommendation: text('recommendation').notNull(),
+  flagForReview: boolean('flag_for_review').notNull(),
+
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const checklistItemAiAnalyses = pgTable(
+  'checklist_item_ai_analyses',
+  {
+    itemId: uuid('item_id').notNull()
+      .references(() => checklistItems.id, { onDelete: 'cascade' }),
+    analysisId: uuid('analysis_id').notNull()
+      .references(() => aiAnalyses.id, { onDelete: 'cascade' }),
+    linkedAt: timestamp('linked_at').notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.itemId, table.analysisId] })],
+);
