@@ -55,6 +55,11 @@ export async function callPortalAnalyze(args: {
       || res.status === 415 || res.status === 422) {
     let code = `http_${res.status}`;
     try { code = ((await res.json()) as { error?: string }).error ?? code; } catch { /* ignore */ }
+    if (res.status === 401) {
+      // Misconfigured ANALYZER_SERVICE_TOKEN — every analysis will fail
+      // until the secret is fixed. Make it noisy so logs catch it.
+      console.error('[portal-client] 401 from analyzer endpoint — token likely misconfigured');
+    }
     return { kind: 'terminal_error', code, status: res.status };
   }
   return { kind: 'retryable', status: res.status, message: await res.text() };
