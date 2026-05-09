@@ -393,6 +393,13 @@ export const aiRiskLevelEnum = pgEnum('ai_risk_level', [
   'HIGH', 'MEDIUM', 'LOW', 'FAVORABLE',
 ]);
 
+// NOTE: ai_analyses + ai_findings have indexes (incl. a PARTIAL unique on
+// file_id+file_version WHERE superseded_at IS NULL) and a self-FK on
+// superseded_by → id. These are declared in migration 0016 directly, NOT
+// here, because drizzle-kit doesn't round-trip partial indexes or self-FKs
+// through schema introspection. If you run `drizzle-kit generate` after
+// editing this schema, expect a redundant CREATE INDEX/CONSTRAINT migration
+// for these objects — review and delete it before committing.
 export const aiAnalyses = pgTable('ai_analyses', {
   id: uuid('id').primaryKey().defaultRandom(),
   workspaceId: uuid('workspace_id').notNull()
