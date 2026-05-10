@@ -67,7 +67,10 @@ export type ActivityAction =
   | 'restored'
   | 'cap_table_uploaded'
   | 'cap_table_published'
-  | 'cap_table_unpublished';
+  | 'cap_table_unpublished'
+  | 'ai_analyzed'
+  | 'ai_published'
+  | 'ai_unpublished';
 
 export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant';
 
@@ -108,3 +111,11 @@ export type CapTableInstrument =
 // ─── Playbook ─────────────────────────────────────────────────────────────────
 
 export type { PlaybookCategory, DealKillerGroup, PendingHighlight, Stage } from '@/lib/dal/playbook';
+
+// ─── AI Analysis ──────────────────────────────────────────────────────────────
+
+import type { aiAnalysisStatusEnum, aiAnalysisTriggerEnum, aiRiskLevelEnum } from '@/db/schema';
+
+export type AiAnalysisStatus = (typeof aiAnalysisStatusEnum.enumValues)[number];
+export type AiAnalysisTrigger = (typeof aiAnalysisTriggerEnum.enumValues)[number];
+export type AiRiskLevel = (typeof aiRiskLevelEnum.enumValues)[number];
