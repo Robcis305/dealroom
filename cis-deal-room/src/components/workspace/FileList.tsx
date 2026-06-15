@@ -15,6 +15,8 @@ import { VersionHistoryDrawer } from './VersionHistoryDrawer';
 import { MoveToFolderModal } from './MoveToFolderModal';
 import { isPreviewable } from '@/lib/preview';
 import { PreviewModal, type PreviewFile } from './PreviewModal';
+import { FolderAccessIndicator } from './FolderAccessIndicator';
+import type { CisAdvisorySide } from '@/types';
 
 interface FileRow {
   id: string;
@@ -45,6 +47,10 @@ interface FileListProps {
   folders: FolderRef[];
   /** Called on delete (negative delta) and restore (positive delta) to keep sidebar counts live */
   onFolderCountChange?: (folderId: string, delta: number) => void;
+  /** CIS advisory side — needed for contextual role labels in the access popover */
+  cisAdvisorySide: CisAdvisorySide;
+  /** Incremented by the parent after invites/edits so the access indicator refetches */
+  participantsRefresh?: number;
 }
 
 function mimeToIcon(mimeType: string) {
@@ -62,7 +68,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload, uploadRevision = 0, folders, onFolderCountChange }: FileListProps) {
+export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload, uploadRevision = 0, folders, onFolderCountChange, cisAdvisorySide, participantsRefresh = 0 }: FileListProps) {
   const [files, setFiles] = useState<FileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -291,7 +297,15 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Folder header */}
       <div className="flex items-center justify-between px-8 pt-6 pb-4 shrink-0">
-        <h2 className="text-lg font-semibold text-text-primary tracking-tight">{folderName}</h2>
+        <div className="flex items-center gap-3 min-w-0">
+          <h2 className="text-lg font-semibold text-text-primary tracking-tight truncate">{folderName}</h2>
+          <FolderAccessIndicator
+            workspaceId={workspaceId}
+            folderId={folderId}
+            cisAdvisorySide={cisAdvisorySide}
+            refreshToken={participantsRefresh}
+          />
+        </div>
         <div className="flex items-center gap-3">
           <input
             type="text"
