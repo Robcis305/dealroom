@@ -5,6 +5,7 @@ import { Pencil, X, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { clsx } from 'clsx';
 import { roleLabel } from '@/lib/participants/roles';
+import { hasFolderAccess } from '@/lib/participants/folder-access';
 import { displayName } from '@/lib/users/display';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { formatRelative } from '@/lib/format-date';
@@ -41,6 +42,10 @@ interface ParticipantListProps {
   refreshToken: number;
   /** Current viewer's email — the row matching this hides its edit/revoke buttons */
   currentUserEmail: string;
+  /** When a folder is open, the list scopes to participants with access to it */
+  folderId?: string | null;
+  /** Display name of the open folder (currently unused in copy, kept for future labels) */
+  folderName?: string | null;
 }
 
 export function ParticipantList({
@@ -50,6 +55,8 @@ export function ParticipantList({
   isAdmin,
   refreshToken,
   currentUserEmail,
+  folderId,
+  folderName,
 }: ParticipantListProps) {
   const [rows, setRows] = useState<ParticipantRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +64,15 @@ export function ParticipantList({
   const [editing, setEditing] = useState<ParticipantRow | null>(null);
   const [revoking, setRevoking] = useState<ParticipantRow | null>(null);
   const [bump, setBump] = useState(0);
+  const [scope, setScope] = useState<'folder' | 'all'>('folder');
+
+  // Reset to the folder-scoped view whenever the open folder changes
+  useEffect(() => { setScope('folder'); }, [folderId]);
+
+  const folderScoped = !!folderId && scope === 'folder';
+  const visibleRows = folderScoped
+    ? rows.filter((r) => hasFolderAccess(r, folderId!))
+    : rows;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,13 +128,49 @@ export function ParticipantList({
         </button>
       )}
 
+      {folderId && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-text-secondary">
+            {scope === 'folder' ? 'Users with access to this folder' : 'All participants'}
+          </p>
+          <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() => setScope('folder')}
+              className={clsx(
+                'px-2.5 py-1 transition-colors cursor-pointer',
+                scope === 'folder'
+                  ? 'bg-accent text-text-inverse'
+                  : 'text-text-secondary hover:text-text-primary'
+              )}
+            >
+              This folder
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope('all')}
+              className={clsx(
+                'px-2.5 py-1 border-l border-border transition-colors cursor-pointer',
+                scope === 'all'
+                  ? 'bg-accent text-text-inverse'
+                  : 'text-text-secondary hover:text-text-primary'
+              )}
+            >
+              All participants
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-xs text-text-muted">Loading…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-xs text-text-muted">No participants yet.</p>
+      ) : visibleRows.length === 0 ? (
+        <p className="text-xs text-text-muted">
+          {folderScoped ? 'No one has access to this folder yet.' : 'No participants yet.'}
+        </p>
       ) : (
         <ul className="space-y-2">
-          {rows.map((row) => (
+          {visibleRows.map((row) => (
             <li
               key={row.id}
               className="flex items-center justify-between gap-2 bg-surface border border-border rounded-md px-3 py-2"
