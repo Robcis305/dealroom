@@ -42,8 +42,12 @@ export function FolderAccessIndicator({
   const [open, setOpen] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/participants`);
-    if (res.ok) setRows(await res.json());
+    try {
+      const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/participants`);
+      if (res.ok) setRows(await res.json());
+    } catch {
+      /* transient fetch failure — leave the indicator empty */
+    }
   }, [workspaceId]);
 
   useEffect(() => { load(); }, [load, refreshToken]);
