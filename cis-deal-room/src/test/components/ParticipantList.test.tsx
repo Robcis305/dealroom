@@ -173,7 +173,6 @@ describe('ParticipantList — folder scope', () => {
         refreshToken={0}
         currentUserEmail="someone@else.com"
         folderId="folder-1"
-        folderName="Deal Legal"
       />
     );
     await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());
@@ -193,7 +192,6 @@ describe('ParticipantList — folder scope', () => {
         refreshToken={0}
         currentUserEmail="someone@else.com"
         folderId="folder-1"
-        folderName="Deal Legal"
       />
     );
     await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());

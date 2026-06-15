@@ -44,8 +44,6 @@ interface ParticipantListProps {
   currentUserEmail: string;
   /** When a folder is open, the list scopes to participants with access to it */
   folderId?: string | null;
-  /** Display name of the open folder (currently unused in copy, kept for future labels) */
-  folderName?: string | null;
 }
 
 export function ParticipantList({
@@ -56,7 +54,6 @@ export function ParticipantList({
   refreshToken,
   currentUserEmail,
   folderId,
-  folderName,
 }: ParticipantListProps) {
   const [rows, setRows] = useState<ParticipantRow[]>([]);
   const [loading, setLoading] = useState(true);

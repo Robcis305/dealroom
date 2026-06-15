@@ -22,8 +22,6 @@ interface RightPanelProps {
   currentUserEmail: string;
   /** The open folder (if any) — scopes the Participants tab */
   folderId?: string | null;
-  /** Display name of the open folder */
-  folderName?: string | null;
   /** When provided, renders a collapse button in the tab bar */
   onCollapse?: () => void;
 }
@@ -38,7 +36,6 @@ export function RightPanel({
   participantsRefreshToken,
   currentUserEmail,
   folderId,
-  folderName,
   onCollapse,
 }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('activity');
@@ -86,7 +83,6 @@ export function RightPanel({
             refreshToken={participantsRefreshToken}
             currentUserEmail={currentUserEmail}
             folderId={folderId}
-            folderName={folderName}
           />
         )}
       </div>

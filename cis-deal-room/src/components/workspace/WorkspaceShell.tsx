@@ -403,7 +403,6 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
                 participantsRefreshToken={participantsRefresh}
                 currentUserEmail={userEmail}
                 folderId={selectedFolderId}
-                folderName={view.kind === 'folder' ? folders.find((f) => f.id === view.folderId)?.name ?? null : null}
                 onCollapse={() => setPanelCollapsed(true)}
               />
             </div>
