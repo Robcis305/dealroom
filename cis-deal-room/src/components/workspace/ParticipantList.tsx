@@ -44,6 +44,8 @@ interface ParticipantListProps {
   currentUserEmail: string;
   /** When a folder is open, the list scopes to participants with access to it */
   folderId?: string | null;
+  /** Incremented by the parent to force the list back to the "this folder" scope */
+  focusToken?: number;
 }
 
 export function ParticipantList({
@@ -54,6 +56,7 @@ export function ParticipantList({
   refreshToken,
   currentUserEmail,
   folderId,
+  focusToken,
 }: ParticipantListProps) {
   const [rows, setRows] = useState<ParticipantRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,8 +66,9 @@ export function ParticipantList({
   const [bump, setBump] = useState(0);
   const [scope, setScope] = useState<'folder' | 'all'>('folder');
 
-  // Reset to the folder-scoped view whenever the open folder changes
-  useEffect(() => { setScope('folder'); }, [folderId]);
+  // Reset to the folder-scoped view when the open folder changes or the parent
+  // explicitly requests focus (e.g. via the folder-header access button)
+  useEffect(() => { setScope('folder'); }, [folderId, focusToken]);
 
   const folderScoped = !!folderId && scope === 'folder';
   const visibleRows = folderScoped

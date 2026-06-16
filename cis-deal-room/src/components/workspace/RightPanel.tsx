@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Activity, Users, PanelRightClose } from 'lucide-react';
 import { ParticipantList } from './ParticipantList';
 import { ActivityFeed } from './ActivityFeed';
@@ -10,6 +9,8 @@ interface Folder {
   id: string;
   name: string;
 }
+
+export type RightPanelTab = 'activity' | 'participants';
 
 interface RightPanelProps {
   workspaceId: string;
@@ -22,11 +23,15 @@ interface RightPanelProps {
   currentUserEmail: string;
   /** The open folder (if any) — scopes the Participants tab */
   folderId?: string | null;
+  /** Controlled active tab (lifted so the folder header can switch it) */
+  activeTab: RightPanelTab;
+  /** Called when the user switches tabs */
+  onTabChange: (tab: RightPanelTab) => void;
+  /** Incremented to force the Participants tab to the "this folder" scope */
+  participantScopeToken?: number;
   /** When provided, renders a collapse button in the tab bar */
   onCollapse?: () => void;
 }
-
-type Tab = 'activity' | 'participants';
 
 export function RightPanel({
   workspaceId,
@@ -36,10 +41,11 @@ export function RightPanel({
   participantsRefreshToken,
   currentUserEmail,
   folderId,
+  activeTab,
+  onTabChange,
+  participantScopeToken,
   onCollapse,
 }: RightPanelProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('activity');
-
   return (
     <div className="flex flex-col h-full bg-surface">
       <div className="flex items-center border-b border-border shrink-0">
@@ -47,13 +53,13 @@ export function RightPanel({
           label="Activity"
           icon={<Activity size={14} />}
           active={activeTab === 'activity'}
-          onClick={() => setActiveTab('activity')}
+          onClick={() => onTabChange('activity')}
         />
         <TabButton
           label="Participants"
           icon={<Users size={14} />}
           active={activeTab === 'participants'}
-          onClick={() => setActiveTab('participants')}
+          onClick={() => onTabChange('participants')}
         />
         {onCollapse && (
           <button
@@ -83,6 +89,7 @@ export function RightPanel({
             refreshToken={participantsRefreshToken}
             currentUserEmail={currentUserEmail}
             folderId={folderId}
+            focusToken={participantScopeToken}
           />
         )}
       </div>
@@ -116,4 +123,3 @@ function TabButton({ label, icon, active, onClick }: TabButtonProps) {
     </button>
   );
 }
-

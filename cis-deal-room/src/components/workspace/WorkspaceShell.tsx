@@ -10,7 +10,7 @@ import { Logo } from '@/components/ui/Logo';
 import { UserMenu } from '@/components/ui/UserMenu';
 import { FolderSidebar, type CenterView } from './FolderSidebar';
 import { DealOverview } from './DealOverview';
-import { RightPanel } from './RightPanel';
+import { RightPanel, type RightPanelTab } from './RightPanel';
 import { FileList } from './FileList';
 import { UploadModal } from './UploadModal';
 import { ParticipantFormModal } from './ParticipantFormModal';
@@ -77,7 +77,17 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   const [pendingHighlight, setPendingHighlight] = useState<PendingHighlight | null>(null);
   const [panelWidth, setPanelWidth] = useState(320);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [rightTab, setRightTab] = useState<RightPanelTab>('activity');
+  const [folderAccessFocus, setFolderAccessFocus] = useState(0);
   const resizingRef = useRef(false);
+
+  // Folder-header "Folder access" button: reveal the panel, switch to the
+  // Participants tab, and force it to the "this folder" scope.
+  const showFolderAccess = useCallback(() => {
+    setPanelCollapsed(false);
+    setRightTab('participants');
+    setFolderAccessFocus((n) => n + 1);
+  }, []);
 
   const startResize = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
@@ -361,8 +371,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               uploadRevision={uploadRevision}
               folders={folders}
               onFolderCountChange={handleFolderCountChange}
-              cisAdvisorySide={workspace.cisAdvisorySide}
               participantsRefresh={participantsRefresh}
+              onShowFolderAccess={showFolderAccess}
             />
           )}
         </main>
@@ -403,6 +413,9 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
                 participantsRefreshToken={participantsRefresh}
                 currentUserEmail={userEmail}
                 folderId={selectedFolderId}
+                activeTab={rightTab}
+                onTabChange={setRightTab}
+                participantScopeToken={folderAccessFocus}
                 onCollapse={() => setPanelCollapsed(true)}
               />
             </div>

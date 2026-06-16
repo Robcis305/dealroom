@@ -16,7 +16,6 @@ import { MoveToFolderModal } from './MoveToFolderModal';
 import { isPreviewable } from '@/lib/preview';
 import { PreviewModal, type PreviewFile } from './PreviewModal';
 import { FolderAccessIndicator } from './FolderAccessIndicator';
-import type { CisAdvisorySide } from '@/types';
 
 interface FileRow {
   id: string;
@@ -47,10 +46,10 @@ interface FileListProps {
   folders: FolderRef[];
   /** Called on delete (negative delta) and restore (positive delta) to keep sidebar counts live */
   onFolderCountChange?: (folderId: string, delta: number) => void;
-  /** CIS advisory side — needed for contextual role labels in the access popover */
-  cisAdvisorySide: CisAdvisorySide;
   /** Incremented by the parent after invites/edits so the access indicator refetches */
   participantsRefresh?: number;
+  /** Opens the side panel to this folder's participant list */
+  onShowFolderAccess: () => void;
 }
 
 function mimeToIcon(mimeType: string) {
@@ -68,7 +67,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload, uploadRevision = 0, folders, onFolderCountChange, cisAdvisorySide, participantsRefresh = 0 }: FileListProps) {
+export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload, uploadRevision = 0, folders, onFolderCountChange, participantsRefresh = 0, onShowFolderAccess }: FileListProps) {
   const [files, setFiles] = useState<FileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -302,8 +301,8 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
           <FolderAccessIndicator
             workspaceId={workspaceId}
             folderId={folderId}
-            cisAdvisorySide={cisAdvisorySide}
             refreshToken={participantsRefresh}
+            onClick={onShowFolderAccess}
           />
         </div>
         <div className="flex items-center gap-3">

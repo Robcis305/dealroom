@@ -25,28 +25,26 @@ describe('FolderAccessIndicator', () => {
       <FolderAccessIndicator
         workspaceId={WORKSPACE_ID}
         folderId="folder-1"
-        cisAdvisorySide="buyer_side"
         refreshToken={0}
+        onClick={() => {}}
       />
     );
     // admin (implicit) + client (granted) = 2; rep is granted folder-2, excluded
     await waitFor(() => expect(screen.getByText('2 with access')).toBeInTheDocument());
   });
 
-  it('opens a popover listing participants, marking admins as Full access', async () => {
+  it('calls onClick when the access button is pressed', async () => {
+    const onClick = vi.fn();
     render(
       <FolderAccessIndicator
         workspaceId={WORKSPACE_ID}
         folderId="folder-1"
-        cisAdvisorySide="buyer_side"
         refreshToken={0}
+        onClick={onClick}
       />
     );
     await waitFor(() => expect(screen.getByText('2 with access')).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: /users with access to this folder/i }));
-    expect(screen.getByText('Adam Min')).toBeInTheDocument();
-    expect(screen.getByText('client@x.com')).toBeInTheDocument();
-    expect(screen.getByText('Full access')).toBeInTheDocument();
-    expect(screen.queryByText('rep@x.com')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /folder access/i }));
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
