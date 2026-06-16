@@ -30,7 +30,8 @@ describe('FolderAccessIndicator', () => {
       />
     );
     // admin (implicit) + client (granted) = 2; rep is granted folder-2, excluded
-    await waitFor(() => expect(screen.getByText('2 with access')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('User access')).toBeInTheDocument());
+    expect(screen.getByText('2')).toBeInTheDocument();
   });
 
   it('calls onClick when the access button is pressed', async () => {
@@ -43,8 +44,8 @@ describe('FolderAccessIndicator', () => {
         onClick={onClick}
       />
     );
-    await waitFor(() => expect(screen.getByText('2 with access')).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: /folder access/i }));
+    await waitFor(() => expect(screen.getByText('User access')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /user access/i }));
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
