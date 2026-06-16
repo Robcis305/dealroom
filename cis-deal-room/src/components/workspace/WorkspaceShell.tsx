@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ArrowLeft, Upload } from 'lucide-react';
+import { ChevronDown, ArrowLeft, Upload, PanelRightOpen } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { Badge } from '@/components/ui/Badge';
 import { Banner } from '@/components/ui/Banner';
@@ -10,7 +10,7 @@ import { Logo } from '@/components/ui/Logo';
 import { UserMenu } from '@/components/ui/UserMenu';
 import { FolderSidebar, type CenterView } from './FolderSidebar';
 import { DealOverview } from './DealOverview';
-import { RightPanel } from './RightPanel';
+import { RightPanel, type RightPanelTab } from './RightPanel';
 import { FileList } from './FileList';
 import { UploadModal } from './UploadModal';
 import { ParticipantFormModal } from './ParticipantFormModal';
@@ -75,6 +75,41 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   const [checklistItems, setChecklistItems] = useState<Array<{ id: string; name: string; folderId: string | null }>>([]);
   const [uploadItemHint, setUploadItemHint] = useState<string | null>(null);
   const [pendingHighlight, setPendingHighlight] = useState<PendingHighlight | null>(null);
+  const [panelWidth, setPanelWidth] = useState(320);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [rightTab, setRightTab] = useState<RightPanelTab>('activity');
+  const [folderAccessFocus, setFolderAccessFocus] = useState(0);
+  const resizingRef = useRef(false);
+
+  // Folder-header "Folder access" button: reveal the panel, switch to the
+  // Participants tab, and force it to the "this folder" scope.
+  const showFolderAccess = useCallback(() => {
+    setPanelCollapsed(false);
+    setRightTab('participants');
+    setFolderAccessFocus((n) => n + 1);
+  }, []);
+
+  const startResize = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    resizingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+    function onMove(ev: PointerEvent) {
+      if (!resizingRef.current) return;
+      // Panel is on the right edge: dragging left (smaller clientX) widens it
+      const delta = startX - ev.clientX;
+      setPanelWidth(Math.min(600, Math.max(260, startWidth + delta)));
+    }
+    function onUp() {
+      resizingRef.current = false;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      document.body.style.userSelect = '';
+    }
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [panelWidth]);
 
   // Derived for backward-compat with UploadModal's initialFolderId
   const selectedFolderId = view.kind === 'folder' ? view.folderId : null;
@@ -336,21 +371,56 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               uploadRevision={uploadRevision}
               folders={folders}
               onFolderCountChange={handleFolderCountChange}
+              participantsRefresh={participantsRefresh}
+              onShowFolderAccess={showFolderAccess}
             />
           )}
         </main>
 
-        {/* Right: RightPanel — 320px */}
-        <div className="w-[320px] shrink-0 bg-surface border-l border-border overflow-y-auto hidden lg:flex lg:flex-col">
-          <RightPanel
+        {/* Right: resizable / collapsible RightPanel */}
+        {panelCollapsed ? (
+          <div className="hidden lg:flex flex-col w-10 shrink-0 bg-surface border-l border-border items-center pt-3">
+            <button
+              type="button"
+              aria-label="Open side panel"
+              title="Open side panel"
+              onClick={() => setPanelCollapsed(false)}
+              className="w-8 h-8 rounded flex items-center justify-center text-text-muted
+                hover:text-text-primary hover:bg-surface-elevated transition-colors cursor-pointer
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <PanelRightOpen size={16} aria-hidden="true" />
+            </button>
+          </div>
+        ) : (
+          <div className="hidden lg:flex shrink-0">
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize side panel"
+              onPointerDown={startResize}
+              className="w-1.5 cursor-col-resize bg-border/40 hover:bg-accent/50 transition-colors"
+            />
+            <div
+              style={{ width: panelWidth }}
+              className="shrink-0 bg-surface border-l border-border overflow-y-auto flex flex-col"
+            >
+              <RightPanel
                 workspaceId={workspace.id}
                 cisAdvisorySide={workspace.cisAdvisorySide}
                 folders={folders}
                 isAdmin={isAdmin}
                 participantsRefreshToken={participantsRefresh}
                 currentUserEmail={userEmail}
+                folderId={selectedFolderId}
+                activeTab={rightTab}
+                onTabChange={setRightTab}
+                participantScopeToken={folderAccessFocus}
+                onCollapse={() => setPanelCollapsed(true)}
               />
-        </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <UploadModal

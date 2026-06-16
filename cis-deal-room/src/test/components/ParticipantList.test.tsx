@@ -143,3 +143,61 @@ describe('ParticipantList', () => {
     );
   });
 });
+
+describe('ParticipantList — folder scope', () => {
+  const folderRows = [
+    { id: 'a1', userId: 'ua', email: 'admin@cis.com', firstName: 'Adam', lastName: 'Min',
+      role: 'admin' as const, status: 'active', invitedAt: new Date().toISOString(),
+      activatedAt: new Date().toISOString(), folderIds: [], lastSeen: new Date().toISOString() },
+    { id: 'c1', userId: 'uc', email: 'client@x.com', firstName: null, lastName: null,
+      role: 'client' as const, status: 'active', invitedAt: new Date().toISOString(),
+      activatedAt: new Date().toISOString(), folderIds: ['folder-1'], lastSeen: new Date().toISOString() },
+    { id: 'r1', userId: 'ur', email: 'rep@x.com', firstName: null, lastName: null,
+      role: 'seller_rep' as const, status: 'active', invitedAt: new Date().toISOString(),
+      activatedAt: new Date().toISOString(), folderIds: ['folder-2'], lastSeen: null },
+  ];
+
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true, status: 200, json: async () => folderRows,
+    } as Response);
+  });
+
+  it('shows only participants with access to the open folder by default', async () => {
+    render(
+      <ParticipantList
+        workspaceId={WORKSPACE_ID}
+        cisAdvisorySide="buyer_side"
+        folders={[]}
+        isAdmin={false}
+        refreshToken={0}
+        currentUserEmail="someone@else.com"
+        folderId="folder-1"
+      />
+    );
+    await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());
+    // admin has implicit access; rep is granted folder-2 only and must be hidden
+    expect(screen.getByText('Adam Min')).toBeInTheDocument();
+    expect(screen.queryByText('rep@x.com')).not.toBeInTheDocument();
+    expect(screen.getByText('Users with access to this folder')).toBeInTheDocument();
+  });
+
+  it('shows all participants after switching the toggle to "All participants"', async () => {
+    render(
+      <ParticipantList
+        workspaceId={WORKSPACE_ID}
+        cisAdvisorySide="buyer_side"
+        folders={[]}
+        isAdmin={false}
+        refreshToken={0}
+        currentUserEmail="someone@else.com"
+        folderId="folder-1"
+      />
+    );
+    await waitFor(() => expect(screen.getByText('client@x.com')).toBeInTheDocument());
+    expect(screen.queryByText('rep@x.com')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /all participants/i }));
+    expect(screen.getByText('rep@x.com')).toBeInTheDocument();
+  });
+});
