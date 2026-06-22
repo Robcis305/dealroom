@@ -1,4 +1,4 @@
-import { eq, sql as drizzleSql } from 'drizzle-orm';
+import { and, eq, sql as drizzleSql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   workstreams,
@@ -6,9 +6,12 @@ import {
   fileWorkstreams,
   files,
   workspaceParticipants,
+  users,
 } from '@/db/schema';
 import { CANONICAL_WORKSTREAMS } from '@/lib/workstreams/constants';
-import type { WorkstreamWithCounts } from '@/types';
+import { verifySession } from './index';
+import { logActivity } from './activity';
+import type { Workstream, WorkstreamWithCounts } from '@/types';
 
 /** Idempotently seed the 5 canonical workstreams for a workspace. */
 export async function ensureWorkstreams(workspaceId: string): Promise<void> {
@@ -79,4 +82,95 @@ export async function listWorkstreamsWithCounts(workspaceId: string): Promise<Wo
     openQaCount: 0,  // PR2
     overdueCount: 0, // PR2
   }));
+}
+
+export async function getWorkstream(workspaceId: string, workstreamId: string): Promise<Workstream | null> {
+  const [row] = await db
+    .select()
+    .from(workstreams)
+    .where(and(eq(workstreams.id, workstreamId), eq(workstreams.workspaceId, workspaceId)))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function listWorkstreamMembers(workstreamId: string) {
+  return db
+    .select({
+      participantId: workstreamMembers.participantId,
+      userId: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      role: workspaceParticipants.role,
+    })
+    .from(workstreamMembers)
+    .innerJoin(workspaceParticipants, eq(workspaceParticipants.id, workstreamMembers.participantId))
+    .innerJoin(users, eq(users.id, workspaceParticipants.userId))
+    .where(eq(workstreamMembers.workstreamId, workstreamId));
+}
+
+export async function addWorkstreamMember(workspaceId: string, workstreamId: string, participantId: string): Promise<void> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+
+  await db.transaction(async (tx) => {
+    await tx.insert(workstreamMembers).values({ workstreamId, participantId, addedBy: session.userId }).onConflictDoNothing();
+    await logActivity(tx, {
+      workspaceId,
+      userId: session.userId,
+      action: 'workstream_member_added',
+      targetType: 'workstream',
+      targetId: workstreamId,
+      metadata: { participantId },
+    });
+  });
+}
+
+export async function removeWorkstreamMember(workspaceId: string, workstreamId: string, participantId: string): Promise<void> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(workstreamMembers)
+      .where(and(eq(workstreamMembers.workstreamId, workstreamId), eq(workstreamMembers.participantId, participantId)));
+    await logActivity(tx, {
+      workspaceId,
+      userId: session.userId,
+      action: 'workstream_member_removed',
+      targetType: 'workstream',
+      targetId: workstreamId,
+      metadata: { participantId },
+    });
+  });
+}
+
+export async function updateWorkstream(
+  workspaceId: string,
+  workstreamId: string,
+  patch: { name?: string; description?: string | null },
+): Promise<Workstream> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(workstreams)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(and(eq(workstreams.id, workstreamId), eq(workstreams.workspaceId, workspaceId)))
+      .returning();
+    if (!row) throw new Error('Workstream not found');
+    await logActivity(tx, {
+      workspaceId,
+      userId: session.userId,
+      action: 'workstream_updated',
+      targetType: 'workstream',
+      targetId: workstreamId,
+      metadata: { patch },
+    });
+    return row;
+  });
 }

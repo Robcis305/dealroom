@@ -38,3 +38,36 @@ describe('listWorkstreamsWithCounts()', () => {
     expect(result[0]).toMatchObject({ key: 'legal', docCount: 31, memberCount: 6, openQaCount: 0, overdueCount: 0 });
   });
 });
+
+describe('addWorkstreamMember()', () => {
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
+
+  it('admin: inserts membership and logs activity in a transaction', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
+    }));
+
+    const onConflictDoNothing = vi.fn().mockResolvedValue(undefined);
+    const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing });
+    const tx = { insert: vi.fn().mockReturnValue({ values: insertValues }) };
+    const transaction = vi.fn(async (cb) => cb(tx));
+    vi.doMock('@/db', () => ({ db: { transaction } }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {} }));
+
+    const { addWorkstreamMember } = await import('./workstreams');
+    await addWorkstreamMember('ws-1', 'w-legal', 'p-1');
+
+    expect(tx.insert).toHaveBeenCalled();
+    expect(logActivity).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'workstream_member_added', targetType: 'workstream', targetId: 'w-legal' }));
+  });
+
+  it('non-admin: throws', async () => {
+    vi.doMock('./index', () => ({ verifySession: vi.fn().mockResolvedValue({ userId: 'u', isAdmin: false, sessionId: 's', userEmail: 'u@x.com' }) }));
+    vi.doMock('@/db', () => ({ db: {} }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {} }));
+    const { addWorkstreamMember } = await import('./workstreams');
+    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-1')).rejects.toThrow();
+  });
+});
