@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil, ClipboardList, Combine, Table2 } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
+import type { WorkstreamWithCounts } from '@/types';
 import { FolderMergeModal } from './FolderMergeModal';
+import { WorkstreamSidebarSection } from './WorkstreamSidebarSection';
 
 interface FolderItem {
   id: string;
@@ -19,7 +21,9 @@ interface FolderItem {
 export type CenterView =
   | { kind: 'overview' }
   | { kind: 'folder'; folderId: string }
-  | { kind: 'checklist' };
+  | { kind: 'checklist' }
+  | { kind: 'workstream'; workstreamId: string }
+  | { kind: 'qna' }; // reserved for PR2
 
 interface FolderSidebarProps {
   folders: FolderItem[];
@@ -34,6 +38,8 @@ interface FolderSidebarProps {
   fileCounts?: Record<string, number>;
   /** Called after a structural folder change (e.g., merge) so the shell can refetch checklist items + file counts */
   onStructureChanged?: () => void;
+  workstreams?: WorkstreamWithCounts[];
+  onManageWorkstreams?: () => void;
 }
 
 export function FolderSidebar({
@@ -47,6 +53,8 @@ export function FolderSidebar({
   openChecklistCount,
   fileCounts,
   onStructureChanged,
+  workstreams,
+  onManageWorkstreams,
 }: FolderSidebarProps) {
   // Derived for backward-compat with internal delete logic
   const selectedFolderId = selected.kind === 'folder' ? selected.folderId : null;
@@ -357,6 +365,15 @@ export function FolderSidebar({
                 focus:outline-none focus:border-accent"
             />
           </div>
+        )}
+
+        {workstreams && onManageWorkstreams && (
+          <WorkstreamSidebarSection
+            workstreams={workstreams}
+            selected={selected}
+            onSelect={onSelect}
+            onManage={onManageWorkstreams}
+          />
         )}
       </div>
 

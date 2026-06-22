@@ -16,6 +16,8 @@ import { MoveToFolderModal } from './MoveToFolderModal';
 import { isPreviewable } from '@/lib/preview';
 import { PreviewModal, type PreviewFile } from './PreviewModal';
 import { FolderAccessIndicator } from './FolderAccessIndicator';
+import { FileWorkstreamTags } from './FileWorkstreamTags';
+import type { WorkstreamWithCounts } from '@/types';
 
 interface FileRow {
   id: string;
@@ -50,6 +52,10 @@ interface FileListProps {
   participantsRefresh?: number;
   /** Opens the side panel to this folder's participant list */
   onShowFolderAccess: () => void;
+  /** All workstreams in the workspace — used to render per-file tagging dots */
+  workstreams?: WorkstreamWithCounts[];
+  /** Called after a file's workstream tags change */
+  onWorkstreamsChanged?: () => void;
 }
 
 function mimeToIcon(mimeType: string) {
@@ -67,7 +73,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload, uploadRevision = 0, folders, onFolderCountChange, participantsRefresh = 0, onShowFolderAccess }: FileListProps) {
+export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload, uploadRevision = 0, folders, onFolderCountChange, participantsRefresh = 0, onShowFolderAccess, workstreams = [], onWorkstreamsChanged }: FileListProps) {
   const [files, setFiles] = useState<FileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -460,6 +466,12 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
                       v{file.version}
                     </button>
                   )}
+                  <FileWorkstreamTags
+                    fileId={file.id}
+                    workstreams={workstreams}
+                    isAdmin={isAdmin}
+                    onChanged={onWorkstreamsChanged}
+                  />
                 </div>
 
                 {/* Size */}

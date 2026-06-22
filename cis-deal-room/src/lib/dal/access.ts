@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { workspaceParticipants, folderAccess, folders } from '@/db/schema';
+import { workspaceParticipants, folderAccess, folders, fileWorkstreams, workstreamMembers, files } from '@/db/schema';
 import { canPerform, type FolderAction, type ParticipantRole } from './permissions';
 import type { Session } from '@/types';
 
@@ -66,4 +66,57 @@ export async function requireFolderAccess(
   if (!canPerform(row.role as ParticipantRole, action)) {
     throw new Error('Forbidden');
   }
+}
+
+/**
+ * File-scoped access as a UNION of two paths:
+ *   (a) folder access: the user has a folder_access row on the file's folder
+ *       AND their role permits `action`; OR
+ *   (b) workstream membership: the user is an active member of a workstream
+ *       that tags this file.
+ * Membership is additive — it can only grant, never revoke.
+ */
+export async function requireFileAccess(
+  fileId: string,
+  session: Session,
+  action: FolderAction,
+): Promise<void> {
+  if (session.isAdmin) return;
+
+  // Path (a): folder access on the file's folder.
+  const [folderRow] = await db
+    .select({ role: workspaceParticipants.role })
+    .from(files)
+    .innerJoin(folders, eq(folders.id, files.folderId))
+    .innerJoin(folderAccess, eq(folderAccess.folderId, folders.id))
+    .innerJoin(workspaceParticipants, eq(workspaceParticipants.id, folderAccess.participantId))
+    .where(
+      and(
+        eq(files.id, fileId),
+        eq(workspaceParticipants.userId, session.userId),
+        eq(workspaceParticipants.status, 'active')
+      )
+    )
+    .limit(1);
+
+  if (folderRow && canPerform(folderRow.role as ParticipantRole, action)) return;
+
+  // Path (b): membership in any workstream tagging this file.
+  const [memberRow] = await db
+    .select({ id: workstreamMembers.workstreamId })
+    .from(fileWorkstreams)
+    .innerJoin(workstreamMembers, eq(workstreamMembers.workstreamId, fileWorkstreams.workstreamId))
+    .innerJoin(workspaceParticipants, eq(workspaceParticipants.id, workstreamMembers.participantId))
+    .where(
+      and(
+        eq(fileWorkstreams.fileId, fileId),
+        eq(workspaceParticipants.userId, session.userId),
+        eq(workspaceParticipants.status, 'active')
+      )
+    )
+    .limit(1);
+
+  if (memberRow) return;
+
+  throw new Error('Unauthorized');
 }

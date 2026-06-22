@@ -15,7 +15,9 @@ import { FileList } from './FileList';
 import { UploadModal } from './UploadModal';
 import { ParticipantFormModal } from './ParticipantFormModal';
 import { ChecklistView } from './ChecklistView';
-import type { WorkspaceStatus, ParticipantRole, DealKillerGroup, PendingHighlight } from '@/types';
+import { WorkstreamDashboard } from './WorkstreamDashboard';
+import { WorkstreamMembersModal } from './WorkstreamMembersModal';
+import type { WorkspaceStatus, ParticipantRole, DealKillerGroup, PendingHighlight, WorkstreamWithCounts } from '@/types';
 
 interface Workspace {
   id: string;
@@ -79,6 +81,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [rightTab, setRightTab] = useState<RightPanelTab>('activity');
   const [folderAccessFocus, setFolderAccessFocus] = useState(0);
+  const [workstreams, setWorkstreams] = useState<WorkstreamWithCounts[]>([]);
+  const [manageWorkstreamId, setManageWorkstreamId] = useState<string | null>(null);
   const resizingRef = useRef(false);
 
   // Folder-header "Folder access" button: reveal the panel, switch to the
@@ -167,6 +171,18 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   useEffect(() => {
     refreshChecklistMeta();
   }, [refreshChecklistMeta]);
+
+  const refreshWorkstreams = useCallback(async () => {
+    try {
+      const res = await fetchWithAuth(`/api/workspaces/${workspace.id}/workstreams`);
+      if (res.ok) {
+        const { workstreams: ws } = await res.json();
+        setWorkstreams(ws);
+      }
+    } catch { /* sidebar just won't show workstreams */ }
+  }, [workspace.id]);
+
+  useEffect(() => { refreshWorkstreams(); }, [refreshWorkstreams]);
 
   // Keep folder file counts live across uploads and soft-deletes.
   // Callers pass a signed delta (+N on upload, -N on delete, +N again on undo).
@@ -327,6 +343,11 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
             openChecklistCount={openChecklistCount}
             fileCounts={fileCounts}
             onStructureChanged={refreshChecklistMeta}
+            workstreams={workstreams}
+            onManageWorkstreams={() => {
+              if (view.kind === 'workstream') setManageWorkstreamId(view.workstreamId);
+              else if (workstreams[0]) setView({ kind: 'workstream', workstreamId: workstreams[0].id });
+            }}
           />
         </div>
 
@@ -361,7 +382,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               highlightTarget={pendingHighlight}
               onHighlightConsumed={() => setPendingHighlight(null)}
             />
-          ) : (
+          ) : view.kind === 'folder' ? (
             <FileList
               workspaceId={workspace.id}
               folderId={view.folderId}
@@ -373,8 +394,18 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               onFolderCountChange={handleFolderCountChange}
               participantsRefresh={participantsRefresh}
               onShowFolderAccess={showFolderAccess}
+              workstreams={workstreams}
+              onWorkstreamsChanged={refreshWorkstreams}
             />
-          )}
+          ) : view.kind === 'workstream' ? (
+            <WorkstreamDashboard
+              workspaceId={workspace.id}
+              workstreamId={view.workstreamId}
+              isAdmin={isAdmin}
+              onClearLens={() => setView({ kind: 'overview' })}
+              onManageMembers={() => setManageWorkstreamId(view.workstreamId)}
+            />
+          ) : null}
         </main>
 
         {/* Right: resizable / collapsible RightPanel */}
@@ -454,6 +485,16 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
           workspaceId={workspace.id}
           cisAdvisorySide={workspace.cisAdvisorySide}
           folders={folders}
+        />
+      )}
+
+      {manageWorkstreamId && (
+        <WorkstreamMembersModal
+          workspaceId={workspace.id}
+          workstreamId={manageWorkstreamId}
+          workstreamName={workstreams.find((w) => w.id === manageWorkstreamId)?.name ?? 'Workstream'}
+          onClose={() => setManageWorkstreamId(null)}
+          onChanged={refreshWorkstreams}
         />
       )}
     </div>

@@ -7,7 +7,7 @@ import { getS3Client, S3_BUCKET } from '@/lib/storage/s3';
 import { db } from '@/db';
 import { folders } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { requireFolderAccess } from '@/lib/dal/access';
+import { requireFileAccess } from '@/lib/dal/access';
 import { buildContentDisposition } from '@/lib/storage/content-disposition';
 
 export async function GET(
@@ -28,8 +28,9 @@ export async function GET(
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // File access is a UNION: folder access OR workstream membership (additive).
   try {
-    await requireFolderAccess(file.folderId, session, 'download');
+    await requireFileAccess(fileId, session, 'download');
   } catch {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }

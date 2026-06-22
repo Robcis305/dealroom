@@ -9,6 +9,7 @@ import {
   integer,
   jsonb,
   primaryKey,
+  unique,
   numeric,
   bigint,
   date,
@@ -70,6 +71,11 @@ export const activityActionEnum = pgEnum('activity_action', [
   'cap_table_uploaded',
   'cap_table_published',
   'cap_table_unpublished',
+  'workstream_member_added',
+  'workstream_member_removed',
+  'workstream_updated',
+  'document_tagged',
+  'document_untagged',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
@@ -79,6 +85,7 @@ export const activityTargetTypeEnum = pgEnum('activity_target_type', [
   'folder',
   'file',
   'participant',
+  'workstream',
 ]);
 
 export const playbookCategoryEnum = pgEnum('playbook_category', [
@@ -375,3 +382,54 @@ export const capTableRows = pgTable('cap_table_rows', {
   notes: text('notes'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+// ─── Workstreams ──────────────────────────────────────────────────────────────
+
+export const workstreams = pgTable(
+  'workstreams',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(), // canonical seed key: legal|finance|technology|hr|commercial
+    name: text('name').notNull(),
+    color: text('color').notNull(),
+    tileTint: text('tile_tint').notNull(),
+    description: text('description'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [unique('workstreams_workspace_key_uq').on(table.workspaceId, table.key)],
+);
+
+export const workstreamMembers = pgTable(
+  'workstream_members',
+  {
+    workstreamId: uuid('workstream_id')
+      .notNull()
+      .references(() => workstreams.id, { onDelete: 'cascade' }),
+    participantId: uuid('participant_id')
+      .notNull()
+      .references(() => workspaceParticipants.id, { onDelete: 'cascade' }),
+    addedAt: timestamp('added_at').notNull().defaultNow(),
+    addedBy: uuid('added_by').notNull().references(() => users.id),
+  },
+  (table) => [primaryKey({ columns: [table.workstreamId, table.participantId] })],
+);
+
+export const fileWorkstreams = pgTable(
+  'file_workstreams',
+  {
+    fileId: uuid('file_id')
+      .notNull()
+      .references(() => files.id, { onDelete: 'cascade' }),
+    workstreamId: uuid('workstream_id')
+      .notNull()
+      .references(() => workstreams.id, { onDelete: 'cascade' }),
+    taggedAt: timestamp('tagged_at').notNull().defaultNow(),
+    taggedBy: uuid('tagged_by').notNull().references(() => users.id),
+  },
+  (table) => [primaryKey({ columns: [table.fileId, table.workstreamId] })],
+);
