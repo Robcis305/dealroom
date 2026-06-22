@@ -39,6 +39,34 @@ describe('listWorkstreamsWithCounts()', () => {
   });
 });
 
+describe('setFileWorkstreams()', () => {
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
+
+  it('admin: diffs current vs desired and logs document_tagged when adding', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({ verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }) }));
+
+    // current tags: none
+    const where = vi.fn().mockResolvedValue([]);
+    const onConflictDoNothing = vi.fn().mockResolvedValue(undefined);
+    const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing });
+    const tx = {
+      select: vi.fn().mockReturnValue({ from: () => ({ where }) }),
+      insert: vi.fn().mockReturnValue({ values: insertValues }),
+      delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+    };
+    vi.doMock('@/db', () => ({ db: { transaction: vi.fn(async (cb) => cb(tx)) } }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: { fileId: 'fileId', workstreamId: 'workstreamId' }, files: {}, workspaceParticipants: {}, users: {}, activityLogs: {} }));
+
+    const { setFileWorkstreams } = await import('./workstreams');
+    await setFileWorkstreams('ws-1', 'file-1', ['w-legal', 'w-finance']);
+
+    expect(tx.insert).toHaveBeenCalled();
+    expect(logActivity).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'document_tagged', targetType: 'file', targetId: 'file-1' }));
+  });
+});
+
 describe('addWorkstreamMember()', () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
 

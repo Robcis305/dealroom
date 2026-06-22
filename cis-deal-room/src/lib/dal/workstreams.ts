@@ -1,4 +1,4 @@
-import { and, eq, sql as drizzleSql } from 'drizzle-orm';
+import { and, eq, inArray, sql as drizzleSql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   workstreams,
@@ -144,6 +144,62 @@ export async function removeWorkstreamMember(workspaceId: string, workstreamId: 
       targetId: workstreamId,
       metadata: { participantId },
     });
+  });
+}
+
+export async function getFileWorkstreamIds(fileId: string): Promise<string[]> {
+  const rows = await db
+    .select({ workstreamId: fileWorkstreams.workstreamId })
+    .from(fileWorkstreams)
+    .where(eq(fileWorkstreams.fileId, fileId));
+  return rows.map((r) => r.workstreamId);
+}
+
+export async function setFileWorkstreams(workspaceId: string, fileId: string, workstreamIds: string[]): Promise<void> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+
+  const desired = new Set(workstreamIds);
+
+  await db.transaction(async (tx) => {
+    const current = await tx
+      .select({ workstreamId: fileWorkstreams.workstreamId })
+      .from(fileWorkstreams)
+      .where(eq(fileWorkstreams.fileId, fileId));
+    const currentSet = new Set(current.map((c) => c.workstreamId));
+
+    const toAdd = [...desired].filter((id) => !currentSet.has(id));
+    const toRemove = [...currentSet].filter((id) => !desired.has(id));
+
+    if (toAdd.length > 0) {
+      await tx
+        .insert(fileWorkstreams)
+        .values(toAdd.map((workstreamId) => ({ fileId, workstreamId, taggedBy: session.userId })))
+        .onConflictDoNothing();
+      await logActivity(tx, {
+        workspaceId,
+        userId: session.userId,
+        action: 'document_tagged',
+        targetType: 'file',
+        targetId: fileId,
+        metadata: { added: toAdd },
+      });
+    }
+
+    if (toRemove.length > 0) {
+      await tx
+        .delete(fileWorkstreams)
+        .where(and(eq(fileWorkstreams.fileId, fileId), inArray(fileWorkstreams.workstreamId, toRemove)));
+      await logActivity(tx, {
+        workspaceId,
+        userId: session.userId,
+        action: 'document_untagged',
+        targetType: 'file',
+        targetId: fileId,
+        metadata: { removed: toRemove },
+      });
+    }
   });
 }
 
