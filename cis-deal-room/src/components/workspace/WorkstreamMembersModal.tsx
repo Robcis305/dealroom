@@ -5,7 +5,6 @@ import { X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 interface Participant { id: string; firstName: string | null; lastName: string | null; email: string; role: string; }
-interface Member { participantId: string; }
 
 interface Props {
   workspaceId: string;
@@ -38,15 +37,24 @@ export function WorkstreamMembersModal({ workspaceId, workstreamId, workstreamNa
 
   async function toggle(participantId: string) {
     const isMember = memberIds.has(participantId);
+    const previous = memberIds;
     const next = new Set(memberIds);
     if (isMember) next.delete(participantId); else next.add(participantId);
     setMemberIds(next); // optimistic
-    await fetchWithAuth(`/api/workspaces/${workspaceId}/workstreams/${workstreamId}/members`, {
-      method: isMember ? 'DELETE' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ participantId }),
-    });
-    onChanged();
+    try {
+      const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/workstreams/${workstreamId}/members`, {
+        method: isMember ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId }),
+      });
+      if (!res.ok) {
+        setMemberIds(previous); // revert
+        return;
+      }
+      onChanged();
+    } catch {
+      setMemberIds(previous); // revert
+    }
   }
 
   return (

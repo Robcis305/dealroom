@@ -27,15 +27,24 @@ export function FileWorkstreamTags({ fileId, workstreams, isAdmin, onChanged }: 
   useEffect(() => { load(); }, [load]);
 
   async function toggle(id: string) {
+    const previous = tagIds;
     const next = new Set(tagIds);
     if (next.has(id)) next.delete(id); else next.add(id);
     setTagIds(next);
-    await fetchWithAuth(`/api/files/${fileId}/workstreams`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workstreamIds: [...next] }),
-    });
-    onChanged?.();
+    try {
+      const res = await fetchWithAuth(`/api/files/${fileId}/workstreams`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workstreamIds: [...next] }),
+      });
+      if (!res.ok) {
+        setTagIds(previous); // revert
+        return;
+      }
+      onChanged?.();
+    } catch {
+      setTagIds(previous); // revert
+    }
   }
 
   const active = workstreams.filter((w) => tagIds.has(w.id));

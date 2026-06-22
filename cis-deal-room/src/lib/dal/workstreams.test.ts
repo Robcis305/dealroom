@@ -9,7 +9,7 @@ describe('listWorkstreamsWithCounts()', () => {
     vi.clearAllMocks();
   });
 
-  it('seeds then returns 5 workstreams ordered by sortOrder with counts merged', async () => {
+  it('seeds, maps counts by id, and returns placeholder zeros', async () => {
     // ensureWorkstreams insert → onConflictDoNothing chain
     const onConflictDoNothing = vi.fn().mockResolvedValue(undefined);
     const values = vi.fn().mockReturnValue({ onConflictDoNothing });
