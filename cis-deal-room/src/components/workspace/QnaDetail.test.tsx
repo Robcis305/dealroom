@@ -63,6 +63,7 @@ function mockDetailResponse(question: typeof baseQuestion) {
 const defaultProps = {
   workspaceId: 'w1',
   questionId: 'q1',
+  currentUserId: 'u1',
   participants: [{ id: 'u1', name: 'Alice Smith' }],
   onBack: vi.fn(),
   onChanged: vi.fn(),
@@ -126,6 +127,25 @@ describe('QnaDetail', () => {
       expect(
         screen.getByText('Can you share the ARR breakdown?'),
       ).toBeInTheDocument();
+    });
+  });
+
+  it('hides "Propose official answer" for non-admin non-assignee when gate inactive', async () => {
+    mockDetailResponse({ ...baseQuestion, approvalGateActive: false });
+    // currentUserId 'u99' is neither admin nor the assignee ('u2')
+    render(<QnaDetail {...defaultProps} isAdmin={false} currentUserId="u99" />);
+    await waitFor(() => {
+      expect(screen.getAllByText('What is the ARR?').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText('Propose official answer')).not.toBeInTheDocument();
+  });
+
+  it('shows "Propose official answer" when currentUserId equals the assigneeId', async () => {
+    mockDetailResponse({ ...baseQuestion, approvalGateActive: false });
+    // currentUserId 'u2' matches assigneeId 'u2' in baseQuestion
+    render(<QnaDetail {...defaultProps} isAdmin={false} currentUserId="u2" />);
+    await waitFor(() => {
+      expect(screen.getByText('Propose official answer')).toBeInTheDocument();
     });
   });
 });

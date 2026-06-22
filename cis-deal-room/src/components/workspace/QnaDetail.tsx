@@ -18,6 +18,7 @@ interface Props {
   workspaceId: string;
   questionId: string;
   isAdmin: boolean;
+  currentUserId: string;
   participants: Participant[];
   onBack: () => void;
   onChanged: () => void;
@@ -60,6 +61,7 @@ export function QnaDetail({
   workspaceId,
   questionId,
   isAdmin,
+  currentUserId,
   participants,
   onBack,
   onChanged,
@@ -143,11 +145,7 @@ export function QnaDetail({
     );
   }
 
-  // The current session's userId isn't passed down, so "admin or assignee" is
-  // approximated as: the server already checks role — we expose the composer
-  // when the user is admin (prop) or the question is assigned (no assignee = no
-  // official answer yet). In practice the server enforces the real guard.
-  const canProposeAnswer = isAdmin || !!question.assigneeId;
+  const canProposeAnswer = isAdmin || question.assigneeId === currentUserId;
 
   const showApprovalGate = question.approvalGateActive && isAdmin;
 
@@ -403,10 +401,6 @@ export function QnaDetail({
           </div>
         )}
 
-        {/* When gate is NOT showing, still render details in a bottom section */}
-        {!showApprovalGate && (
-          <></>
-        )}
       </div>
 
       {/* Details panel when no approval gate (non-admin or gate inactive) */}
