@@ -17,6 +17,7 @@ import { ParticipantFormModal } from './ParticipantFormModal';
 import { ChecklistView } from './ChecklistView';
 import { WorkstreamDashboard } from './WorkstreamDashboard';
 import { WorkstreamMembersModal } from './WorkstreamMembersModal';
+import { QnaView } from './QnaView';
 import type { WorkspaceStatus, ParticipantRole, DealKillerGroup, PendingHighlight, WorkstreamWithCounts } from '@/types';
 
 interface Workspace {
@@ -47,6 +48,7 @@ interface WorkspaceShellProps {
   isAdmin: boolean;
   activeClientCount: number;
   userEmail: string;
+  userId: string;
   /** Current user's participant role in this workspace. Defaults to 'admin' for admins. */
   participantRole: ParticipantRole;
 }
@@ -62,7 +64,7 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, activeClientCount, userEmail, participantRole }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, activeClientCount, userEmail, userId, participantRole }: WorkspaceShellProps) {
   const [view, setView] = useState<CenterView>({ kind: 'overview' });
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -404,6 +406,15 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               isAdmin={isAdmin}
               onClearLens={() => setView({ kind: 'overview' })}
               onManageMembers={() => setManageWorkstreamId(view.workstreamId)}
+            />
+          ) : view.kind === 'qna' ? (
+            <QnaView
+              workspaceId={workspace.id}
+              isAdmin={isAdmin}
+              currentUserId={userId}
+              folders={folders}
+              cisAdvisorySide={workspace.cisAdvisorySide}
+              onCountsChanged={refreshWorkstreams}
             />
           ) : null}
         </main>
