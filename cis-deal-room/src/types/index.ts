@@ -67,9 +67,14 @@ export type ActivityAction =
   | 'restored'
   | 'cap_table_uploaded'
   | 'cap_table_published'
-  | 'cap_table_unpublished';
+  | 'cap_table_unpublished'
+  | 'workstream_member_added'
+  | 'workstream_member_removed'
+  | 'workstream_updated'
+  | 'document_tagged'
+  | 'document_untagged';
 
-export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant';
+export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant' | 'workstream';
 
 // ─── Checklist ────────────────────────────────────────────────────────────────
 
@@ -108,3 +113,26 @@ export type CapTableInstrument =
 // ─── Playbook ─────────────────────────────────────────────────────────────────
 
 export type { PlaybookCategory, DealKillerGroup, PendingHighlight, Stage } from '@/lib/dal/playbook';
+
+// ─── Workstream ───────────────────────────────────────────────────────────────
+
+export type { WorkstreamKey } from '@/lib/workstreams/constants';
+
+export interface Workstream {
+  id: string;
+  workspaceId: string;
+  key: string;
+  name: string;
+  color: string;
+  tileTint: string;
+  description: string | null;
+  sortOrder: number;
+}
+
+/** A workstream plus the derived counts shown in the sidebar/dashboard. */
+export interface WorkstreamWithCounts extends Workstream {
+  docCount: number;
+  memberCount: number;
+  openQaCount: number;   // 0 until PR2 (Q&A)
+  overdueCount: number;  // 0 until PR2 (Q&A)
+}
