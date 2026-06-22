@@ -8,6 +8,8 @@ import {
   workspaceParticipants,
   users,
   activityLogs,
+  qnaQuestions,
+  qnaQuestionWorkstreams,
 } from '@/db/schema';
 import { CANONICAL_WORKSTREAMS } from '@/lib/workstreams/constants';
 import { verifySession } from './index';
@@ -66,8 +68,26 @@ export async function listWorkstreamsWithCounts(workspaceId: string): Promise<Wo
     .where(eq(workspaceParticipants.status, 'active'))
     .groupBy(workstreamMembers.workstreamId);
 
+  const now = new Date();
+  const qnaCounts = await db
+    .select({
+      workstreamId: qnaQuestionWorkstreams.workstreamId,
+      openQa: drizzleSql<number>`count(*)::int`,
+      overdue: drizzleSql<number>`count(*) filter (where ${qnaQuestions.requestedBy} < ${now})::int`,
+    })
+    .from(qnaQuestionWorkstreams)
+    .innerJoin(qnaQuestions, eq(qnaQuestions.id, qnaQuestionWorkstreams.questionId))
+    .where(
+      and(
+        eq(qnaQuestions.workspaceId, workspaceId),
+        drizzleSql`${qnaQuestions.status} != 'approved'`,
+      ),
+    )
+    .groupBy(qnaQuestionWorkstreams.workstreamId);
+
   const docMap = new Map(docCounts.map((d) => [d.workstreamId, Number(d.count)]));
   const memberMap = new Map(memberCounts.map((m) => [m.workstreamId, Number(m.count)]));
+  const qnaMap = new Map(qnaCounts.map((q) => [q.workstreamId, { openQa: Number(q.openQa), overdue: Number(q.overdue) }]));
 
   return rows.map((r) => ({
     id: r.id,
@@ -80,8 +100,8 @@ export async function listWorkstreamsWithCounts(workspaceId: string): Promise<Wo
     sortOrder: r.sortOrder,
     docCount: docMap.get(r.id) ?? 0,
     memberCount: memberMap.get(r.id) ?? 0,
-    openQaCount: 0,  // PR2
-    overdueCount: 0, // PR2
+    openQaCount: qnaMap.get(r.id)?.openQa ?? 0,
+    overdueCount: qnaMap.get(r.id)?.overdue ?? 0,
   }));
 }
 
