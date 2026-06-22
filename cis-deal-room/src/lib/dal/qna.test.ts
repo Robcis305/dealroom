@@ -230,3 +230,110 @@ describe('getQuestionDetail()', () => {
     expect(detail).toBeNull();
   });
 });
+
+describe('submitProposedAnswer()', () => {
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
+
+  function makeSubmitMocks(logActivity: ReturnType<typeof vi.fn>) {
+    const mockSchema = {
+      qnaQuestions: { id: 'id' },
+      qnaMessages: { id: 'id' },
+      qnaMessageFiles: {},
+      qnaQuestionWorkstreams: {},
+      qnaRecipients: {},
+      workstreams: {},
+      users: {},
+      files: {},
+      workspaceParticipants: {},
+    };
+
+    const returning = vi.fn().mockResolvedValue([{ id: 'msg-new' }]);
+    const insertValues = vi.fn().mockReturnValue({ returning });
+
+    // update chain: .set().where()
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    const updateSet = vi.fn().mockReturnValue({ where: updateWhere });
+    const updateCall = vi.fn().mockReturnValue({ set: updateSet });
+
+    const tx: Record<string, ReturnType<typeof vi.fn>> = {
+      insert: vi.fn().mockReturnValue({ values: insertValues }),
+      update: updateCall,
+    };
+    const transaction = vi.fn(async (cb: (t: typeof tx) => Promise<unknown>) => cb(tx));
+    const db = { transaction };
+
+    return { tx, transaction, db, mockSchema, updateSet };
+  }
+
+  it('seller_side: sets status to "answered", logs qna_answered but NOT qna_approved', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
+    }));
+
+    const { tx, db, mockSchema, updateSet } = makeSubmitMocks(logActivity);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { submitProposedAnswer } = await import('./qna');
+    await submitProposedAnswer({
+      workspaceId: 'ws-1',
+      questionId: 'q-1',
+      body: 'Here is the answer.',
+      attachmentFileIds: [],
+      cisAdvisorySide: 'seller_side',
+    });
+
+    // Status must be 'answered'
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'answered' }));
+
+    // logActivity called with 'qna_answered'
+    expect(logActivity).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'qna_answered', targetType: 'qna_question', targetId: 'q-1' }),
+    );
+
+    // logActivity must NOT be called with 'qna_approved'
+    const approvedCall = logActivity.mock.calls.find(
+      (args: unknown[]) => (args[1] as { action: string })?.action === 'qna_approved',
+    );
+    expect(approvedCall).toBeUndefined();
+  });
+
+  it('buyer_side: sets status to "approved", logs both qna_answered and qna_approved (auto:true)', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
+    }));
+
+    const { tx, db, mockSchema, updateSet } = makeSubmitMocks(logActivity);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { submitProposedAnswer } = await import('./qna');
+    await submitProposedAnswer({
+      workspaceId: 'ws-1',
+      questionId: 'q-1',
+      body: 'Buy-side answer.',
+      attachmentFileIds: ['file-a', 'file-b'],
+      cisAdvisorySide: 'buyer_side',
+    });
+
+    // Status must be 'approved'
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'approved' }));
+
+    // logActivity called with 'qna_answered'
+    expect(logActivity).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'qna_answered', targetType: 'qna_question', targetId: 'q-1' }),
+    );
+
+    // logActivity also called with 'qna_approved' and metadata { auto: true }
+    expect(logActivity).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'qna_approved', targetType: 'qna_question', targetId: 'q-1', metadata: { auto: true } }),
+    );
+  });
+});

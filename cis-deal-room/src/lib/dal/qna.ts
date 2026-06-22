@@ -289,3 +289,83 @@ export async function getQuestionDetail(
     approvalGateActive: cisAdvisorySide === 'seller_side' && q.status === 'answered',
   };
 }
+
+export async function postMessage(
+  workspaceId: string,
+  questionId: string,
+  body: string,
+): Promise<{ id: string }> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+
+  return db.transaction(async (tx) => {
+    const [msg] = await tx.insert(qnaMessages).values({
+      questionId,
+      authorId: session.userId,
+      kind: 'message',
+      body,
+    }).returning({ id: qnaMessages.id });
+
+    await logActivity(tx, {
+      workspaceId,
+      userId: session.userId,
+      action: 'qna_message_posted',
+      targetType: 'qna_question',
+      targetId: questionId,
+    });
+
+    return { id: msg.id };
+  });
+}
+
+export async function submitProposedAnswer(input: {
+  workspaceId: string;
+  questionId: string;
+  body: string;
+  attachmentFileIds: string[];
+  cisAdvisorySide: 'buyer_side' | 'seller_side';
+}): Promise<void> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+
+  const releasedNow = input.cisAdvisorySide === 'buyer_side';
+  const nextStatus = releasedNow ? 'approved' : 'answered';
+
+  await db.transaction(async (tx) => {
+    const [msg] = await tx.insert(qnaMessages).values({
+      questionId: input.questionId,
+      authorId: session.userId,
+      kind: 'proposed_answer',
+      body: input.body,
+    }).returning({ id: qnaMessages.id });
+
+    if (input.attachmentFileIds.length > 0) {
+      await tx.insert(qnaMessageFiles).values(
+        input.attachmentFileIds.map((fileId) => ({ messageId: msg.id, fileId })),
+      );
+    }
+
+    await tx.update(qnaQuestions)
+      .set({ status: nextStatus, updatedAt: new Date() })
+      .where(eq(qnaQuestions.id, input.questionId));
+
+    await logActivity(tx, {
+      workspaceId: input.workspaceId,
+      userId: session.userId,
+      action: 'qna_answered',
+      targetType: 'qna_question',
+      targetId: input.questionId,
+    });
+
+    if (releasedNow) {
+      await logActivity(tx, {
+        workspaceId: input.workspaceId,
+        userId: session.userId,
+        action: 'qna_approved',
+        targetType: 'qna_question',
+        targetId: input.questionId,
+        metadata: { auto: true },
+      });
+    }
+  });
+}
