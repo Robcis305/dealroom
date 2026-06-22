@@ -299,6 +299,13 @@ export async function postMessage(
   if (!session) throw new Error('Unauthorized');
 
   return db.transaction(async (tx) => {
+    const [q] = await tx
+      .select({ id: qnaQuestions.id })
+      .from(qnaQuestions)
+      .where(and(eq(qnaQuestions.id, questionId), eq(qnaQuestions.workspaceId, workspaceId)))
+      .limit(1);
+    if (!q) throw new Error('Question not found');
+
     const [msg] = await tx.insert(qnaMessages).values({
       questionId,
       authorId: session.userId,
@@ -378,6 +385,13 @@ export async function submitProposedAnswer(input: {
   const nextStatus = releasedNow ? 'approved' : 'answered';
 
   await db.transaction(async (tx) => {
+    const [q] = await tx
+      .select({ id: qnaQuestions.id })
+      .from(qnaQuestions)
+      .where(and(eq(qnaQuestions.id, input.questionId), eq(qnaQuestions.workspaceId, input.workspaceId)))
+      .limit(1);
+    if (!q) throw new Error('Question not found');
+
     const [msg] = await tx.insert(qnaMessages).values({
       questionId: input.questionId,
       authorId: session.userId,

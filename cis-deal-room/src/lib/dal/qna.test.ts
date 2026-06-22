@@ -357,10 +357,83 @@ describe('applyApprovalAction()', () => {
   });
 });
 
+describe('postMessage()', () => {
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
+
+  const mockSchema = {
+    qnaQuestions: { id: 'id', workspaceId: 'workspaceId' },
+    qnaMessages: { id: 'id' },
+    qnaMessageFiles: {},
+    qnaQuestionWorkstreams: {},
+    qnaRecipients: {},
+    workstreams: {},
+    users: {},
+    files: {},
+    workspaceParticipants: {},
+  };
+
+  function makePostMessageTx(selectResult: Array<{ id: string }>) {
+    // select chain: .from().where().limit() → selectResult
+    const limit = vi.fn().mockResolvedValue(selectResult);
+    const selectWhere = vi.fn().mockReturnValue({ limit });
+    const selectFrom = vi.fn().mockReturnValue({ where: selectWhere });
+    const selectCall = vi.fn().mockReturnValue({ from: selectFrom });
+
+    // insert chain: .values().returning() → [{ id: 'msg-new' }]
+    const returning = vi.fn().mockResolvedValue([{ id: 'msg-new' }]);
+    const insertValues = vi.fn().mockReturnValue({ returning });
+
+    const tx: Record<string, ReturnType<typeof vi.fn>> = {
+      select: selectCall,
+      insert: vi.fn().mockReturnValue({ values: insertValues }),
+    };
+    const transaction = vi.fn(async (cb: (t: typeof tx) => Promise<unknown>) => cb(tx));
+    const db = { transaction };
+    return { tx, db };
+  }
+
+  it('happy path: question in workspace → inserts message + logs qna_message_posted', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
+    }));
+    const { tx, db } = makePostMessageTx([{ id: 'q1' }]);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { postMessage } = await import('./qna');
+    const result = await postMessage('ws-1', 'q1', 'Hello there');
+
+    expect(result).toEqual({ id: 'msg-new' });
+    expect(tx.select).toHaveBeenCalled();
+    expect(tx.insert).toHaveBeenCalled();
+    expect(logActivity).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'qna_message_posted', targetType: 'qna_question', targetId: 'q1' }),
+    );
+  });
+
+  it('question not in workspace → rejects with /not found/i, no insert', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
+    }));
+    const { tx, db } = makePostMessageTx([]);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { postMessage } = await import('./qna');
+    await expect(postMessage('ws-1', 'q-other-ws', 'Hello')).rejects.toThrow(/not found/i);
+    expect(tx.insert).not.toHaveBeenCalled();
+  });
+});
+
 describe('submitProposedAnswer()', () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
 
-  function makeSubmitMocks(logActivity: ReturnType<typeof vi.fn>) {
+  function makeSubmitMocks(logActivity: ReturnType<typeof vi.fn>, selectResult: Array<{ id: string }> = [{ id: 'q-1' }]) {
     const mockSchema = {
       qnaQuestions: { id: 'id', workspaceId: 'workspaceId' },
       qnaMessages: { id: 'id' },
@@ -373,6 +446,12 @@ describe('submitProposedAnswer()', () => {
       workspaceParticipants: {},
     };
 
+    // select chain for workspace authz check: .from().where().limit() → selectResult
+    const limit = vi.fn().mockResolvedValue(selectResult);
+    const selectWhere = vi.fn().mockReturnValue({ limit });
+    const selectFrom = vi.fn().mockReturnValue({ where: selectWhere });
+    const selectCall = vi.fn().mockReturnValue({ from: selectFrom });
+
     const returning = vi.fn().mockResolvedValue([{ id: 'msg-new' }]);
     const insertValues = vi.fn().mockReturnValue({ returning });
 
@@ -382,6 +461,7 @@ describe('submitProposedAnswer()', () => {
     const updateCall = vi.fn().mockReturnValue({ set: updateSet });
 
     const tx: Record<string, ReturnType<typeof vi.fn>> = {
+      select: selectCall,
       insert: vi.fn().mockReturnValue({ values: insertValues }),
       update: updateCall,
     };
@@ -461,5 +541,27 @@ describe('submitProposedAnswer()', () => {
       tx,
       expect.objectContaining({ action: 'qna_approved', targetType: 'qna_question', targetId: 'q-1', metadata: { auto: true } }),
     );
+  });
+
+  it('question not in workspace → rejects with /not found/i, no insert', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
+    }));
+
+    const { tx, db, mockSchema } = makeSubmitMocks(logActivity, []);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { submitProposedAnswer } = await import('./qna');
+    await expect(submitProposedAnswer({
+      workspaceId: 'ws-1',
+      questionId: 'q-other-ws',
+      body: 'Answer.',
+      attachmentFileIds: [],
+      cisAdvisorySide: 'seller_side',
+    })).rejects.toThrow(/not found/i);
+    expect(tx.insert).not.toHaveBeenCalled();
   });
 });

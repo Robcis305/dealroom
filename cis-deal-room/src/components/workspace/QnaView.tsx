@@ -37,7 +37,6 @@ interface Props {
   isAdmin: boolean;
   currentUserId: string;
   folders: Folder[];
-  cisAdvisorySide: 'buyer_side' | 'seller_side';
   onCountsChanged?: () => void;
 }
 

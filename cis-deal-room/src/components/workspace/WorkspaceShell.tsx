@@ -413,7 +413,6 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               isAdmin={isAdmin}
               currentUserId={userId}
               folders={folders}
-              cisAdvisorySide={workspace.cisAdvisorySide}
               onCountsChanged={refreshWorkstreams}
             />
           ) : null}
