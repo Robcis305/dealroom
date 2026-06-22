@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql as drizzleSql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql as drizzleSql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   workstreams,
@@ -7,11 +7,12 @@ import {
   files,
   workspaceParticipants,
   users,
+  activityLogs,
 } from '@/db/schema';
 import { CANONICAL_WORKSTREAMS } from '@/lib/workstreams/constants';
 import { verifySession } from './index';
 import { logActivity } from './activity';
-import type { Workstream, WorkstreamWithCounts } from '@/types';
+import type { ActivityAction, Workstream, WorkstreamWithCounts } from '@/types';
 
 /** Idempotently seed the 5 canonical workstreams for a workspace. */
 export async function ensureWorkstreams(workspaceId: string): Promise<void> {
@@ -229,4 +230,44 @@ export async function updateWorkstream(
     });
     return row;
   });
+}
+
+export async function getWorkstreamActivity(workspaceId: string, workstreamId: string, limit = 8) {
+  // Tag events target a file; resolve which files are tagged with this workstream.
+  const taggedFiles = await db
+    .select({ fileId: fileWorkstreams.fileId })
+    .from(fileWorkstreams)
+    .where(eq(fileWorkstreams.workstreamId, workstreamId));
+  const fileIds = taggedFiles.map((t) => t.fileId);
+
+  const rows = await db
+    .select({
+      id: activityLogs.id,
+      action: activityLogs.action,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      createdAt: activityLogs.createdAt,
+      metadata: activityLogs.metadata,
+    })
+    .from(activityLogs)
+    .innerJoin(users, eq(users.id, activityLogs.userId))
+    .where(
+      and(
+        eq(activityLogs.workspaceId, workspaceId),
+        fileIds.length > 0
+          ? or(eq(activityLogs.targetId, workstreamId), inArray(activityLogs.targetId, fileIds))
+          : eq(activityLogs.targetId, workstreamId),
+      ),
+    )
+    .orderBy(desc(activityLogs.createdAt))
+    .limit(limit);
+
+  return rows.map((r) => ({
+    id: r.id,
+    action: r.action as ActivityAction,
+    actorName: [r.firstName, r.lastName].filter(Boolean).join(' ') || r.email,
+    createdAt: r.createdAt,
+    metadata: r.metadata,
+  }));
 }

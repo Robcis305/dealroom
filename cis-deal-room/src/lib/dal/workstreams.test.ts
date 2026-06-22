@@ -237,6 +237,31 @@ describe('setFileWorkstreams() — remove-only path', () => {
   });
 });
 
+describe('getWorkstreamActivity()', () => {
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
+
+  it('returns recent rows newest-first with actor names', async () => {
+    // First select: fileWorkstreams (from → where) → returns tagged fileIds
+    const taggedWhere = vi.fn().mockResolvedValue([{ fileId: 'file-x' }]);
+    // Second select: activityLogs (from → innerJoin → where → orderBy → limit) → returns raw db rows
+    const dbRows = [{ id: 'a-1', action: 'workstream_member_added', firstName: 'Alice', lastName: 'Okafor', email: 'a@x.com', createdAt: new Date('2026-06-15'), metadata: {} }];
+    const limit = vi.fn().mockResolvedValue(dbRows);
+    const orderBy = vi.fn().mockReturnValue({ limit });
+    const select = vi.fn()
+      .mockReturnValueOnce({ from: () => ({ where: taggedWhere }) })
+      .mockReturnValueOnce({ from: () => ({ innerJoin: () => ({ where: () => ({ orderBy }) }) }) });
+    vi.doMock('@/db', () => ({ db: { select } }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, users: {}, activityLogs: {} }));
+    vi.doMock('./index', () => ({ verifySession: vi.fn() }));
+    vi.doMock('./activity', () => ({ logActivity: vi.fn() }));
+    const { getWorkstreamActivity } = await import('./workstreams');
+    const result = await getWorkstreamActivity('ws-1', 'w-legal');
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: 'a-1', action: 'workstream_member_added', actorName: 'Alice Okafor' });
+    expect(result[0].actorName).toBe('Alice Okafor');
+  });
+});
+
 describe('getFileWorkstreamIds()', () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
 
