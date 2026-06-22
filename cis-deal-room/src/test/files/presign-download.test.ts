@@ -36,6 +36,7 @@ vi.mock('@/db', () => ({
 
 import { verifySession } from '@/lib/dal/index';
 import { getFileById } from '@/lib/dal/files';
+import { requireFileAccess } from '@/lib/dal/access';
 import { logActivity } from '@/lib/dal/activity';
 import * as s3Module from '@/lib/storage/s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -63,6 +64,14 @@ describe('GET /api/files/[id]/presign-download', () => {
     vi.mocked(getFileById).mockResolvedValue(null as any);
     const res = await GET(makeRequest('nope'), { params: Promise.resolve({ id: 'nope' }) });
     expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user lacks file access (neither folder nor workstream)', async () => {
+    vi.mocked(verifySession).mockResolvedValue({ ...mockSession, isAdmin: false });
+    vi.mocked(getFileById).mockResolvedValue(mockFile as any);
+    vi.mocked(requireFileAccess).mockRejectedValueOnce(new Error('Unauthorized'));
+    const res = await GET(makeRequest('file-1'), { params: Promise.resolve({ id: 'file-1' }) });
+    expect(res.status).toBe(403);
   });
 
   it('returns stub download URL when AWS_S3_BUCKET is not set', async () => {
