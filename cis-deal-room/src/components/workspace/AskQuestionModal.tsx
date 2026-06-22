@@ -9,6 +9,11 @@ interface Folder {
   name: string;
 }
 
+interface FileRow {
+  id: string;
+  name: string;
+}
+
 interface Props {
   workspaceId: string;
   folders: Folder[];
@@ -46,6 +51,11 @@ export function AskQuestionModal({ workspaceId, folders, onClose, onCreated }: P
   const [requestedBy, setRequestedBy] = useState('');
   const [linkedDocId, setLinkedDocId] = useState('');
 
+  // Folder→file two-step picker
+  const [selectedFolderId, setSelectedFolderId] = useState('');
+  const [folderFiles, setFolderFiles] = useState<FileRow[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +76,25 @@ export function AskQuestionModal({ workspaceId, folders, onClose, onCreated }: P
 
   useEffect(() => { load(); }, [load]);
 
+  async function handleFolderChange(folderId: string) {
+    setSelectedFolderId(folderId);
+    setLinkedDocId('');
+    setFolderFiles([]);
+    if (!folderId) return;
+    setLoadingFiles(true);
+    try {
+      const res = await fetchWithAuth(`/api/files?folderId=${folderId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setFolderFiles(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      // fetch failed — leave folderFiles empty, linkedDocId stays null
+    } finally {
+      setLoadingFiles(false);
+    }
+  }
+
   function toggleRecipient(participantId: string) {
     setRecipientIds((prev) => {
       const next = new Set(prev);
@@ -78,19 +107,6 @@ export function AskQuestionModal({ workspaceId, folders, onClose, onCreated }: P
   function participantName(p: Participant) {
     return [p.firstName, p.lastName].filter(Boolean).join(' ') || p.email;
   }
-
-  // Derive files from folders prop — v1: no per-folder file fetch; the modal
-  // accepts the folder list (which WorkspaceShell already holds) and lets the
-  // user pick a folder as a linked doc proxy. If a flat file list is needed in
-  // future, swap this for a GET /api/workspaces/:id/files call.
-  // NOTE: folders stand in for documents here; we send folder.id as linkedDocId.
-  // The qna_questions.linked_doc_id column is typed as a file FK so this will
-  // only be sent when a real file select is wired up — for now the select is
-  // optional and the field is sent as null when empty.
-  //
-  // LIMITATION: No workspace-level flat file endpoint exists at time of writing.
-  // The document picker lists folders as proxy labels. A future task should add
-  // GET /api/workspaces/:id/files to power this properly.
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -281,17 +297,15 @@ export function AskQuestionModal({ workspaceId, folders, onClose, onCreated }: P
             </div>
           </div>
 
-          {/* Link a document — optional */}
+          {/* Link a document — optional (folder → file two-step picker) */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
               Link a document — optional
             </label>
-            {/* v1: flat file fetch unavailable; listing folders as proxy.
-                linkedDocId is sent as null if not selected (no file FK violation).
-                TODO: wire up GET /api/workspaces/:id/files for real file list. */}
+            {/* Step 1: pick a folder */}
             <select
-              value={linkedDocId}
-              onChange={(e) => setLinkedDocId(e.target.value)}
+              value={selectedFolderId}
+              onChange={(e) => handleFolderChange(e.target.value)}
               className="w-full text-sm bg-surface border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-1 focus:ring-accent cursor-pointer"
             >
               <option value="">— none —</option>
@@ -301,7 +315,22 @@ export function AskQuestionModal({ workspaceId, folders, onClose, onCreated }: P
                 </option>
               ))}
             </select>
-            <p className="text-xs text-text-muted">Showing folders. File-level picker coming in a future update.</p>
+            {/* Step 2: pick a file within that folder */}
+            {selectedFolderId && (
+              <select
+                value={linkedDocId}
+                onChange={(e) => setLinkedDocId(e.target.value)}
+                disabled={loadingFiles}
+                className="w-full text-sm bg-surface border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-1 focus:ring-accent cursor-pointer disabled:opacity-50"
+              >
+                <option value="">{loadingFiles ? 'Loading…' : '— select a file —'}</option>
+                {folderFiles.map((file) => (
+                  <option key={file.id} value={file.id}>
+                    {file.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Error */}
