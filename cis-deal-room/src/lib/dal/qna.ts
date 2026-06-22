@@ -318,6 +318,52 @@ export async function postMessage(
   });
 }
 
+export async function applyApprovalAction(input: {
+  workspaceId: string;
+  questionId: string;
+  action: 'approve' | 'request_changes' | 'reroute';
+  newAssigneeId?: string | null;
+}): Promise<void> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+
+  await db.transaction(async (tx) => {
+    let setPayload: { status: QnaStatus; updatedAt: Date; assigneeId?: string | null };
+
+    if (input.action === 'approve') {
+      setPayload = { status: 'approved', updatedAt: new Date() };
+    } else if (input.action === 'request_changes') {
+      setPayload = { status: 'assigned', updatedAt: new Date() };
+    } else {
+      setPayload = { status: 'assigned', updatedAt: new Date(), assigneeId: input.newAssigneeId ?? null };
+    }
+
+    const rows = await tx
+      .update(qnaQuestions)
+      .set(setPayload)
+      .where(eq(qnaQuestions.id, input.questionId) && eq(qnaQuestions.workspaceId, input.workspaceId))
+      .returning({ id: qnaQuestions.id });
+
+    if (rows.length === 0) throw new Error('Question not found');
+
+    const actionLog =
+      input.action === 'approve'
+        ? 'qna_approved'
+        : input.action === 'request_changes'
+        ? 'qna_changes_requested'
+        : 'qna_rerouted';
+
+    await logActivity(tx, {
+      workspaceId: input.workspaceId,
+      userId: session.userId,
+      action: actionLog,
+      targetType: 'qna_question',
+      targetId: input.questionId,
+    });
+  });
+}
+
 export async function submitProposedAnswer(input: {
   workspaceId: string;
   questionId: string;

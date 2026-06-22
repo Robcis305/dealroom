@@ -231,6 +231,107 @@ describe('getQuestionDetail()', () => {
   });
 });
 
+describe('applyApprovalAction()', () => {
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
+
+  function makeApprovalMocks(session: object | null) {
+    const mockSchema = {
+      qnaQuestions: { id: 'id', workspaceId: 'workspaceId' },
+      qnaMessages: { id: 'id' },
+      qnaMessageFiles: {},
+      qnaQuestionWorkstreams: {},
+      qnaRecipients: {},
+      workstreams: {},
+      users: {},
+      files: {},
+      workspaceParticipants: {},
+    };
+
+    const returning = vi.fn().mockResolvedValue([{ id: 'q-1' }]);
+    const updateWhere = vi.fn().mockReturnValue({ returning });
+    const updateSet = vi.fn().mockReturnValue({ where: updateWhere });
+    const updateCall = vi.fn().mockReturnValue({ set: updateSet });
+
+    const tx = {
+      update: updateCall,
+    };
+    const transaction = vi.fn(async (cb: (t: typeof tx) => Promise<unknown>) => cb(tx));
+    const db = { transaction };
+
+    return { tx, db, mockSchema, updateSet, returning };
+  }
+
+  it('(a) non-admin session → throws "Admin required"', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
+    }));
+
+    const { tx, db, mockSchema } = makeApprovalMocks({ userId: 'user-1', isAdmin: false });
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { applyApprovalAction } = await import('./qna');
+    await expect(applyApprovalAction({
+      workspaceId: 'ws-1',
+      questionId: 'q-1',
+      action: 'approve',
+    })).rejects.toThrow('Admin required');
+  });
+
+  it('(b) approve → status "approved" + logActivity "qna_approved"', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'admin@cis.com' }),
+    }));
+
+    const { tx, db, mockSchema, updateSet } = makeApprovalMocks({ userId: 'admin-1', isAdmin: true });
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { applyApprovalAction } = await import('./qna');
+    await applyApprovalAction({
+      workspaceId: 'ws-1',
+      questionId: 'q-1',
+      action: 'approve',
+    });
+
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'approved' }));
+    expect(logActivity).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'qna_approved', targetType: 'qna_question', targetId: 'q-1' }),
+    );
+  });
+
+  it('(c) reroute with newAssigneeId → sets assigneeId + status "assigned" + logActivity "qna_rerouted"', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'admin@cis.com' }),
+    }));
+
+    const { tx, db, mockSchema, updateSet } = makeApprovalMocks({ userId: 'admin-1', isAdmin: true });
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { applyApprovalAction } = await import('./qna');
+    await applyApprovalAction({
+      workspaceId: 'ws-1',
+      questionId: 'q-1',
+      action: 'reroute',
+      newAssigneeId: 'user-99',
+    });
+
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'assigned', assigneeId: 'user-99' }));
+    expect(logActivity).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'qna_rerouted', targetType: 'qna_question', targetId: 'q-1' }),
+    );
+  });
+});
+
 describe('submitProposedAnswer()', () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
 
