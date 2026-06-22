@@ -7,7 +7,7 @@ vi.mock('@/lib/dal/index', () => ({
   verifySession: vi.fn(),
 }));
 vi.mock('@/lib/dal/access', () => ({
-  requireFolderAccess: vi.fn(),
+  requireFileAccess: vi.fn(),
 }));
 vi.mock('@/lib/dal/activity', () => ({
   logActivity: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('@/db', () => ({
 import { POST } from '@/app/api/files/[id]/log-preview/route';
 import { previewLogLimiter } from '@/lib/auth/rate-limit';
 import { verifySession } from '@/lib/dal/index';
-import { requireFolderAccess } from '@/lib/dal/access';
+import { requireFileAccess } from '@/lib/dal/access';
 import { logActivity } from '@/lib/dal/activity';
 import { db } from '@/db';
 
@@ -67,10 +67,10 @@ describe('POST /api/files/[id]/log-preview', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns 403 when user lacks folder access', async () => {
+  it('returns 403 when user lacks file access (neither folder nor workstream)', async () => {
     vi.mocked(verifySession).mockResolvedValue(session as never);
     mockFileLookup({ id: 'f1', folderId: 'fd1', workspaceId: 'w1' });
-    vi.mocked(requireFolderAccess).mockRejectedValue(new Error('forbidden'));
+    vi.mocked(requireFileAccess).mockRejectedValue(new Error('forbidden'));
     const res = await POST(makeRequest('33333333-3333-3333-3333-333333333333'), {
       params: Promise.resolve({ id: '33333333-3333-3333-3333-333333333333' }),
     });
@@ -80,7 +80,7 @@ describe('POST /api/files/[id]/log-preview', () => {
   it('returns 200 and calls logActivity with action=previewed', async () => {
     vi.mocked(verifySession).mockResolvedValue(session as never);
     mockFileLookup({ id: 'f1', folderId: 'fd1', workspaceId: 'w1' });
-    vi.mocked(requireFolderAccess).mockResolvedValue(undefined as never);
+    vi.mocked(requireFileAccess).mockResolvedValue(undefined as never);
     vi.mocked(logActivity).mockResolvedValue(undefined as never);
 
     const res = await POST(makeRequest('44444444-4444-4444-4444-444444444444'), {

@@ -2,7 +2,7 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { files, folders } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
-import { requireFolderAccess } from '@/lib/dal/access';
+import { requireFileAccess } from '@/lib/dal/access';
 import { logActivity } from '@/lib/dal/activity';
 import { previewLogLimiter } from '@/lib/auth/rate-limit';
 
@@ -42,8 +42,9 @@ export async function POST(
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // File access is a UNION: folder access OR workstream membership (additive).
   try {
-    await requireFolderAccess(file.folderId, session, 'download');
+    await requireFileAccess(fileId, session, 'download');
   } catch {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
