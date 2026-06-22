@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   qnaQuestions, qnaQuestionWorkstreams, qnaRecipients,
@@ -158,9 +158,9 @@ export async function getQuestionDetail(
     })
     .from(qnaQuestions)
     .innerJoin(users, eq(users.id, qnaQuestions.askedById))
-    .where(eq(qnaQuestions.id, questionId));
+    .where(and(eq(qnaQuestions.id, questionId), eq(qnaQuestions.workspaceId, workspaceId)));
 
-  const q = questionRows.find((r) => r.workspaceId === workspaceId);
+  const q = questionRows[0] ?? null;
   if (!q) return null;
 
   // 2. Fetch workstreams tags
@@ -342,7 +342,7 @@ export async function applyApprovalAction(input: {
     const rows = await tx
       .update(qnaQuestions)
       .set(setPayload)
-      .where(eq(qnaQuestions.id, input.questionId) && eq(qnaQuestions.workspaceId, input.workspaceId))
+      .where(and(eq(qnaQuestions.id, input.questionId), eq(qnaQuestions.workspaceId, input.workspaceId)))
       .returning({ id: qnaQuestions.id });
 
     if (rows.length === 0) throw new Error('Question not found');
@@ -393,7 +393,7 @@ export async function submitProposedAnswer(input: {
 
     await tx.update(qnaQuestions)
       .set({ status: nextStatus, updatedAt: new Date() })
-      .where(eq(qnaQuestions.id, input.questionId));
+      .where(and(eq(qnaQuestions.id, input.questionId), eq(qnaQuestions.workspaceId, input.workspaceId)));
 
     await logActivity(tx, {
       workspaceId: input.workspaceId,

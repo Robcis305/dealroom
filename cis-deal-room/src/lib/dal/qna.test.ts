@@ -330,6 +330,31 @@ describe('applyApprovalAction()', () => {
       expect.objectContaining({ action: 'qna_rerouted', targetType: 'qna_question', targetId: 'q-1' }),
     );
   });
+
+  it('(d) request_changes → status "assigned" + logActivity "qna_changes_requested"', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'admin@cis.com' }),
+    }));
+
+    const { tx, db, mockSchema, updateSet } = makeApprovalMocks({ userId: 'admin-1', isAdmin: true });
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { applyApprovalAction } = await import('./qna');
+    await applyApprovalAction({
+      workspaceId: 'ws-1',
+      questionId: 'q-1',
+      action: 'request_changes',
+    });
+
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'assigned' }));
+    expect(logActivity).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'qna_changes_requested', targetType: 'qna_question', targetId: 'q-1' }),
+    );
+  });
 });
 
 describe('submitProposedAnswer()', () => {
@@ -337,7 +362,7 @@ describe('submitProposedAnswer()', () => {
 
   function makeSubmitMocks(logActivity: ReturnType<typeof vi.fn>) {
     const mockSchema = {
-      qnaQuestions: { id: 'id' },
+      qnaQuestions: { id: 'id', workspaceId: 'workspaceId' },
       qnaMessages: { id: 'id' },
       qnaMessageFiles: {},
       qnaQuestionWorkstreams: {},
