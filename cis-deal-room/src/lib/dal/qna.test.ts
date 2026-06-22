@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('./index', () => ({ verifySession: vi.fn() }));
 vi.mock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
+// drizzle-orm is used implicitly via the mocked db
 
 describe('deriveIsOverdue()', () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
@@ -60,5 +61,172 @@ describe('createQuestion()', () => {
       tx,
       expect.objectContaining({ action: 'qna_asked', targetType: 'qna_question' }),
     );
+  });
+});
+
+describe('getQuestionDetail()', () => {
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
+
+  // The test questions all have assigneeId: null so the assignee query is skipped.
+  // Query order (no assignee): question, workstreams, messages, attachments, recipients
+  const MESSAGE_RESULT = [
+    {
+      id: 'msg-1', questionId: 'q1', authorId: 'user-1',
+      authorFirst: 'Alice', authorLast: 'Smith', authorEmail: 'alice@cis.com',
+      kind: 'message', body: 'Thread message body', createdAt: new Date('2026-06-01T10:00:00Z'),
+    },
+    {
+      id: 'msg-2', questionId: 'q1', authorId: 'user-2',
+      authorFirst: 'Bob', authorLast: null, authorEmail: 'bob@cis.com',
+      kind: 'proposed_answer', body: 'Proposed answer body', createdAt: new Date('2026-06-02T10:00:00Z'),
+    },
+  ];
+
+  function makeDb(questionRow: object | null) {
+    const questionResult = questionRow ? [questionRow] : [];
+    const workstreamsResult = [{ questionId: 'q1', id: 'ws-1', name: 'Finance', color: '#blue' }];
+    const filesResult = [{ messageId: 'msg-1', fileId: 'file-1', fileName: 'attachment.pdf' }];
+    const recipientsResult = [
+      { participantId: 'part-1', firstName: 'Carol', lastName: 'Jones', email: 'carol@cis.com' },
+    ];
+
+    // With assigneeId null, order is: question(0), workstreams(1), messages(2), attachments(3), recipients(4)
+    const results = [
+      questionResult,
+      workstreamsResult,
+      MESSAGE_RESULT,
+      filesResult,
+      recipientsResult,
+    ];
+
+    let callCount = 0;
+    const db = {
+      select: vi.fn().mockImplementation(() => {
+        const result = results[callCount] ?? [];
+        callCount++;
+        // Build a fluent chain that resolves when awaited or when .orderBy()/.where() is the terminal call
+        function makeChain(r: unknown[]) {
+          const p = Promise.resolve(r);
+          const chain: Record<string, unknown> = {
+            then: p.then.bind(p),
+            catch: p.catch.bind(p),
+            finally: p.finally.bind(p),
+          };
+          chain.from = vi.fn().mockReturnValue(chain);
+          chain.innerJoin = vi.fn().mockReturnValue(chain);
+          chain.leftJoin = vi.fn().mockReturnValue(chain);
+          chain.where = vi.fn().mockReturnValue(chain);
+          chain.orderBy = vi.fn().mockResolvedValue(r);
+          return chain;
+        }
+        return makeChain(result);
+      }),
+    };
+    return db;
+  }
+
+  it('returns thread (kind=message), proposedAnswer (kind=proposed_answer), and approvalGateActive for seller_side+answered', async () => {
+    vi.doMock('./index', () => ({ verifySession: vi.fn() }));
+    vi.doMock('./activity', () => ({ logActivity: vi.fn() }));
+
+    const questionRow = {
+      id: 'q1', workspaceId: 'ws-1', title: 'What is ARR?',
+      status: 'answered', askedById: 'user-1',
+      askedFirst: 'Alice', askedLast: 'Smith', askedEmail: 'alice@cis.com',
+      assigneeId: null,
+      askedAt: new Date('2026-05-01T00:00:00Z'),
+      requestedBy: new Date('2026-06-01T00:00:00Z'),
+      visibility: 'public', linkedDocId: null,
+    };
+
+    const db = makeDb(questionRow);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => ({
+      qnaQuestions: { id: 'id', workspaceId: 'workspaceId' },
+      qnaQuestionWorkstreams: { questionId: 'questionId', workstreamId: 'workstreamId' },
+      qnaRecipients: { questionId: 'questionId', participantId: 'participantId' },
+      qnaMessages: { id: 'id', questionId: 'questionId', authorId: 'authorId', kind: 'kind', createdAt: 'createdAt' },
+      qnaMessageFiles: { messageId: 'messageId', fileId: 'fileId' },
+      workspaceParticipants: { id: 'id', userId: 'userId' },
+      workstreams: { id: 'id', name: 'name', color: 'color' },
+      users: { id: 'id', firstName: 'firstName', lastName: 'lastName', email: 'email' },
+      files: { id: 'id', name: 'name' },
+    }));
+
+    const { getQuestionDetail } = await import('./qna');
+    const now = new Date('2026-06-22');
+
+    // seller_side + answered → approvalGateActive = true
+    const detail = await getQuestionDetail('ws-1', 'q1', 'seller_side', now);
+
+    expect(detail).not.toBeNull();
+    expect(detail!.thread).toHaveLength(1);
+    expect(detail!.thread[0].id).toBe('msg-1');
+    expect(detail!.thread[0].kind).toBe('message');
+    expect(detail!.proposedAnswer).not.toBeNull();
+    expect(detail!.proposedAnswer!.id).toBe('msg-2');
+    expect(detail!.proposedAnswer!.kind).toBe('proposed_answer');
+    expect(detail!.approvalGateActive).toBe(true);
+  });
+
+  it('returns approvalGateActive=false for buyer_side even when answered', async () => {
+    vi.doMock('./index', () => ({ verifySession: vi.fn() }));
+    vi.doMock('./activity', () => ({ logActivity: vi.fn() }));
+
+    const questionRow = {
+      id: 'q1', workspaceId: 'ws-1', title: 'What is ARR?',
+      status: 'answered', askedById: 'user-1',
+      askedFirst: 'Alice', askedLast: 'Smith', askedEmail: 'alice@cis.com',
+      assigneeId: null,
+      askedAt: new Date('2026-05-01T00:00:00Z'),
+      requestedBy: null,
+      visibility: 'public', linkedDocId: null,
+    };
+
+    const db = makeDb(questionRow);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => ({
+      qnaQuestions: { id: 'id', workspaceId: 'workspaceId' },
+      qnaQuestionWorkstreams: { questionId: 'questionId', workstreamId: 'workstreamId' },
+      qnaRecipients: { questionId: 'questionId', participantId: 'participantId' },
+      qnaMessages: { id: 'id', questionId: 'questionId', authorId: 'authorId', kind: 'kind', createdAt: 'createdAt' },
+      qnaMessageFiles: { messageId: 'messageId', fileId: 'fileId' },
+      workspaceParticipants: { id: 'id', userId: 'userId' },
+      workstreams: { id: 'id', name: 'name', color: 'color' },
+      users: { id: 'id', firstName: 'firstName', lastName: 'lastName', email: 'email' },
+      files: { id: 'id', name: 'name' },
+    }));
+
+    const { getQuestionDetail } = await import('./qna');
+    const now = new Date('2026-06-22');
+
+    const detail = await getQuestionDetail('ws-1', 'q1', 'buyer_side', now);
+    expect(detail).not.toBeNull();
+    expect(detail!.approvalGateActive).toBe(false);
+  });
+
+  it('returns null when question not found in workspace', async () => {
+    vi.doMock('./index', () => ({ verifySession: vi.fn() }));
+    vi.doMock('./activity', () => ({ logActivity: vi.fn() }));
+
+    const db = makeDb(null);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => ({
+      qnaQuestions: { id: 'id', workspaceId: 'workspaceId' },
+      qnaQuestionWorkstreams: { questionId: 'questionId', workstreamId: 'workstreamId' },
+      qnaRecipients: { questionId: 'questionId', participantId: 'participantId' },
+      qnaMessages: { id: 'id', questionId: 'questionId', authorId: 'authorId', kind: 'kind', createdAt: 'createdAt' },
+      qnaMessageFiles: { messageId: 'messageId', fileId: 'fileId' },
+      workspaceParticipants: { id: 'id', userId: 'userId' },
+      workstreams: { id: 'id', name: 'name', color: 'color' },
+      users: { id: 'id', firstName: 'firstName', lastName: 'lastName', email: 'email' },
+      files: { id: 'id', name: 'name' },
+    }));
+
+    const { getQuestionDetail } = await import('./qna');
+    const now = new Date('2026-06-22');
+
+    const detail = await getQuestionDetail('ws-1', 'q-missing', 'seller_side', now);
+    expect(detail).toBeNull();
   });
 });
