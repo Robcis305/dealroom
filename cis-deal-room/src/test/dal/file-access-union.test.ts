@@ -89,4 +89,61 @@ describe('requireFileAccess()', () => {
       requireFileAccess('file-1', { isAdmin: false, userId: 'u', sessionId: 's', userEmail: 'u@x' }, action)
     ).rejects.toThrow(/unauthorized/i);
   });
+
+  it('grants access via folder role when canPerform returns true (client + download)', async () => {
+    // 1st db.select() call → folder-access path → returns [{ role: 'client' }]
+    // canPerform('client', 'download') === true  →  resolves without hitting workstream path
+    // 2nd db.select() call → workstream-membership path → returns [] (should NOT be reached)
+    let callCount = 0;
+    const select = vi.fn().mockImplementation(() => {
+      const result = callCount === 0 ? [{ role: 'client' }] : [];
+      callCount++;
+      const chain = makeSelectChain(result);
+      return chain();
+    });
+
+    vi.doMock('@/db', () => ({ db: { select } }));
+    vi.doMock('@/db/schema', () => ({
+      workspaceParticipants: {},
+      folderAccess: {},
+      folders: {},
+      files: {},
+      fileWorkstreams: {},
+      workstreamMembers: {},
+    }));
+
+    const { requireFileAccess } = await import('@/lib/dal/access');
+    const action: FolderAction = 'download';
+    await expect(
+      requireFileAccess('file-1', { isAdmin: false, userId: 'u', sessionId: 's', userEmail: 'u@x' }, action)
+    ).resolves.toBeUndefined();
+  });
+
+  it('throws Unauthorized when folder role blocks the action and workstream membership is absent (view_only + upload)', async () => {
+    // canPerform('view_only', 'upload') === false  →  falls through to workstream check
+    // workstream-membership path → returns []  →  throws Unauthorized
+    let callCount = 0;
+    const select = vi.fn().mockImplementation(() => {
+      const result = callCount === 0 ? [{ role: 'view_only' }] : [];
+      callCount++;
+      const chain = makeSelectChain(result);
+      return chain();
+    });
+
+    vi.doMock('@/db', () => ({ db: { select } }));
+    vi.doMock('@/db/schema', () => ({
+      workspaceParticipants: {},
+      folderAccess: {},
+      folders: {},
+      files: {},
+      fileWorkstreams: {},
+      workstreamMembers: {},
+    }));
+
+    const { requireFileAccess } = await import('@/lib/dal/access');
+    const action: FolderAction = 'upload';
+    await expect(
+      requireFileAccess('file-1', { isAdmin: false, userId: 'u', sessionId: 's', userEmail: 'u@x' }, action)
+    ).rejects.toThrow(/unauthorized/i);
+  });
 });
