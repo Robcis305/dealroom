@@ -361,7 +361,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               highlightTarget={pendingHighlight}
               onHighlightConsumed={() => setPendingHighlight(null)}
             />
-          ) : (
+          ) : view.kind === 'folder' ? (
             <FileList
               workspaceId={workspace.id}
               folderId={view.folderId}
@@ -374,7 +374,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               participantsRefresh={participantsRefresh}
               onShowFolderAccess={showFolderAccess}
             />
-          )}
+          ) : null}
         </main>
 
         {/* Right: resizable / collapsible RightPanel */}
