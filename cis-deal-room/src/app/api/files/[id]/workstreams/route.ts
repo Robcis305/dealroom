@@ -34,7 +34,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const workspaceId = await workspaceIdForFile(fileId);
   if (!workspaceId) return Response.json({ error: 'Not found' }, { status: 404 });
   try { await requireDealAccess(workspaceId, session); } catch { return Response.json({ error: 'Forbidden' }, { status: 403 }); }
-  const { workstreamIds } = await request.json();
+  let putBody: Record<string, unknown>;
+  try { putBody = await request.json(); } catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }); }
+  const { workstreamIds } = putBody;
   if (!Array.isArray(workstreamIds)) return Response.json({ error: 'workstreamIds must be an array' }, { status: 400 });
   await setFileWorkstreams(workspaceId, fileId, workstreamIds);
   return Response.json({ ok: true });

@@ -256,7 +256,7 @@ export async function getWorkstreamActivity(workspaceId: string, workstreamId: s
       and(
         eq(activityLogs.workspaceId, workspaceId),
         fileIds.length > 0
-          ? or(eq(activityLogs.targetId, workstreamId), inArray(activityLogs.targetId, fileIds))
+          ? or(eq(activityLogs.targetId, workstreamId), and(eq(activityLogs.targetType, 'file'), inArray(activityLogs.targetId, fileIds)))
           : eq(activityLogs.targetId, workstreamId),
       ),
     )

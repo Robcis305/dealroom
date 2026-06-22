@@ -30,7 +30,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   } catch {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
   const patch: { name?: string; description?: string | null } = {};
   if (typeof body.name === 'string') patch.name = body.name.trim();
   if (typeof body.description === 'string' || body.description === null) patch.description = body.description;
