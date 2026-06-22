@@ -394,6 +394,8 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               onFolderCountChange={handleFolderCountChange}
               participantsRefresh={participantsRefresh}
               onShowFolderAccess={showFolderAccess}
+              workstreams={workstreams}
+              onWorkstreamsChanged={refreshWorkstreams}
             />
           ) : view.kind === 'workstream' ? (
             <WorkstreamDashboard
