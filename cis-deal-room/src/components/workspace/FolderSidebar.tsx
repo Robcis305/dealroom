@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil, ClipboardList, Combine, Table2 } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Trash2, LayoutGrid, Pencil, ClipboardList, Combine, Table2, MessageSquare } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { WorkstreamWithCounts } from '@/types';
@@ -215,6 +215,22 @@ export function FolderSidebar({
             </button>
           </div>
         )}
+
+        {/* Q&A pinned entry */}
+        <div className="mx-1 mb-1">
+          <button
+            onClick={() => onSelect({ kind: 'qna' })}
+            className={clsx(
+              'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
+              selected.kind === 'qna'
+                ? 'bg-accent-subtle text-accent-on-subtle'
+                : 'text-text-secondary hover:bg-surface-elevated hover:text-text-primary',
+            )}
+          >
+            <MessageSquare size={14} />
+            Q&A
+          </button>
+        </div>
 
         {/* Cap table entry */}
         <div className="mx-1 mb-1">
