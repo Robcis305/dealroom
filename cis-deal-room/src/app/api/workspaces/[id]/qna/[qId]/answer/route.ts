@@ -4,6 +4,7 @@ import { workspaces } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { submitProposedAnswer } from '@/lib/dal/qna';
+import { enqueueQnaAnswerSubmittedNotification, enqueueQnaApprovedNotification } from '@/lib/notifications/enqueue-qna-notifications';
 
 export async function POST(
   request: Request,
@@ -38,6 +39,8 @@ export async function POST(
     .limit(1);
   if (!workspace) return Response.json({ error: 'Workspace not found' }, { status: 404 });
 
+  const cisAdvisorySide = workspace.cisAdvisorySide;
+
   await submitProposedAnswer({
     workspaceId,
     questionId: qId,
@@ -45,8 +48,16 @@ export async function POST(
     attachmentFileIds: Array.isArray(body.attachmentFileIds)
       ? (body.attachmentFileIds as string[])
       : [],
-    cisAdvisorySide: workspace.cisAdvisorySide,
+    cisAdvisorySide,
   });
+
+  try {
+    if (cisAdvisorySide === 'seller_side') {
+      await enqueueQnaAnswerSubmittedNotification({ workspaceId, questionId: qId });
+    } else {
+      await enqueueQnaApprovedNotification({ workspaceId, questionId: qId }); // buy-side auto-released
+    }
+  } catch (e) { console.error('[qna] answer notification failed', e); }
 
   return Response.json({ ok: true });
 }

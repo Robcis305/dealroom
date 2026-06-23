@@ -1,6 +1,7 @@
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { applyApprovalAction } from '@/lib/dal/qna';
+import { enqueueQnaApprovedNotification, enqueueQnaAssignedNotification } from '@/lib/notifications/enqueue-qna-notifications';
 
 const VALID_ACTIONS = new Set(['approve', 'request_changes', 'reroute']);
 
@@ -34,12 +35,23 @@ export async function POST(
     );
   }
 
+  const action = body.action as 'approve' | 'request_changes' | 'reroute';
+  const newAssigneeId = typeof body.newAssigneeId === 'string' ? body.newAssigneeId : null;
+
   await applyApprovalAction({
     workspaceId,
     questionId: qId,
-    action: body.action as 'approve' | 'request_changes' | 'reroute',
-    newAssigneeId: typeof body.newAssigneeId === 'string' ? body.newAssigneeId : null,
+    action,
+    newAssigneeId,
   });
+
+  try {
+    if (action === 'approve') {
+      await enqueueQnaApprovedNotification({ workspaceId, questionId: qId });
+    } else if (action === 'reroute' && newAssigneeId) {
+      await enqueueQnaAssignedNotification({ workspaceId, questionId: qId, assigneeUserId: newAssigneeId });
+    }
+  } catch (e) { console.error('[qna] approval notification failed', e); }
 
   return Response.json({ ok: true });
 }
