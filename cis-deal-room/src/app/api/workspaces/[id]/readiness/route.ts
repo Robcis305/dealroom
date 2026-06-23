@@ -9,13 +9,17 @@ import {
   ownerFilterForSession,
 } from '@/lib/dal/checklist';
 import { getReadinessSummary, shouldShowCanonicalPlaybook, STAGE_META } from '@/lib/dal/playbook';
-import type { ParticipantRole, ViewOnlyShadowSide } from '@/types';
+import type { ParticipantRole } from '@/types';
 
+// Roles that may view the canonical sell-side playbook readiness summary.
+// Counterparty is intentionally excluded — the full aggregate leaks client diligence posture.
+// Deprecated roles (seller_rep, seller_counsel, buyer_rep, buyer_counsel) are excluded;
+// migration converts them to the canonical role set before they hit this route.
 const PLAYBOOK_VISIBLE_ROLES = new Set<ParticipantRole>([
   'admin',
   'cis_team',
-  'seller_rep',
-  'seller_counsel',
+  'client',
+  'client_counsel',
 ]);
 
 export async function GET(
@@ -41,15 +45,13 @@ export async function GET(
     .limit(1);
   if (!workspace) return Response.json({ error: 'Workspace not found' }, { status: 404 });
 
-  // Resolve viewer role + shadow side (mirrors listItemsForViewer pattern)
+  // Resolve viewer role (mirrors listItemsForViewer pattern)
   let role: ParticipantRole = 'admin';
-  let shadowSide: ViewOnlyShadowSide | null = null;
 
   if (!session.isAdmin) {
     const [participant] = await db
       .select({
         role: workspaceParticipants.role,
-        shadow: workspaceParticipants.viewOnlyShadowSide,
       })
       .from(workspaceParticipants)
       .where(
@@ -62,7 +64,6 @@ export async function GET(
       .limit(1);
     if (!participant) return Response.json({ error: 'Forbidden' }, { status: 403 });
     role = participant.role;
-    shadowSide = participant.shadow;
   }
 
   if (!shouldShowCanonicalPlaybook(workspace)) {
@@ -75,7 +76,6 @@ export async function GET(
     const ownerFilter = ownerFilterForSession({
       isAdmin: session.isAdmin,
       role,
-      shadowSide,
       cisAdvisorySide: workspace.cisAdvisorySide,
     });
     if (ownerFilter !== null && ownerFilter.length === 0) {
@@ -104,9 +104,7 @@ export async function GET(
   }
 
   // Sell-side: canonical v1.4 readiness summary
-  const isClientOnSellerSide = role === 'client' && workspace.cisAdvisorySide === 'seller_side';
-  const allowed =
-    session.isAdmin || PLAYBOOK_VISIBLE_ROLES.has(role) || isClientOnSellerSide;
+  const allowed = session.isAdmin || PLAYBOOK_VISIBLE_ROLES.has(role);
   if (!allowed) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }

@@ -33,6 +33,19 @@ export async function createQuestion(input: {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
 
+  if (!session.isAdmin) {
+    const [pRow] = await db
+      .select({ role: workspaceParticipants.role })
+      .from(workspaceParticipants)
+      .where(and(
+        eq(workspaceParticipants.workspaceId, input.workspaceId),
+        eq(workspaceParticipants.userId, session.userId),
+        eq(workspaceParticipants.status, 'active'),
+      ))
+      .limit(1);
+    if (!pRow || pRow.role === 'view_only') throw new Error('Forbidden');
+  }
+
   return db.transaction(async (tx) => {
     const [q] = await tx.insert(qnaQuestions).values({
       workspaceId: input.workspaceId,
@@ -298,6 +311,19 @@ export async function postMessage(
 ): Promise<{ id: string }> {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
+
+  if (!session.isAdmin) {
+    const [pRow] = await db
+      .select({ role: workspaceParticipants.role })
+      .from(workspaceParticipants)
+      .where(and(
+        eq(workspaceParticipants.workspaceId, workspaceId),
+        eq(workspaceParticipants.userId, session.userId),
+        eq(workspaceParticipants.status, 'active'),
+      ))
+      .limit(1);
+    if (!pRow || pRow.role === 'view_only') throw new Error('Forbidden');
+  }
 
   return db.transaction(async (tx) => {
     const [q] = await tx

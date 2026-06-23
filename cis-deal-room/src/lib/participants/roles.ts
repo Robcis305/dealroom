@@ -15,14 +15,19 @@ export function roleLabel(role: ParticipantRole, side: CisAdvisorySide): string 
       return 'CIS Team';
     case 'client':
       return 'Client';
+    case 'client_counsel':
+      return 'Client Counsel';
+    case 'counterparty':
+      return 'Counterparty';
+    case 'view_only':
+      return 'View-only';
+    // deprecated — kept for existing rows
     case 'counsel':
       return 'Counsel';
     case 'buyer_rep':
       return 'Buyer Rep';
     case 'seller_rep':
       return 'Seller Rep';
-    case 'view_only':
-      return 'View Only';
     case 'seller_counsel':
       return 'Seller Counsel';
     case 'buyer_counsel':
@@ -41,16 +46,7 @@ export function roleLabel(role: ParticipantRole, side: CisAdvisorySide): string 
  * variant — a buy-side deal only shows Seller Rep; a sell-side deal only
  * shows Buyer Rep.
  */
-export function assignableRolesFor(
-  side: CisAdvisorySide
-): Array<{ value: ParticipantRole; label: string }> {
-  const base: ParticipantRole[] = [
-    'admin',
-    'cis_team',
-    'client',
-    'view_only',
-  ];
-  const rep: ParticipantRole = side === 'buyer_side' ? 'seller_rep' : 'buyer_rep';
-  const counsel: ParticipantRole[] = ['seller_counsel', 'buyer_counsel'];
-  return [...base, rep, ...counsel].map((value) => ({ value, label: roleLabel(value, side) }));
+export function assignableRolesFor(side: CisAdvisorySide): Array<{ value: ParticipantRole; label: string }> {
+  const roles: ParticipantRole[] = ['admin', 'cis_team', 'client', 'client_counsel', 'counterparty', 'view_only'];
+  return roles.map((value) => ({ value, label: roleLabel(value, side) }));
 }

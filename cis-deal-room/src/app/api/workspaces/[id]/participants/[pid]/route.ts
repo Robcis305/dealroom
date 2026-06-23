@@ -8,15 +8,11 @@ const patchSchema = z.object({
     'admin',
     'cis_team',
     'client',
-    'counsel',
-    'buyer_rep',
-    'seller_rep',
+    'client_counsel',
+    'counterparty',
     'view_only',
-    'seller_counsel',
-    'buyer_counsel',
   ]),
   folderIds: z.array(z.string().uuid()).default([]),
-  viewOnlyShadowSide: z.enum(['buyer', 'seller']).nullable().optional(),
 });
 
 export async function PATCH(
@@ -53,7 +49,6 @@ export async function PATCH(
     await updateParticipant(pid, {
       role: parsed.role,
       folderIds: parsed.folderIds,
-      viewOnlyShadowSide: parsed.viewOnlyShadowSide ?? null,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Update failed';

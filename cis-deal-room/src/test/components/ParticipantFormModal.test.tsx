@@ -15,7 +15,7 @@ beforeEach(() => {
 });
 
 describe('ParticipantFormModal — invite mode', () => {
-  it('renders contextual Seller Rep option when CIS advises buyer', () => {
+  it('renders new active role options (Counterparty, Client Counsel) and no legacy Rep options', () => {
     render(
       <ParticipantFormModal
         mode="invite"
@@ -27,7 +27,10 @@ describe('ParticipantFormModal — invite mode', () => {
         folders={folders}
       />
     );
-    expect(screen.getByRole('option', { name: 'Seller Rep' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Counterparty' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Client Counsel' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'View-only' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Seller Rep' })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Buyer Rep' })).not.toBeInTheDocument();
   });
 
@@ -81,6 +84,36 @@ describe('ParticipantFormModal — invite mode', () => {
     fireEvent.click(screen.getByRole('button', { name: /send invitation/i }));
     await waitFor(() =>
       expect(screen.getByText(/something bad/i)).toBeInTheDocument()
+    );
+  });
+
+  it('allows view_only invite to submit without selecting a shadow side', async () => {
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: 'p2' }),
+    } as Response);
+    const onSuccess = vi.fn();
+    render(
+      <ParticipantFormModal
+        mode="invite"
+        open
+        onClose={() => {}}
+        onSuccess={onSuccess}
+        workspaceId={WORKSPACE_ID}
+        cisAdvisorySide="buyer_side"
+        folders={folders}
+      />
+    );
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'viewer@y.com' } });
+    fireEvent.change(screen.getByLabelText(/role/i), { target: { value: 'view_only' } });
+    // No shadow-side picker should appear
+    expect(screen.queryByLabelText(/view as/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /send invitation/i }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(global.fetch).toHaveBeenCalledWith(
+      `/api/workspaces/${WORKSPACE_ID}/participants`,
+      expect.objectContaining({ method: 'POST' })
     );
   });
 });

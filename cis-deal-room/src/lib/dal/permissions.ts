@@ -2,12 +2,14 @@ export type ParticipantRole =
   | 'admin'
   | 'cis_team'
   | 'client'
-  | 'counsel'
-  | 'buyer_rep'
-  | 'seller_rep'
+  | 'client_counsel'
+  | 'counterparty'
   | 'view_only'
-  | 'seller_counsel'
-  | 'buyer_counsel';
+  | 'counsel'          // deprecated — not offered in new-invite UI
+  | 'buyer_rep'        // deprecated — not offered in new-invite UI
+  | 'seller_rep'       // deprecated — not offered in new-invite UI
+  | 'seller_counsel'   // deprecated — not offered in new-invite UI
+  | 'buyer_counsel';   // deprecated — not offered in new-invite UI
 
 export type FolderAction = 'upload' | 'download';
 
@@ -19,8 +21,9 @@ export type FolderAction = 'upload' | 'download';
  * Admin and CIS Team bypass folder_access entirely; this function still
  * returns true for their upload/download capability.
  */
+const UPLOAD_ROLES: ReadonlySet<ParticipantRole> = new Set(['admin', 'cis_team', 'client', 'client_counsel']);
+
 export function canPerform(role: ParticipantRole, action: FolderAction): boolean {
-  if (role === 'view_only') return action === 'download';
-  // admin, cis_team, client, counsel, buyer_rep, seller_rep, seller_counsel, buyer_counsel
-  return true;
+  if (action === 'upload') return UPLOAD_ROLES.has(role);
+  return true; // download: any role with folder access
 }

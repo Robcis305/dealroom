@@ -27,6 +27,12 @@ describe('createQuestion()', () => {
       verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
     }));
 
+    // Role-check select (outside tx): returns participant role
+    const roleLimit = vi.fn().mockResolvedValue([{ role: 'participant' }]);
+    const roleWhere = vi.fn().mockReturnValue({ limit: roleLimit });
+    const roleFrom = vi.fn().mockReturnValue({ where: roleWhere });
+    const outerSelect = vi.fn().mockReturnValue({ from: roleFrom });
+
     // insert chain: .values().returning() → [{ id: 'q1' }]
     const returning = vi.fn().mockResolvedValue([{ id: 'q1' }]);
     const insertValues = vi.fn().mockReturnValue({ returning });
@@ -34,13 +40,14 @@ describe('createQuestion()', () => {
       insert: vi.fn().mockReturnValue({ values: insertValues }),
     };
     const transaction = vi.fn(async (cb) => cb(tx));
-    vi.doMock('@/db', () => ({ db: { transaction } }));
+    vi.doMock('@/db', () => ({ db: { select: outerSelect, transaction } }));
     vi.doMock('@/db/schema', () => ({
       qnaQuestions: { id: 'id' },
       qnaQuestionWorkstreams: {},
       qnaRecipients: {},
       workstreams: {},
       users: {},
+      workspaceParticipants: { id: 'id', userId: 'userId', workspaceId: 'workspaceId', role: 'role', status: 'status' },
     }));
 
     const { createQuestion } = await import('./qna');
@@ -380,6 +387,134 @@ describe('applyApprovalAction()', () => {
   });
 });
 
+describe('createQuestion() — view_only gate', () => {
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
+
+  const mockSchema = {
+    qnaQuestions: { id: 'id' },
+    qnaQuestionWorkstreams: {},
+    qnaRecipients: {},
+    workstreams: {},
+    users: {},
+    files: {},
+    workspaceParticipants: { id: 'id', userId: 'userId', workspaceId: 'workspaceId', role: 'role', status: 'status' },
+  };
+
+  function makeDbWithRole(role: string | null) {
+    // db.select() outside transaction: participant role lookup → [{ role }] or []
+    const limit = vi.fn().mockResolvedValue(role !== null ? [{ role }] : []);
+    const selectWhere = vi.fn().mockReturnValue({ limit });
+    const selectFrom = vi.fn().mockReturnValue({ where: selectWhere });
+    const selectCall = vi.fn().mockReturnValue({ from: selectFrom });
+
+    // transaction / insert chain (only reached when not forbidden)
+    const returning = vi.fn().mockResolvedValue([{ id: 'q1' }]);
+    const insertValues = vi.fn().mockReturnValue({ returning });
+    const tx = {
+      insert: vi.fn().mockReturnValue({ values: insertValues }),
+    };
+    const transaction = vi.fn(async (cb: (t: typeof tx) => Promise<unknown>) => cb(tx));
+
+    const db = { select: selectCall, transaction };
+    return { db, tx };
+  }
+
+  it('view_only caller → throws Forbidden, no insert', async () => {
+    vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-vo', isAdmin: false, sessionId: 's', userEmail: 'vo@test.com' }),
+    }));
+    const { db } = makeDbWithRole('view_only');
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { createQuestion } = await import('./qna');
+    await expect(createQuestion({
+      workspaceId: 'ws-1',
+      title: 'Can I ask?',
+      workstreamIds: [],
+      assigneeId: null,
+      requestedBy: null,
+      visibility: 'public',
+      recipientParticipantIds: [],
+      linkedDocId: null,
+    })).rejects.toThrow('Forbidden');
+  });
+
+  it('isAdmin=true skips role check → proceeds even with view_only row', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'admin@cis.com' }),
+    }));
+    // Even if role row exists as view_only, admin bypasses lookup
+    const { db, tx } = makeDbWithRole('view_only');
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { createQuestion } = await import('./qna');
+    const result = await createQuestion({
+      workspaceId: 'ws-1',
+      title: 'Admin asks',
+      workstreamIds: [],
+      assigneeId: null,
+      requestedBy: null,
+      visibility: 'public',
+      recipientParticipantIds: [],
+      linkedDocId: null,
+    });
+    expect(result).toEqual({ id: 'q1' });
+    expect(tx.insert).toHaveBeenCalled();
+  });
+
+  it('no participant row (role lookup returns []) → throws Forbidden, no insert', async () => {
+    vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-ghost', isAdmin: false, sessionId: 's', userEmail: 'ghost@test.com' }),
+    }));
+    const { db } = makeDbWithRole(null); // returns []
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { createQuestion } = await import('./qna');
+    await expect(createQuestion({
+      workspaceId: 'ws-1',
+      title: 'Ghost asks',
+      workstreamIds: [],
+      assigneeId: null,
+      requestedBy: null,
+      visibility: 'public',
+      recipientParticipantIds: [],
+      linkedDocId: null,
+    })).rejects.toThrow(/forbidden/i);
+  });
+
+  it('non-view_only role (e.g. participant) → proceeds', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@test.com' }),
+    }));
+    const { db, tx } = makeDbWithRole('participant');
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { createQuestion } = await import('./qna');
+    const result = await createQuestion({
+      workspaceId: 'ws-1',
+      title: 'Normal ask',
+      workstreamIds: [],
+      assigneeId: null,
+      requestedBy: null,
+      visibility: 'public',
+      recipientParticipantIds: [],
+      linkedDocId: null,
+    });
+    expect(result).toEqual({ id: 'q1' });
+    expect(tx.insert).toHaveBeenCalled();
+  });
+});
+
 describe('postMessage()', () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
 
@@ -392,28 +527,63 @@ describe('postMessage()', () => {
     workstreams: {},
     users: {},
     files: {},
-    workspaceParticipants: {},
+    workspaceParticipants: { id: 'id', userId: 'userId', workspaceId: 'workspaceId', role: 'role', status: 'status' },
   };
 
-  function makePostMessageTx(selectResult: Array<{ id: string }>) {
-    // select chain: .from().where().limit() → selectResult
+  function makePostMessageTx(selectResult: Array<{ id: string }>, callerRole = 'participant') {
+    // First db.select() is the role-check (outside tx), returning [{ role }] or []
+    const roleLimit = vi.fn().mockResolvedValue(callerRole !== '__skip__' ? [{ role: callerRole }] : []);
+    const roleWhere = vi.fn().mockReturnValue({ limit: roleLimit });
+    const roleFrom = vi.fn().mockReturnValue({ where: roleWhere });
+    const outerSelect = vi.fn().mockReturnValue({ from: roleFrom });
+
+    // select chain inside tx: .from().where().limit() → selectResult
     const limit = vi.fn().mockResolvedValue(selectResult);
     const selectWhere = vi.fn().mockReturnValue({ limit });
     const selectFrom = vi.fn().mockReturnValue({ where: selectWhere });
-    const selectCall = vi.fn().mockReturnValue({ from: selectFrom });
+    const txSelect = vi.fn().mockReturnValue({ from: selectFrom });
 
     // insert chain: .values().returning() → [{ id: 'msg-new' }]
     const returning = vi.fn().mockResolvedValue([{ id: 'msg-new' }]);
     const insertValues = vi.fn().mockReturnValue({ returning });
 
     const tx: Record<string, ReturnType<typeof vi.fn>> = {
-      select: selectCall,
+      select: txSelect,
       insert: vi.fn().mockReturnValue({ values: insertValues }),
     };
     const transaction = vi.fn(async (cb: (t: typeof tx) => Promise<unknown>) => cb(tx));
-    const db = { transaction };
+    const db = { select: outerSelect, transaction };
     return { tx, db };
   }
+
+  it('view_only caller → throws Forbidden before entering tx', async () => {
+    vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-vo', isAdmin: false, sessionId: 's', userEmail: 'vo@test.com' }),
+    }));
+    const { tx, db } = makePostMessageTx([{ id: 'q1' }], 'view_only');
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { postMessage } = await import('./qna');
+    await expect(postMessage('ws-1', 'q1', 'Hello')).rejects.toThrow('Forbidden');
+    expect(tx.insert).not.toHaveBeenCalled();
+  });
+
+  it('no participant row (role lookup returns []) → throws Forbidden, no insert', async () => {
+    vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-ghost', isAdmin: false, sessionId: 's', userEmail: 'ghost@test.com' }),
+    }));
+    // '__skip__' sentinel → roleLimit returns []
+    const { tx, db } = makePostMessageTx([{ id: 'q1' }], '__skip__');
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { postMessage } = await import('./qna');
+    await expect(postMessage('ws-1', 'q1', 'Hello')).rejects.toThrow(/forbidden/i);
+    expect(tx.insert).not.toHaveBeenCalled();
+  });
 
   it('happy path: question in workspace → inserts message + logs qna_message_posted', async () => {
     const logActivity = vi.fn().mockResolvedValue(undefined);

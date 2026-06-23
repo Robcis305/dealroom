@@ -52,46 +52,80 @@ const WORKSPACE_ID = '550e8400-e29b-41d4-a716-446655440000';
 describe('ownerFilterForSession', () => {
   it('returns null for admin (sees all)', () => {
     expect(
-      ownerFilterForSession({ isAdmin: true, role: 'admin', shadowSide: null, cisAdvisorySide: 'buyer_side' }),
+      ownerFilterForSession({ isAdmin: true, role: 'admin', cisAdvisorySide: 'buyer_side' }),
     ).toBeNull();
   });
 
   it('returns null for cis_team (sees all)', () => {
     expect(
-      ownerFilterForSession({ isAdmin: false, role: 'cis_team', shadowSide: null, cisAdvisorySide: 'seller_side' }),
+      ownerFilterForSession({ isAdmin: false, role: 'cis_team', cisAdvisorySide: 'seller_side' }),
     ).toBeNull();
   });
 
-  it('returns [seller, both] for seller_rep', () => {
+  // ── New primary roles ──────────────────────────────────────────────────────
+
+  it('client on seller_side sees [seller, both]', () => {
     expect(
-      ownerFilterForSession({ isAdmin: false, role: 'seller_rep', shadowSide: null, cisAdvisorySide: 'buyer_side' }),
+      ownerFilterForSession({ isAdmin: false, role: 'client', cisAdvisorySide: 'seller_side' }),
     ).toEqual(['seller', 'both']);
   });
 
-  it('returns [buyer, both] for buyer_counsel', () => {
+  it('client on buyer_side sees [buyer, both]', () => {
     expect(
-      ownerFilterForSession({ isAdmin: false, role: 'buyer_counsel', shadowSide: null, cisAdvisorySide: 'seller_side' }),
+      ownerFilterForSession({ isAdmin: false, role: 'client', cisAdvisorySide: 'buyer_side' }),
     ).toEqual(['buyer', 'both']);
   });
 
-  it('derives client owner filter from workspace.cisAdvisorySide', () => {
+  it('client_counsel on seller_side sees [seller, both]', () => {
     expect(
-      ownerFilterForSession({ isAdmin: false, role: 'client', shadowSide: null, cisAdvisorySide: 'buyer_side' }),
-    ).toEqual(['buyer', 'both']);
-    expect(
-      ownerFilterForSession({ isAdmin: false, role: 'client', shadowSide: null, cisAdvisorySide: 'seller_side' }),
+      ownerFilterForSession({ isAdmin: false, role: 'client_counsel', cisAdvisorySide: 'seller_side' }),
     ).toEqual(['seller', 'both']);
   });
 
-  it('uses shadow side for view_only', () => {
+  it('client_counsel on buyer_side sees [buyer, both]', () => {
     expect(
-      ownerFilterForSession({ isAdmin: false, role: 'view_only', shadowSide: 'seller', cisAdvisorySide: 'buyer_side' }),
+      ownerFilterForSession({ isAdmin: false, role: 'client_counsel', cisAdvisorySide: 'buyer_side' }),
+    ).toEqual(['buyer', 'both']);
+  });
+
+  it('counterparty on seller_side sees [buyer, both] (other side)', () => {
+    expect(
+      ownerFilterForSession({ isAdmin: false, role: 'counterparty', cisAdvisorySide: 'seller_side' }),
+    ).toEqual(['buyer', 'both']);
+  });
+
+  it('counterparty on buyer_side sees [seller, both] (other side)', () => {
+    expect(
+      ownerFilterForSession({ isAdmin: false, role: 'counterparty', cisAdvisorySide: 'buyer_side' }),
     ).toEqual(['seller', 'both']);
+  });
+
+  it('view_only sees nothing (empty array)', () => {
+    expect(
+      ownerFilterForSession({ isAdmin: false, role: 'view_only', cisAdvisorySide: 'buyer_side' }),
+    ).toEqual([]);
+    expect(
+      ownerFilterForSession({ isAdmin: false, role: 'view_only', cisAdvisorySide: 'seller_side' }),
+    ).toEqual([]);
+  });
+
+  // ── Deprecated roles — backward-compat safe defaults ──────────────────────
+
+  it('seller_rep (deprecated) still sees [seller, both]', () => {
+    expect(
+      ownerFilterForSession({ isAdmin: false, role: 'seller_rep', cisAdvisorySide: 'buyer_side' }),
+    ).toEqual(['seller', 'both']);
+  });
+
+  it('buyer_counsel (deprecated) still sees [buyer, both]', () => {
+    expect(
+      ownerFilterForSession({ isAdmin: false, role: 'buyer_counsel', cisAdvisorySide: 'seller_side' }),
+    ).toEqual(['buyer', 'both']);
   });
 
   it('returns empty (no visibility) for deprecated counsel role', () => {
     expect(
-      ownerFilterForSession({ isAdmin: false, role: 'counsel', shadowSide: null, cisAdvisorySide: 'buyer_side' }),
+      ownerFilterForSession({ isAdmin: false, role: 'counsel', cisAdvisorySide: 'buyer_side' }),
     ).toEqual([]);
   });
 });

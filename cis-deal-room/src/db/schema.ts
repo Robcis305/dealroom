@@ -35,12 +35,14 @@ export const participantRoleEnum = pgEnum('participant_role', [
   'admin',
   'cis_team',
   'client',
-  'counsel',          // deprecated — kept for existing rows; not offered in new-invite UI
-  'buyer_rep',
-  'seller_rep',
+  'client_counsel',
+  'counterparty',
   'view_only',
-  'seller_counsel',
-  'buyer_counsel',
+  'counsel',          // deprecated — kept for existing rows; not offered in new-invite UI
+  'buyer_rep',        // deprecated — kept for existing rows; not offered in new-invite UI
+  'seller_rep',       // deprecated — kept for existing rows; not offered in new-invite UI
+  'seller_counsel',   // deprecated — kept for existing rows; not offered in new-invite UI
+  'buyer_counsel',    // deprecated — kept for existing rows; not offered in new-invite UI
 ]);
 
 export const activityActionEnum = pgEnum('activity_action', [
@@ -137,11 +139,6 @@ export const checklistStatusEnum = pgEnum('checklist_status', [
   'n_a',
 ]);
 
-export const viewOnlyShadowSideEnum = pgEnum('view_only_shadow_side', [
-  'buyer',
-  'seller',
-]);
-
 export const capTableStatusEnum = pgEnum('cap_table_status', [
   'draft',
   'published',
@@ -220,7 +217,6 @@ export const workspaceParticipants = pgTable('workspace_participants', {
   status: text('status').notNull().default('invited'),
   invitedAt: timestamp('invited_at').notNull().defaultNow(),
   activatedAt: timestamp('activated_at'),
-  viewOnlyShadowSide: viewOnlyShadowSideEnum('view_only_shadow_side'),
 });
 
 export const folders = pgTable('folders', {

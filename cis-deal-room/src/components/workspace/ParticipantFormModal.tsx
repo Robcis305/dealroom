@@ -25,7 +25,6 @@ interface ExistingParticipant {
   email: string;
   role: ParticipantRole;
   folderIds: string[];
-  viewOnlyShadowSide?: 'buyer' | 'seller' | null;
 }
 
 type ParticipantFormMode = 'invite' | 'edit';
@@ -60,9 +59,6 @@ export function ParticipantFormModal({
   const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(
     new Set(existing?.folderIds ?? [])
   );
-  const [viewOnlyShadowSide, setViewOnlyShadowSide] = useState<'buyer' | 'seller' | ''>(
-    existing?.viewOnlyShadowSide ?? ''
-  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,11 +83,6 @@ export function ParticipantFormModal({
       return;
     }
 
-    if (role === 'view_only' && !viewOnlyShadowSide) {
-      setError('"View as" side is required for View Only participants');
-      return;
-    }
-
     setSubmitting(true);
 
     const url =
@@ -105,13 +96,11 @@ export function ParticipantFormModal({
             email: email.trim(),
             role,
             folderIds: Array.from(selectedFolderIds),
-            viewOnlyShadowSide: role === 'view_only' ? viewOnlyShadowSide : null,
             ...(acknowledgement ? { acknowledgement } : {}),
           }
         : {
             role,
             folderIds: Array.from(selectedFolderIds),
-            viewOnlyShadowSide: role === 'view_only' ? viewOnlyShadowSide : null,
           };
 
     try {
@@ -151,7 +140,6 @@ export function ParticipantFormModal({
     setEmail(existing?.email ?? '');
     setRole(defaultRole);
     setSelectedFolderIds(new Set(existing?.folderIds ?? []));
-    setViewOnlyShadowSide(existing?.viewOnlyShadowSide ?? '');
     setError(null);
     setOutstanding(null);
     setAcknowledgement('');
@@ -189,7 +177,6 @@ export function ParticipantFormModal({
             onChange={(e) => {
               const next = e.target.value as ParticipantRole;
               setRole(next);
-              if (next !== 'view_only') setViewOnlyShadowSide('');
             }}
             disabled={submitting}
             className="w-full bg-surface-sunken border border-border rounded-lg px-3 py-2 text-sm
@@ -202,28 +189,6 @@ export function ParticipantFormModal({
             ))}
           </select>
 
-          {role === 'view_only' && (
-            <div className="mt-3">
-              <label
-                htmlFor="participant-shadow-side"
-                className="block text-sm font-medium text-text-secondary mb-1.5"
-              >
-                View as (required)
-              </label>
-              <select
-                id="participant-shadow-side"
-                value={viewOnlyShadowSide}
-                onChange={(e) => setViewOnlyShadowSide(e.target.value as 'buyer' | 'seller' | '')}
-                disabled={submitting}
-                className="w-full bg-surface-sunken border border-border rounded-lg px-3 py-2 text-sm
-                  text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-              >
-                <option value="">Select…</option>
-                <option value="buyer">Buyer side</option>
-                <option value="seller">Seller side</option>
-              </select>
-            </div>
-          )}
         </div>
 
         <div>

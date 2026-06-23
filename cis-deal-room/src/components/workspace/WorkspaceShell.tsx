@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { ChevronDown, ArrowLeft, Upload, PanelRightOpen } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { Badge } from '@/components/ui/Badge';
-import { Banner } from '@/components/ui/Banner';
 import { Logo } from '@/components/ui/Logo';
 import { UserMenu } from '@/components/ui/UserMenu';
 import { FolderSidebar, type CenterView } from './FolderSidebar';
@@ -46,7 +45,6 @@ interface WorkspaceShellProps {
   /** folderId → number of files (server-rendered at page load; kept live client-side) */
   fileCounts: Record<string, number>;
   isAdmin: boolean;
-  activeClientCount: number;
   userEmail: string;
   userId: string;
   /** Current user's participant role in this workspace. Defaults to 'admin' for admins. */
@@ -66,7 +64,7 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, activeClientCount, userEmail, userId, participantRole, canManageWorkstreams }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, userEmail, userId, participantRole, canManageWorkstreams }: WorkspaceShellProps) {
   const [view, setView] = useState<CenterView>({ kind: 'overview' });
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -319,18 +317,6 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
         {/* User avatar menu — far right */}
         <UserMenu userEmail={userEmail} />
       </header>
-
-      {activeClientCount === 0 && (
-        <Banner
-          variant="warning"
-          action={{
-            label: 'Invite Client',
-            onClick: () => setShowInviteParticipant(true),
-          }}
-        >
-          No active Client (the company you represent) yet — other roles like Counsel or CIS don&apos;t count. Invite one to progress the deal.
-        </Banner>
-      )}
 
       {/* Three-panel body */}
       <div className="flex flex-1 min-h-0 overflow-hidden">

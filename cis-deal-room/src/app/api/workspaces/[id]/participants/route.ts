@@ -17,15 +17,11 @@ const inviteSchema = z.object({
     'admin',
     'cis_team',
     'client',
-    'counsel',
-    'buyer_rep',
-    'seller_rep',
+    'client_counsel',
+    'counterparty',
     'view_only',
-    'seller_counsel',
-    'buyer_counsel',
   ]),
   folderIds: z.array(z.string().uuid()).default([]),
-  viewOnlyShadowSide: z.enum(['buyer', 'seller']).nullable().optional(),
   acknowledgement: z.string().optional(),
 });
 
@@ -33,9 +29,8 @@ const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   cis_team: 'CIS Team',
   client: 'Client',
-  counsel: 'Counsel',
-  buyer_rep: 'Buyer Rep',
-  seller_rep: 'Seller Rep',
+  client_counsel: 'Client Counsel',
+  counterparty: 'Counterparty',
   view_only: 'View Only',
 };
 
@@ -86,19 +81,8 @@ export async function POST(
   const email = parsed.email.toLowerCase();
 
   // Gate: external-side invites with outstanding deal-killers require acknowledgement.
-  // The trigger set flips based on cisAdvisorySide:
-  //   seller_side advisory → buyer roles are external (buyer_rep, buyer_counsel, view_only@buyer)
-  //   buyer_side advisory  → seller roles are external (seller_rep, seller_counsel, view_only@seller)
-  const externalRoles =
-    workspace.cisAdvisorySide === 'seller_side'
-      ? new Set(['buyer_rep', 'buyer_counsel'])
-      : new Set(['seller_rep', 'seller_counsel']);
-  const externalShadow =
-    workspace.cisAdvisorySide === 'seller_side' ? 'buyer' : 'seller';
-
-  const isExternalInvite =
-    externalRoles.has(parsed.role) ||
-    (parsed.role === 'view_only' && parsed.viewOnlyShadowSide === externalShadow);
+  // Counterparty is always external; view_only observers no longer carry a shadow side.
+  const isExternalInvite = parsed.role === 'counterparty';
 
   if (isExternalInvite && shouldShowCanonicalPlaybook(workspace)) {
     const checklist = await getChecklistForWorkspace(workspaceId);
@@ -132,7 +116,6 @@ export async function POST(
     email,
     role: parsed.role,
     folderIds: parsed.folderIds,
-    viewOnlyShadowSide: parsed.viewOnlyShadowSide ?? null,
   });
 
   const appUrl = getAppUrl();
@@ -144,10 +127,8 @@ export async function POST(
     console.log('[auth:invite-link]', email, '→', inviteLink);
   }
 
-  // Resolve role label with contextual Rep naming
-  let roleLabel = ROLE_LABELS[parsed.role];
-  if (parsed.role === 'seller_rep') roleLabel = 'Seller Rep';
-  if (parsed.role === 'buyer_rep') roleLabel = 'Buyer Rep';
+  // Resolve role label from the active role set
+  const roleLabel = ROLE_LABELS[parsed.role] ?? parsed.role;
 
   await sendEmail({
     to: email,

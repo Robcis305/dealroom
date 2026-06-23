@@ -11,40 +11,63 @@ import {
 import { verifySession } from './index';
 import { logActivity } from './activity';
 import { shouldShowCanonicalPlaybook } from './playbook';
-import type { CisAdvisorySide, ChecklistOwner, ChecklistPriority, ChecklistStatus, ParticipantRole, ViewOnlyShadowSide } from '@/types';
+import type { CisAdvisorySide, ChecklistOwner, ChecklistPriority, ChecklistStatus, ParticipantRole } from '@/types';
 
 interface SessionScope {
   isAdmin: boolean;
   role: ParticipantRole;
-  shadowSide: ViewOnlyShadowSide | null;
   cisAdvisorySide: CisAdvisorySide;
+}
+
+// Helper: derive owner side for the CIS client on this workspace
+function clientOwnerSide(side: CisAdvisorySide): ChecklistOwner {
+  return side === 'seller_side' ? 'seller' : 'buyer';
+}
+
+// Helper: derive owner side for the counterparty (opposite of CIS client)
+function counterpartyOwnerSide(side: CisAdvisorySide): ChecklistOwner {
+  return side === 'seller_side' ? 'buyer' : 'seller';
 }
 
 /**
  * Returns the set of `owner` values this viewer is allowed to see, or `null`
  * for unrestricted (admin/cis_team — sees all rows, including unassigned).
- * Returns `[]` for roles with no visibility (deprecated counsel role).
+ * Returns `[]` for roles with no visibility (view_only observer, deprecated roles).
+ *
+ * New role mapping (derived from workspace.cisAdvisorySide):
+ *   admin / cis_team          → null (see all)
+ *   client / client_counsel   → client's side + 'both'
+ *   counterparty              → other side + 'both'
+ *   view_only                 → [] (read-only observer, sees nothing)
+ *   deprecated roles          → safe default matching their migrated target
  */
 export function ownerFilterForSession(scope: SessionScope): ChecklistOwner[] | null {
   if (scope.isAdmin || scope.role === 'cis_team' || scope.role === 'admin') {
     return null;
   }
 
-  if (scope.role === 'client') {
-    return scope.cisAdvisorySide === 'buyer_side' ? ['buyer', 'both'] : ['seller', 'both'];
+  // Primary new roles
+  if (scope.role === 'client' || scope.role === 'client_counsel') {
+    return [clientOwnerSide(scope.cisAdvisorySide), 'both'];
   }
 
-  if (scope.role === 'seller_rep' || scope.role === 'seller_counsel') {
-    return ['seller', 'both'];
-  }
-  if (scope.role === 'buyer_rep' || scope.role === 'buyer_counsel') {
-    return ['buyer', 'both'];
+  if (scope.role === 'counterparty') {
+    return [counterpartyOwnerSide(scope.cisAdvisorySide), 'both'];
   }
 
   if (scope.role === 'view_only') {
-    if (scope.shadowSide === 'seller') return ['seller', 'both'];
-    if (scope.shadowSide === 'buyer') return ['buyer', 'both'];
+    // Read-only observer: no checklist visibility regardless of shadow side
     return [];
+  }
+
+  // Deprecated roles — map to nearest new-role equivalent for safe backward compat
+  if (scope.role === 'seller_rep' || scope.role === 'seller_counsel') {
+    // These were CIS-client-side on sell-side deals; treat as client on seller_side
+    return ['seller', 'both'];
+  }
+  if (scope.role === 'buyer_rep' || scope.role === 'buyer_counsel') {
+    // These were CIS-client-side on buy-side deals; treat as client on buyer_side
+    return ['buyer', 'both'];
   }
 
   // 'counsel' (deprecated) and any unknown role: no visibility until reassigned.
@@ -120,14 +143,12 @@ export async function listItemsForViewer(workspaceId: string) {
     .limit(1);
   if (!workspace) throw new Error('Workspace not found');
 
-  // Derive the viewer's role/shadow side (admin bypasses, no participant row needed)
+  // Derive the viewer's role (admin bypasses, no participant row needed)
   let role: ParticipantRole = 'admin';
-  let shadowSide: ViewOnlyShadowSide | null = null;
   if (!session.isAdmin) {
     const [participant] = await db
       .select({
         role: workspaceParticipants.role,
-        shadow: workspaceParticipants.viewOnlyShadowSide,
       })
       .from(workspaceParticipants)
       .where(
@@ -140,13 +161,11 @@ export async function listItemsForViewer(workspaceId: string) {
       .limit(1);
     if (!participant) throw new Error('Unauthorized');
     role = participant.role;
-    shadowSide = participant.shadow;
   }
 
   const filter = ownerFilterForSession({
     isAdmin: session.isAdmin,
     role,
-    shadowSide,
     cisAdvisorySide: workspace.cisAdvisorySide,
   });
 
