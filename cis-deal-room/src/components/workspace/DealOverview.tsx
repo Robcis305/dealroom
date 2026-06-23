@@ -82,7 +82,7 @@ export function DealOverview({
   });
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-5 w-full max-w-[1600px]">
       {/* Deal name heading */}
       <h1 className="text-2xl md:text-3xl font-semibold text-text-primary mb-3">{workspace.name}</h1>
 

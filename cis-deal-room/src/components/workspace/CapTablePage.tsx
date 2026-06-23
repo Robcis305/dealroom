@@ -109,7 +109,7 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
   // ── Buyer viewing draft (hidden) ─────────────────────────────────────────
   if (hidden) {
     return (
-      <div className="p-8 max-w-7xl mx-auto">
+      <div className="p-5 w-full max-w-[1600px]">
         <Link
           href={`/workspace/${workspaceId}`}
           className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-4"
@@ -132,7 +132,7 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
   if (!capTable) {
     if (!isAdmin) {
       return (
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-5 w-full max-w-[1600px]">
           <Link
             href={`/workspace/${workspaceId}`}
             className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-4"
@@ -149,7 +149,7 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
       );
     }
     return (
-      <div className="p-8 max-w-2xl mx-auto">
+      <div className="p-5 w-full max-w-[1600px]">
         <Link
           href={`/workspace/${workspaceId}`}
           className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-4"
@@ -199,7 +199,7 @@ export function CapTablePage({ workspaceId, isAdmin }: Props) {
   });
 
   return (
-    <div className="p-6 sm:p-8 max-w-7xl mx-auto">
+    <div className="p-5 sm:p-6 w-full max-w-[1600px]">
       <Link
         href={`/workspace/${workspaceId}`}
         className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors mb-4"

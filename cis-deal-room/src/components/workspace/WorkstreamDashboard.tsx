@@ -58,7 +58,7 @@ export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, onCl
         </button>
       </div>
 
-      <div className="p-6 max-w-[1100px]">
+      <div className="p-5 w-full max-w-[1600px]">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-start gap-3">

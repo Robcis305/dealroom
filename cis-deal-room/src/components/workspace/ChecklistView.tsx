@@ -54,7 +54,7 @@ export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem
   if (!checklist) {
     if (isAdmin) {
       return (
-        <div className="p-8 max-w-xl">
+        <div className="p-5 w-full max-w-[1600px]">
           <div className="flex flex-col items-center gap-3 py-12 text-center">
             <ClipboardList size={32} className="text-text-muted" />
             <h2 className="text-lg font-semibold text-text-primary">Import diligence checklist</h2>
@@ -106,7 +106,7 @@ export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem
 
   return (
     <div>
-      <div className="px-8 pt-6 pb-2">
+      <div className="px-5 pt-6 pb-2">
         <h2 className="text-lg font-semibold text-text-primary">{checklist.name}</h2>
       </div>
       <ChecklistTable
