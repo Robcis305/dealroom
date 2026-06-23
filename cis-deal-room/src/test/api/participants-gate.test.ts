@@ -57,7 +57,7 @@ function makeReq(body: unknown): Request {
   });
 }
 
-describe('POST /participants — buyer-invite gate', () => {
+describe('POST /participants — counterparty invite gate (seller_side advisory)', () => {
   beforeEach(() => {
     inviteMock.mockReset();
     inviteMock.mockResolvedValue({
@@ -68,13 +68,13 @@ describe('POST /participants — buyer-invite gate', () => {
     getOutstandingMock.mockReset();
   });
 
-  it('blocks buyer_rep invite with outstanding deal-killers and no ack', async () => {
+  it('blocks counterparty invite with outstanding deal-killers and no ack', async () => {
     getOutstandingMock.mockResolvedValueOnce([
       { group: 'cap_table', status: 'blocked', color: 'red', members: [] },
     ]);
 
     const res = await POST(
-      makeReq({ email: 'b@x.com', role: 'buyer_rep', folderIds: [] }),
+      makeReq({ email: 'b@x.com', role: 'counterparty', folderIds: [] }),
       { params: Promise.resolve({ id: 'ws' }) },
     );
 
@@ -85,7 +85,7 @@ describe('POST /participants — buyer-invite gate', () => {
     expect(inviteMock).not.toHaveBeenCalled();
   });
 
-  it('allows buyer_rep invite with outstanding deal-killers when ack matches', async () => {
+  it('allows counterparty invite with outstanding deal-killers when ack matches', async () => {
     getOutstandingMock.mockResolvedValueOnce([
       { group: 'cap_table', status: 'blocked', color: 'red', members: [] },
     ]);
@@ -93,7 +93,7 @@ describe('POST /participants — buyer-invite gate', () => {
     const res = await POST(
       makeReq({
         email: 'b@x.com',
-        role: 'buyer_rep',
+        role: 'counterparty',
         folderIds: [],
         acknowledgement: 'share anyway',
       }),
@@ -105,13 +105,41 @@ describe('POST /participants — buyer-invite gate', () => {
     expect(logActivityMock).toHaveBeenCalled();
   });
 
-  it('does not gate seller_rep invites', async () => {
-    getOutstandingMock.mockResolvedValueOnce([
-      { group: 'cap_table', status: 'blocked', color: 'red', members: [] },
-    ]);
-
+  it('rejects deprecated role seller_rep with 400', async () => {
     const res = await POST(
       makeReq({ email: 's@x.com', role: 'seller_rep', folderIds: [] }),
+      { params: Promise.resolve({ id: 'ws' }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(inviteMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects deprecated role buyer_rep with 400', async () => {
+    const res = await POST(
+      makeReq({ email: 'b@x.com', role: 'buyer_rep', folderIds: [] }),
+      { params: Promise.resolve({ id: 'ws' }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(inviteMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects deprecated role counsel with 400', async () => {
+    const res = await POST(
+      makeReq({ email: 'c@x.com', role: 'counsel', folderIds: [] }),
+      { params: Promise.resolve({ id: 'ws' }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(inviteMock).not.toHaveBeenCalled();
+  });
+
+  it('passes through counterparty invite when no deal-killers outstanding', async () => {
+    getOutstandingMock.mockResolvedValueOnce([]);
+
+    const res = await POST(
+      makeReq({ email: 'b@x.com', role: 'counterparty', folderIds: [] }),
       { params: Promise.resolve({ id: 'ws' }) },
     );
 
@@ -119,11 +147,27 @@ describe('POST /participants — buyer-invite gate', () => {
     expect(inviteMock).toHaveBeenCalled();
   });
 
-  it('passes through buyer_rep invite when no deal-killers outstanding', async () => {
-    getOutstandingMock.mockResolvedValueOnce([]);
+  it('gates view_only@buyer invite on seller_side advisory when deal-killers outstanding', async () => {
+    getOutstandingMock.mockResolvedValueOnce([
+      { group: 'cap_table', status: 'blocked', color: 'red', members: [] },
+    ]);
 
     const res = await POST(
-      makeReq({ email: 'b@x.com', role: 'buyer_rep', folderIds: [] }),
+      makeReq({ email: 'o@x.com', role: 'view_only', viewOnlyShadowSide: 'buyer', folderIds: [] }),
+      { params: Promise.resolve({ id: 'ws' }) },
+    );
+
+    expect(res.status).toBe(409);
+    expect(inviteMock).not.toHaveBeenCalled();
+  });
+
+  it('does not gate view_only@seller invite on seller_side advisory', async () => {
+    getOutstandingMock.mockResolvedValueOnce([
+      { group: 'cap_table', status: 'blocked', color: 'red', members: [] },
+    ]);
+
+    const res = await POST(
+      makeReq({ email: 'o@x.com', role: 'view_only', viewOnlyShadowSide: 'seller', folderIds: [] }),
       { params: Promise.resolve({ id: 'ws' }) },
     );
 
@@ -143,26 +187,7 @@ describe('POST /participants — buy-side advisory gate', () => {
     getOutstandingMock.mockReset();
   });
 
-  it('does NOT gate seller_rep invite on buy-side advisory (no canonical playbook)', async () => {
-    vi.mocked(getWorkspace).mockResolvedValueOnce({
-      id: 'ws', name: 'Deal', cisAdvisorySide: 'buyer_side',
-    } as any);
-    // outstanding would fire on sell-side — should be ignored on buy-side
-    getOutstandingMock.mockResolvedValueOnce([
-      { group: 'cap_table', status: 'blocked', color: 'red', members: [] },
-    ]);
-
-    const res = await POST(
-      makeReq({ email: 's@x.com', role: 'seller_rep', folderIds: [] }),
-      { params: Promise.resolve({ id: 'ws' }) },
-    );
-
-    expect(res.status).toBe(201);
-    expect(inviteMock).toHaveBeenCalled();
-    expect(getOutstandingMock).not.toHaveBeenCalled();
-  });
-
-  it('does NOT gate seller_counsel invite on buy-side advisory (no canonical playbook)', async () => {
+  it('does NOT gate counterparty invite on buy-side advisory (no canonical playbook)', async () => {
     vi.mocked(getWorkspace).mockResolvedValueOnce({
       id: 'ws', name: 'Deal', cisAdvisorySide: 'buyer_side',
     } as any);
@@ -171,25 +196,7 @@ describe('POST /participants — buy-side advisory gate', () => {
     ]);
 
     const res = await POST(
-      makeReq({ email: 's@x.com', role: 'seller_counsel', folderIds: [] }),
-      { params: Promise.resolve({ id: 'ws' }) },
-    );
-
-    expect(res.status).toBe(201);
-    expect(inviteMock).toHaveBeenCalled();
-    expect(getOutstandingMock).not.toHaveBeenCalled();
-  });
-
-  it('allows buyer_rep invite on buy-side advisory (buyer is internal client)', async () => {
-    vi.mocked(getWorkspace).mockResolvedValueOnce({
-      id: 'ws', name: 'Deal', cisAdvisorySide: 'buyer_side',
-    } as any);
-    getOutstandingMock.mockResolvedValueOnce([
-      { group: 'cap_table', status: 'blocked', color: 'red', members: [] },
-    ]);
-
-    const res = await POST(
-      makeReq({ email: 'b@x.com', role: 'buyer_rep', folderIds: [] }),
+      makeReq({ email: 'c@x.com', role: 'counterparty', folderIds: [] }),
       { params: Promise.resolve({ id: 'ws' }) },
     );
 

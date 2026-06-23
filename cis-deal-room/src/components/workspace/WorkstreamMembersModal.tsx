@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
-interface Participant { id: string; firstName: string | null; lastName: string | null; email: string; role: string; }
+interface Participant { id: string; firstName: string | null; lastName: string | null; email: string; role: string; status: string; }
 
 interface Props {
   workspaceId: string;
@@ -69,18 +69,31 @@ export function WorkstreamMembersModal({ workspaceId, workstreamId, workstreamNa
           <button onClick={onClose} aria-label="Close" className="text-text-muted hover:text-text-primary cursor-pointer"><X size={18} /></button>
         </div>
         <div className="overflow-y-auto p-2">
-          {participants.map((p) => {
-            const checked = memberIds.has(p.id);
-            const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || p.email;
+          {(() => {
+            const eligible = participants.filter((p) => p.status === 'active' && p.role !== 'view_only');
+            const excluded = participants.length - eligible.length;
             return (
-              <label key={p.id} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-elevated cursor-pointer">
-                <input type="checkbox" checked={checked} onChange={() => toggle(p.id)} className="accent-accent" />
-                <span className="text-sm text-text-primary">{name}</span>
-                <span className="text-xs text-text-muted ml-auto">{p.role}</span>
-              </label>
+              <>
+                {eligible.map((p) => {
+                  const checked = memberIds.has(p.id);
+                  const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || p.email;
+                  return (
+                    <label key={p.id} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface-elevated cursor-pointer">
+                      <input type="checkbox" checked={checked} onChange={() => toggle(p.id)} className="accent-accent" />
+                      <span className="text-sm text-text-primary">{name}</span>
+                      <span className="text-xs text-text-muted ml-auto">{p.role}</span>
+                    </label>
+                  );
+                })}
+                {eligible.length === 0 && <p className="p-4 text-sm text-text-muted">No participants to add.</p>}
+                {excluded > 0 && (
+                  <p className="px-3 py-2 text-xs text-text-muted">
+                    {excluded} participant{excluded === 1 ? '' : 's'} not shown (pending invite or view-only).
+                  </p>
+                )}
+              </>
             );
-          })}
-          {participants.length === 0 && <p className="p-4 text-sm text-text-muted">No participants to add.</p>}
+          })()}
         </div>
       </div>
     </div>

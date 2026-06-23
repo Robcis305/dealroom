@@ -91,6 +91,16 @@ describe('POST /api/workspaces/[id]/participants', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 400 for deprecated role seller_rep', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    const res = await POST(
+      makePost({ email: 'x@y.com', role: 'seller_rep', folderIds: [] }),
+      { params: Promise.resolve({ id: WORKSPACE_ID }) }
+    );
+    expect(res.status).toBe(400);
+    expect(vi.mocked(inviteParticipant)).not.toHaveBeenCalled();
+  });
+
   it('creates participant, sends invitation email, returns 201', async () => {
     vi.mocked(verifySession).mockResolvedValue(adminSession);
     vi.mocked(getWorkspace).mockResolvedValue({ id: WORKSPACE_ID, name: 'Test Deal' } as any);
@@ -160,6 +170,26 @@ describe('PATCH /api/workspaces/[id]/participants/[pid]', () => {
       { params: Promise.resolve({ id: WORKSPACE_ID, pid: PARTICIPANT_ID }) }
     );
     expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for deprecated role seller_rep', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    const res = await PATCH(
+      makePatch({ role: 'seller_rep', folderIds: [] }),
+      { params: Promise.resolve({ id: WORKSPACE_ID, pid: PARTICIPANT_ID }) }
+    );
+    expect(res.status).toBe(400);
+    expect(vi.mocked(updateParticipant)).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for deprecated role buyer_rep', async () => {
+    vi.mocked(verifySession).mockResolvedValue(adminSession);
+    const res = await PATCH(
+      makePatch({ role: 'buyer_rep', folderIds: [] }),
+      { params: Promise.resolve({ id: WORKSPACE_ID, pid: PARTICIPANT_ID }) }
+    );
+    expect(res.status).toBe(400);
+    expect(vi.mocked(updateParticipant)).not.toHaveBeenCalled();
   });
 
   it('returns 200 on success', async () => {
