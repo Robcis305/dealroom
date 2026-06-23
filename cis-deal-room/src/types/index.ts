@@ -27,12 +27,14 @@ export type ParticipantRole =
   | 'admin'
   | 'cis_team'
   | 'client'
-  | 'counsel'          // deprecated — not offered in new-invite UI
-  | 'buyer_rep'
-  | 'seller_rep'
+  | 'client_counsel'
+  | 'counterparty'
   | 'view_only'
-  | 'seller_counsel'
-  | 'buyer_counsel';
+  | 'counsel'          // deprecated — not offered in new-invite UI
+  | 'buyer_rep'        // deprecated — not offered in new-invite UI
+  | 'seller_rep'       // deprecated — not offered in new-invite UI
+  | 'seller_counsel'   // deprecated — not offered in new-invite UI
+  | 'buyer_counsel';   // deprecated — not offered in new-invite UI
 
 // ─── Participant Status ───────────────────────────────────────────────────────
 

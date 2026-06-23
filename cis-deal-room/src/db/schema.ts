@@ -35,12 +35,14 @@ export const participantRoleEnum = pgEnum('participant_role', [
   'admin',
   'cis_team',
   'client',
-  'counsel',          // deprecated — kept for existing rows; not offered in new-invite UI
-  'buyer_rep',
-  'seller_rep',
+  'client_counsel',
+  'counterparty',
   'view_only',
-  'seller_counsel',
-  'buyer_counsel',
+  'counsel',          // deprecated — kept for existing rows; not offered in new-invite UI
+  'buyer_rep',        // deprecated — kept for existing rows; not offered in new-invite UI
+  'seller_rep',       // deprecated — kept for existing rows; not offered in new-invite UI
+  'seller_counsel',   // deprecated — kept for existing rows; not offered in new-invite UI
+  'buyer_counsel',    // deprecated — kept for existing rows; not offered in new-invite UI
 ]);
 
 export const activityActionEnum = pgEnum('activity_action', [
