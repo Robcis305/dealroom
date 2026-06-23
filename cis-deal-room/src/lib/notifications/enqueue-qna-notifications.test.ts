@@ -113,30 +113,6 @@ describe('enqueueQnaAnswerSubmittedNotification()', () => {
       { id: 'cis-2', email: 'cis2@x.com', firstName: 'C', lastName: 'Two' },
     ];
 
-    vi.doMock('@/db', () => ({
-      db: {
-        select: vi.fn(() => ({
-          from: () => ({
-            innerJoin: () => ({
-              // query 1: loadQuestionContext — innerJoin → where → limit
-              where: () => ({
-                limit: async () => question,
-                // query 2: reviewers — innerJoin → where (no limit)
-                then: undefined,
-                // make it directly awaitable for the reviewers query
-              }),
-            }),
-            where: () => ({
-              limit: async () => question,
-            }),
-          }),
-        })),
-      },
-    }));
-    vi.doMock('@/db/schema', () => ({
-      qnaQuestions: {}, workspaces: {}, users: {}, workspaceParticipants: {},
-    }));
-
     // The reviewers query uses innerJoin().where() without .limit() — need a
     // thenable so await resolves to the reviewers array.
     // Re-mock with call counter to distinguish the two innerJoin chains.

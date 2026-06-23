@@ -27,7 +27,7 @@ function actionLabel(action: string): string {
     created_folder: 'created folder',
     created_workspace: 'created workspace',
     status_changed: 'changed status',
-    qna_assigned: 'assigned you a question on',
+    qna_assigned: 'assigned a new question on',
     qna_answered: 'submitted an answer for review on',
     qna_approved: 'released an answer on',
   };

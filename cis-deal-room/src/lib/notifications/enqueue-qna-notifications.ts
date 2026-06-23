@@ -10,7 +10,7 @@ const CIS_ROLES = ['cis_team', 'admin'] as const;
 /** Loads question title + workspace name for the email body. Returns null if not found. */
 async function loadQuestionContext(workspaceId: string, questionId: string) {
   const [row] = await db
-    .select({ title: qnaQuestions.title, askedById: qnaQuestions.askedById, assigneeId: qnaQuestions.assigneeId, workspaceName: workspaces.name })
+    .select({ title: qnaQuestions.title, askedById: qnaQuestions.askedById, workspaceName: workspaces.name })
     .from(qnaQuestions)
     .innerJoin(workspaces, eq(workspaces.id, qnaQuestions.workspaceId))
     .where(and(eq(qnaQuestions.id, questionId), eq(qnaQuestions.workspaceId, workspaceId)))
