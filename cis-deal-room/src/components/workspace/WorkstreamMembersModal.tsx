@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { X } from 'lucide-react';
+import { toast } from 'sonner';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 interface Participant { id: string; firstName: string | null; lastName: string | null; email: string; role: string; }
@@ -49,11 +50,14 @@ export function WorkstreamMembersModal({ workspaceId, workstreamId, workstreamNa
       });
       if (!res.ok) {
         setMemberIds(previous); // revert
+        const msg = await res.json().then((d) => d.error).catch(() => 'Could not update member');
+        toast.error(typeof msg === 'string' ? msg : 'Could not update member');
         return;
       }
       onChanged();
     } catch {
       setMemberIds(previous); // revert
+      toast.error('Could not update member');
     }
   }
 

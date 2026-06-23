@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { WorkstreamWithCounts } from '@/types';
 
@@ -39,11 +40,14 @@ export function FileWorkstreamTags({ fileId, workstreams, isAdmin, onChanged }: 
       });
       if (!res.ok) {
         setTagIds(previous); // revert
+        const msg = await res.json().then((d) => d.error).catch(() => 'Could not update workstream tags');
+        toast.error(typeof msg === 'string' ? msg : 'Could not update workstream tags');
         return;
       }
       onChanged?.();
     } catch {
       setTagIds(previous); // revert
+      toast.error('Could not update workstream tags');
     }
   }
 
