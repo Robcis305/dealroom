@@ -58,16 +58,21 @@ export async function GET(
     : cisAdvisorySide === 'seller_side';
 
   // Gate 2: does this viewer's role entitle them to see the playbook overlay?
-  // Hide playbook from view_only and the deprecated counsel role even on sell-side.
-  const isClientOnSellerSide = role === 'client' && cisAdvisorySide === 'seller_side';
+  // New roles: admin/cis_team see all; client/client_counsel see client side;
+  // counterparty sees other side. view_only and deprecated counsel see nothing.
   const showPlaybook =
     canonicalPlaybookForWorkspace &&
     (session.isAdmin ||
       role === 'admin' ||
       role === 'cis_team' ||
+      role === 'client' ||
+      role === 'client_counsel' ||
+      role === 'counterparty' ||
+      // Deprecated roles — keep working until migrated
       role === 'seller_rep' ||
       role === 'seller_counsel' ||
-      isClientOnSellerSide);
+      role === 'buyer_rep' ||
+      role === 'buyer_counsel');
 
   let checklist = await getChecklistForWorkspace(workspaceId);
 
