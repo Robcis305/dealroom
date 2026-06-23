@@ -5,7 +5,6 @@ import { workspaceParticipants } from '@/db/schema';
 import { getWorkspace } from '@/lib/dal/workspaces';
 import { getFoldersForWorkspace } from '@/lib/dal/folders';
 import { getFileCountsByFolder } from '@/lib/dal/files';
-import { countActiveClientParticipants } from '@/lib/dal/participants';
 import { verifySession } from '@/lib/dal';
 import { WorkspaceShell } from '@/components/workspace/WorkspaceShell';
 import type { ParticipantRole } from '@/types';
@@ -30,10 +29,9 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
     redirect('/login');
   }
 
-  const [workspace, folders, activeClientCount] = await Promise.all([
+  const [workspace, folders] = await Promise.all([
     getWorkspace(workspaceId),
     getFoldersForWorkspace(workspaceId),
-    countActiveClientParticipants(workspaceId),
   ]);
 
   if (!workspace) {
@@ -75,7 +73,6 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       folders={folders}
       fileCounts={fileCounts}
       isAdmin={session.isAdmin}
-      activeClientCount={activeClientCount}
       userEmail={session.userEmail}
       userId={session.userId}
       participantRole={participantRole}
