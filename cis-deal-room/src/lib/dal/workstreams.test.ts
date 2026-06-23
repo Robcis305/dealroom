@@ -73,6 +73,22 @@ describe('setFileWorkstreams()', () => {
 describe('addWorkstreamMember()', () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
 
+  function makeAddMemberDb(participantRow: { status: string; role: string } | null) {
+    // db.select() outside transaction: participant eligibility lookup
+    const limit = vi.fn().mockResolvedValue(participantRow ? [participantRow] : []);
+    const selectWhere = vi.fn().mockReturnValue({ limit });
+    const selectFrom = vi.fn().mockReturnValue({ where: selectWhere });
+    const outerSelect = vi.fn().mockReturnValue({ from: selectFrom });
+
+    const onConflictDoNothing = vi.fn().mockResolvedValue(undefined);
+    const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing });
+    const tx = { insert: vi.fn().mockReturnValue({ values: insertValues }) };
+    const transaction = vi.fn(async (cb: (t: typeof tx) => Promise<unknown>) => cb(tx));
+
+    const db = { select: outerSelect, transaction };
+    return { db, tx };
+  }
+
   it('admin: inserts membership and logs activity in a transaction', async () => {
     const logActivity = vi.fn().mockResolvedValue(undefined);
     vi.doMock('./activity', () => ({ logActivity }));
@@ -81,12 +97,9 @@ describe('addWorkstreamMember()', () => {
     }));
     vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
-    const onConflictDoNothing = vi.fn().mockResolvedValue(undefined);
-    const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing });
-    const tx = { insert: vi.fn().mockReturnValue({ values: insertValues }) };
-    const transaction = vi.fn(async (cb) => cb(tx));
-    vi.doMock('@/db', () => ({ db: { transaction } }));
-    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {} }));
+    const { db, tx } = makeAddMemberDb({ status: 'active', role: 'participant' });
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: { id: 'id', status: 'status', role: 'role' }, activityLogs: {} }));
 
     const { addWorkstreamMember } = await import('./workstreams');
     await addWorkstreamMember('ws-1', 'w-legal', 'p-1');
@@ -104,6 +117,57 @@ describe('addWorkstreamMember()', () => {
     await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-1')).rejects.toThrow('Forbidden');
   });
 
+  it('target participant inactive → throws Forbidden', async () => {
+    vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
+    }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+
+    const { db, tx } = makeAddMemberDb({ status: 'invited', role: 'participant' });
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: { id: 'id', status: 'status', role: 'role' }, activityLogs: {} }));
+
+    const { addWorkstreamMember } = await import('./workstreams');
+    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-inactive')).rejects.toThrow(/Forbidden|Invalid participant/);
+    expect(tx.insert).not.toHaveBeenCalled();
+  });
+
+  it('target participant view_only → throws Forbidden', async () => {
+    vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
+    }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+
+    const { db, tx } = makeAddMemberDb({ status: 'active', role: 'view_only' });
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: { id: 'id', status: 'status', role: 'role' }, activityLogs: {} }));
+
+    const { addWorkstreamMember } = await import('./workstreams');
+    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-vo')).rejects.toThrow(/Forbidden|Invalid participant/);
+    expect(tx.insert).not.toHaveBeenCalled();
+  });
+
+  it('active non-view_only participant → proceeds', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
+    }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+
+    const { db, tx } = makeAddMemberDb({ status: 'active', role: 'participant' });
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: { id: 'id', status: 'status', role: 'role' }, activityLogs: {} }));
+
+    const { addWorkstreamMember } = await import('./workstreams');
+    await addWorkstreamMember('ws-1', 'w-legal', 'p-1');
+
+    expect(tx.insert).toHaveBeenCalled();
+    expect(logActivity).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'workstream_member_added' }));
+  });
+
   it('cis_team non-global-admin (helper→true): inserts membership and logs activity', async () => {
     const logActivity = vi.fn().mockResolvedValue(undefined);
     vi.doMock('./activity', () => ({ logActivity }));
@@ -112,12 +176,9 @@ describe('addWorkstreamMember()', () => {
     }));
     vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
-    const onConflictDoNothing = vi.fn().mockResolvedValue(undefined);
-    const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing });
-    const tx = { insert: vi.fn().mockReturnValue({ values: insertValues }) };
-    const transaction = vi.fn(async (cb) => cb(tx));
-    vi.doMock('@/db', () => ({ db: { transaction } }));
-    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {} }));
+    const { db, tx } = makeAddMemberDb({ status: 'active', role: 'participant' });
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: { id: 'id', status: 'status', role: 'role' }, activityLogs: {} }));
 
     const { addWorkstreamMember } = await import('./workstreams');
     await addWorkstreamMember('ws-1', 'w-legal', 'p-1');

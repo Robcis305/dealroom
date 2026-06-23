@@ -136,6 +136,15 @@ export async function addWorkstreamMember(workspaceId: string, workstreamId: str
   if (!session) throw new Error('Unauthorized');
   if (!(await isCisTeamOrAdmin(workspaceId, session))) throw new Error('Forbidden');
 
+  const [targetRow] = await db
+    .select({ status: workspaceParticipants.status, role: workspaceParticipants.role })
+    .from(workspaceParticipants)
+    .where(eq(workspaceParticipants.id, participantId))
+    .limit(1);
+  if (!targetRow || targetRow.status !== 'active' || targetRow.role === 'view_only') {
+    throw new Error('Forbidden');
+  }
+
   await db.transaction(async (tx) => {
     await tx.insert(workstreamMembers).values({ workstreamId, participantId, addedBy: session.userId }).onConflictDoNothing();
     await logActivity(tx, {
