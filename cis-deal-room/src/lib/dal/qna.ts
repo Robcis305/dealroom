@@ -42,7 +42,7 @@ export async function createQuestion(input: {
         eq(workspaceParticipants.userId, session.userId),
       ))
       .limit(1);
-    if (pRow?.role === 'view_only') throw new Error('Forbidden');
+    if (!pRow || pRow.role === 'view_only') throw new Error('Forbidden');
   }
 
   return db.transaction(async (tx) => {
@@ -320,7 +320,7 @@ export async function postMessage(
         eq(workspaceParticipants.userId, session.userId),
       ))
       .limit(1);
-    if (pRow?.role === 'view_only') throw new Error('Forbidden');
+    if (!pRow || pRow.role === 'view_only') throw new Error('Forbidden');
   }
 
   return db.transaction(async (tx) => {

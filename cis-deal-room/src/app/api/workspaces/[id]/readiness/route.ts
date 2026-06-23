@@ -12,11 +12,10 @@ import { getReadinessSummary, shouldShowCanonicalPlaybook, STAGE_META } from '@/
 import type { ParticipantRole, ViewOnlyShadowSide } from '@/types';
 
 // Roles that may view the canonical sell-side playbook readiness summary.
-// client/client_counsel/counterparty visibility is handled via
-// isClientSideOrCounterparty below (derived from cisAdvisorySide).
 const PLAYBOOK_VISIBLE_ROLES = new Set<ParticipantRole>([
   'admin',
   'cis_team',
+  'client',
   'client_counsel',
   'counterparty',
   // Deprecated — keep working until migrated
@@ -110,10 +109,7 @@ export async function GET(
   }
 
   // Sell-side: canonical v1.4 readiness summary
-  // 'client' on any side may see the playbook readiness (they see their own owner items).
-  const isClientRole = role === 'client';
-  const allowed =
-    session.isAdmin || PLAYBOOK_VISIBLE_ROLES.has(role) || isClientRole;
+  const allowed = session.isAdmin || PLAYBOOK_VISIBLE_ROLES.has(role);
   if (!allowed) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }

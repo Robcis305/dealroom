@@ -467,6 +467,28 @@ describe('createQuestion() — view_only gate', () => {
     expect(tx.insert).toHaveBeenCalled();
   });
 
+  it('no participant row (role lookup returns []) → throws Forbidden, no insert', async () => {
+    vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-ghost', isAdmin: false, sessionId: 's', userEmail: 'ghost@test.com' }),
+    }));
+    const { db } = makeDbWithRole(null); // returns []
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { createQuestion } = await import('./qna');
+    await expect(createQuestion({
+      workspaceId: 'ws-1',
+      title: 'Ghost asks',
+      workstreamIds: [],
+      assigneeId: null,
+      requestedBy: null,
+      visibility: 'public',
+      recipientParticipantIds: [],
+      linkedDocId: null,
+    })).rejects.toThrow(/forbidden/i);
+  });
+
   it('non-view_only role (e.g. participant) → proceeds', async () => {
     const logActivity = vi.fn().mockResolvedValue(undefined);
     vi.doMock('./activity', () => ({ logActivity }));
@@ -545,6 +567,21 @@ describe('postMessage()', () => {
 
     const { postMessage } = await import('./qna');
     await expect(postMessage('ws-1', 'q1', 'Hello')).rejects.toThrow('Forbidden');
+    expect(tx.insert).not.toHaveBeenCalled();
+  });
+
+  it('no participant row (role lookup returns []) → throws Forbidden, no insert', async () => {
+    vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-ghost', isAdmin: false, sessionId: 's', userEmail: 'ghost@test.com' }),
+    }));
+    // '__skip__' sentinel → roleLimit returns []
+    const { tx, db } = makePostMessageTx([{ id: 'q1' }], '__skip__');
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { postMessage } = await import('./qna');
+    await expect(postMessage('ws-1', 'q1', 'Hello')).rejects.toThrow(/forbidden/i);
     expect(tx.insert).not.toHaveBeenCalled();
   });
 
