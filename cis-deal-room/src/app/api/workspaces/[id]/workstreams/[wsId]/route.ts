@@ -23,7 +23,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; wsId: string }> }) {
   const session = await verifySession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
   const { id: workspaceId, wsId } = await params;
   try {
     await requireDealAccess(workspaceId, session);
@@ -43,6 +42,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const workstream = await updateWorkstream(workspaceId, wsId, patch);
     return Response.json({ workstream });
   } catch (e) {
+    if (e instanceof Error && (e.message === 'Forbidden' || e.message === 'Unauthorized'))
+      return Response.json({ error: 'Forbidden' }, { status: 403 });
     if (e instanceof Error && e.message === 'Workstream not found') return Response.json({ error: 'Not found' }, { status: 404 });
     throw e;
   }

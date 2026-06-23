@@ -11,7 +11,6 @@ export async function POST(
 ) {
   const session = await verifySession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
 
   const { id: workspaceId, qId } = await params;
 
@@ -38,12 +37,18 @@ export async function POST(
   const action = body.action as 'approve' | 'request_changes' | 'reroute';
   const newAssigneeId = typeof body.newAssigneeId === 'string' ? body.newAssigneeId : null;
 
-  await applyApprovalAction({
-    workspaceId,
-    questionId: qId,
-    action,
-    newAssigneeId,
-  });
+  try {
+    await applyApprovalAction({
+      workspaceId,
+      questionId: qId,
+      action,
+      newAssigneeId,
+    });
+  } catch (e) {
+    if (e instanceof Error && (e.message === 'Forbidden' || e.message === 'Unauthorized'))
+      return Response.json({ error: 'Forbidden' }, { status: 403 });
+    throw e;
+  }
 
   try {
     if (action === 'approve') {

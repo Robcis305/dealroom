@@ -9,9 +9,10 @@ interface Props {
   selected: CenterView;
   onSelect: (view: CenterView) => void;
   onManage: () => void;
+  canManage?: boolean;
 }
 
-export function WorkstreamSidebarSection({ workstreams, selected, onSelect, onManage }: Props) {
+export function WorkstreamSidebarSection({ workstreams, selected, onSelect, onManage, canManage }: Props) {
   if (workstreams.length === 0) return null;
   const selectedId = selected.kind === 'workstream' ? selected.workstreamId : null;
 
@@ -19,12 +20,14 @@ export function WorkstreamSidebarSection({ workstreams, selected, onSelect, onMa
     <div className="mt-3 pt-3 border-t border-border-subtle">
       <div className="px-3 mb-1 flex items-center justify-between">
         <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Workstreams</p>
-        <button
-          onClick={onManage}
-          className="text-xs text-text-muted hover:text-accent cursor-pointer transition-colors"
-        >
-          Manage
-        </button>
+        {canManage && (
+          <button
+            onClick={onManage}
+            className="text-xs text-text-muted hover:text-accent cursor-pointer transition-colors"
+          >
+            Manage
+          </button>
+        )}
       </div>
       {workstreams.map((ws) => {
         const isSelected = ws.id === selectedId;

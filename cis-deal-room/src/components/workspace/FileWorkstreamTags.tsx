@@ -1,17 +1,21 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { WorkstreamWithCounts } from '@/types';
 
 interface Props {
   fileId: string;
   workstreams: WorkstreamWithCounts[];
-  isAdmin: boolean;
+  /** @deprecated Use canManage instead. Kept for legacy call-sites. */
+  isAdmin?: boolean;
+  /** True for global admins and active cis_team participants — gates the tag-edit affordance. */
+  canManage?: boolean;
   onChanged?: () => void;
 }
 
-export function FileWorkstreamTags({ fileId, workstreams, isAdmin, onChanged }: Props) {
+export function FileWorkstreamTags({ fileId, workstreams, isAdmin, canManage, onChanged }: Props) {
   const [tagIds, setTagIds] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
 
@@ -39,11 +43,14 @@ export function FileWorkstreamTags({ fileId, workstreams, isAdmin, onChanged }: 
       });
       if (!res.ok) {
         setTagIds(previous); // revert
+        const msg = await res.json().then((d) => d.error).catch(() => 'Could not update workstream tags');
+        toast.error(typeof msg === 'string' ? msg : 'Could not update workstream tags');
         return;
       }
       onChanged?.();
     } catch {
       setTagIds(previous); // revert
+      toast.error('Could not update workstream tags');
     }
   }
 
@@ -58,7 +65,7 @@ export function FileWorkstreamTags({ fileId, workstreams, isAdmin, onChanged }: 
           <span key={w.id} className="w-2 h-2 rounded-full" style={{ backgroundColor: w.color }} title={w.name} aria-label={w.name} />
         ))}
       </span>
-      {isAdmin && (
+      {(canManage ?? isAdmin) && (
         <button onClick={() => setOpen((o) => !o)} className="text-xs text-text-muted hover:text-accent cursor-pointer px-1" aria-label="Edit workstream tags">
           {active.length === 0 ? 'Tag' : '·'}
         </button>

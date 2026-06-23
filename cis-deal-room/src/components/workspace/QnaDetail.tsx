@@ -17,7 +17,7 @@ interface Participant {
 interface Props {
   workspaceId: string;
   questionId: string;
-  isAdmin: boolean;
+  canManage: boolean;
   currentUserId: string;
   participants: Participant[];
   onBack: () => void;
@@ -60,7 +60,7 @@ function initials(name: string): string {
 export function QnaDetail({
   workspaceId,
   questionId,
-  isAdmin,
+  canManage,
   currentUserId,
   participants,
   onBack,
@@ -68,7 +68,6 @@ export function QnaDetail({
 }: Props) {
   const [question, setQuestion] = useState<QnaQuestionDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showAnswerComposer, setShowAnswerComposer] = useState(false);
   const [actionPending, setActionPending] = useState(false);
 
   // ── Fetch detail ────────────────────────────────────────────────────────────
@@ -104,7 +103,6 @@ export function QnaDetail({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ body }),
     });
-    setShowAnswerComposer(false);
     await refresh();
     onChanged();
   }
@@ -145,9 +143,9 @@ export function QnaDetail({
     );
   }
 
-  const canProposeAnswer = isAdmin || question.assigneeId === currentUserId;
+  const canAnswer = canManage || question.assigneeId === currentUserId;
 
-  const showApprovalGate = question.approvalGateActive && isAdmin;
+  const showApprovalGate = question.approvalGateActive && canManage;
 
   return (
     <div className="rounded-lg border border-border bg-surface overflow-hidden">
@@ -306,46 +304,30 @@ export function QnaDetail({
               </div>
             )}
 
-            {/* Reply composer */}
-            <QnaComposer
-              participants={participants}
-              placeholder="Add a reply…"
-              submitLabel="Post reply"
-              onSubmit={postReply}
-            />
-
-            {/* Propose official answer affordance */}
-            {canProposeAnswer && (
-              <div className="flex flex-col gap-3">
-                {!showAnswerComposer ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowAnswerComposer(true)}
-                    className="self-start text-sm font-medium text-text-muted underline underline-offset-2 hover:text-text-primary transition-colors"
-                  >
-                    Propose official answer
-                  </button>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                      Propose official answer
-                    </p>
-                    <QnaComposer
-                      participants={participants}
-                      placeholder="Write the official answer…"
-                      submitLabel="Submit for approval"
-                      onSubmit={submitAnswer}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowAnswerComposer(false)}
-                      className="self-start text-xs text-text-muted hover:text-text-primary transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
-              </div>
+            {/* Composer */}
+            {canAnswer ? (
+              <>
+                <QnaComposer
+                  participants={participants}
+                  placeholder="Add a reply or official answer…"
+                  primary={{ label: 'Answer', onSubmit: submitAnswer }}
+                  secondary={{ label: 'Chat', onSubmit: postReply }}
+                />
+                <p className="text-xs text-text-muted">
+                  Chat to discuss or clarify · Answer is the official response — CIS reviews it before the asker sees it.
+                </p>
+              </>
+            ) : (
+              <>
+                <QnaComposer
+                  participants={participants}
+                  placeholder="Add a clarification or follow-up…"
+                  primary={{ label: 'Chat', onSubmit: postReply }}
+                />
+                <p className="text-xs text-text-muted">
+                  Add a clarification or follow-up.
+                </p>
+              </>
             )}
           </div>
         </div>

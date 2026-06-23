@@ -17,10 +17,37 @@ describe('WorkstreamDashboard', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('renders the workstream name and stat figures', async () => {
-    render(<WorkstreamDashboard workspaceId="ws-1" workstreamId="w-legal" isAdmin onClearLens={() => {}} />);
+    render(<WorkstreamDashboard workspaceId="ws-1" workstreamId="w-legal" onClearLens={() => {}} />);
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Legal' })).toBeInTheDocument());
     expect(screen.getByText('Documents')).toBeInTheDocument();
     expect(screen.getByText('31')).toBeInTheDocument();
     expect(screen.getByText('Members')).toBeInTheDocument();
+  });
+
+  it('shows "Manage members" button when canManage=true and onManageMembers is provided', async () => {
+    render(
+      <WorkstreamDashboard
+        workspaceId="ws-1"
+        workstreamId="w-legal"
+        canManage
+        onClearLens={() => {}}
+        onManageMembers={() => {}}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('Manage members')).toBeInTheDocument());
+  });
+
+  it('does NOT show "Manage members" button when canManage=false', async () => {
+    render(
+      <WorkstreamDashboard
+        workspaceId="ws-1"
+        workstreamId="w-legal"
+        canManage={false}
+        onClearLens={() => {}}
+        onManageMembers={() => {}}
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Legal' })).toBeInTheDocument());
+    expect(screen.queryByText('Manage members')).not.toBeInTheDocument();
   });
 });

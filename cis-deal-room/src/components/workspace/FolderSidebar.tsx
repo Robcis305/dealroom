@@ -40,6 +40,7 @@ interface FolderSidebarProps {
   onStructureChanged?: () => void;
   workstreams?: WorkstreamWithCounts[];
   onManageWorkstreams?: () => void;
+  canManageWorkstreams?: boolean;
 }
 
 export function FolderSidebar({
@@ -55,6 +56,7 @@ export function FolderSidebar({
   onStructureChanged,
   workstreams,
   onManageWorkstreams,
+  canManageWorkstreams,
 }: FolderSidebarProps) {
   // Derived for backward-compat with internal delete logic
   const selectedFolderId = selected.kind === 'folder' ? selected.folderId : null;
@@ -389,6 +391,7 @@ export function FolderSidebar({
             selected={selected}
             onSelect={onSelect}
             onManage={onManageWorkstreams}
+            canManage={canManageWorkstreams}
           />
         )}
       </div>

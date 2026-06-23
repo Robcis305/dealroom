@@ -15,12 +15,13 @@ interface DashboardData {
 interface Props {
   workspaceId: string;
   workstreamId: string;
-  isAdmin: boolean;
+  /** True for global admins and active cis_team/admin participants — gates Manage members button. */
+  canManage?: boolean;
   onClearLens: () => void;
   onManageMembers?: () => void;
 }
 
-export function WorkstreamDashboard({ workspaceId, workstreamId, isAdmin, onClearLens, onManageMembers }: Props) {
+export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, onClearLens, onManageMembers }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
 
   const load = useCallback(async () => {
@@ -57,7 +58,7 @@ export function WorkstreamDashboard({ workspaceId, workstreamId, isAdmin, onClea
         </button>
       </div>
 
-      <div className="p-6 max-w-[1100px]">
+      <div className="p-5 w-full max-w-[1600px]">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-start gap-3">
@@ -69,7 +70,7 @@ export function WorkstreamDashboard({ workspaceId, workstreamId, isAdmin, onClea
               {ws.description && <p className="text-sm text-text-secondary mt-0.5">{ws.description}</p>}
             </div>
           </div>
-          {isAdmin && onManageMembers && (
+          {canManage && onManageMembers && (
             <button onClick={onManageMembers} className="text-sm px-3 py-1.5 rounded-md border border-border text-text-secondary hover:text-text-primary hover:border-accent transition-colors cursor-pointer shrink-0">
               Manage members
             </button>

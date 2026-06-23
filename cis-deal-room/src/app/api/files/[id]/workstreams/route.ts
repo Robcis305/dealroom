@@ -29,7 +29,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await verifySession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
   const { id: fileId } = await params;
   const workspaceId = await workspaceIdForFile(fileId);
   if (!workspaceId) return Response.json({ error: 'Not found' }, { status: 404 });
@@ -38,6 +37,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   try { putBody = await request.json(); } catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }); }
   const { workstreamIds } = putBody;
   if (!Array.isArray(workstreamIds)) return Response.json({ error: 'workstreamIds must be an array' }, { status: 400 });
-  await setFileWorkstreams(workspaceId, fileId, workstreamIds);
+  try {
+    await setFileWorkstreams(workspaceId, fileId, workstreamIds);
+  } catch (e) {
+    if (e instanceof Error && (e.message === 'Forbidden' || e.message === 'Unauthorized'))
+      return Response.json({ error: 'Forbidden' }, { status: 403 });
+    throw e;
+  }
   return Response.json({ ok: true });
 }

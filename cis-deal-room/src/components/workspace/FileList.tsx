@@ -56,6 +56,8 @@ interface FileListProps {
   workstreams?: WorkstreamWithCounts[];
   /** Called after a file's workstream tags change */
   onWorkstreamsChanged?: () => void;
+  /** True for global admins and active cis_team participants — gates tag-edit affordance. */
+  canManageWorkstreams?: boolean;
 }
 
 function mimeToIcon(mimeType: string) {
@@ -73,7 +75,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload, uploadRevision = 0, folders, onFolderCountChange, participantsRefresh = 0, onShowFolderAccess, workstreams = [], onWorkstreamsChanged }: FileListProps) {
+export function FileList({ workspaceId, folderId, folderName, isAdmin, canManageWorkstreams, onUpload, uploadRevision = 0, folders, onFolderCountChange, participantsRefresh = 0, onShowFolderAccess, workstreams = [], onWorkstreamsChanged }: FileListProps) {
   const [files, setFiles] = useState<FileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -469,7 +471,7 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, onUpload,
                   <FileWorkstreamTags
                     fileId={file.id}
                     workstreams={workstreams}
-                    isAdmin={isAdmin}
+                    canManage={canManageWorkstreams}
                     onChanged={onWorkstreamsChanged}
                   />
                 </div>

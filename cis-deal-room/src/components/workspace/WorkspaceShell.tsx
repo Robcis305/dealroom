@@ -51,6 +51,8 @@ interface WorkspaceShellProps {
   userId: string;
   /** Current user's participant role in this workspace. Defaults to 'admin' for admins. */
   participantRole: ParticipantRole;
+  /** True for global admins and active cis_team participants — gates workstream Manage UI. */
+  canManageWorkstreams: boolean;
 }
 
 type FileCounts = Record<string, number>;
@@ -64,7 +66,7 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, activeClientCount, userEmail, userId, participantRole }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, activeClientCount, userEmail, userId, participantRole, canManageWorkstreams }: WorkspaceShellProps) {
   const [view, setView] = useState<CenterView>({ kind: 'overview' });
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -326,7 +328,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
             onClick: () => setShowInviteParticipant(true),
           }}
         >
-          No active Client participant. Invite one to progress the deal.
+          No active Client (the company you represent) yet — other roles like Counsel or CIS don&apos;t count. Invite one to progress the deal.
         </Banner>
       )}
 
@@ -346,6 +348,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
             fileCounts={fileCounts}
             onStructureChanged={refreshChecklistMeta}
             workstreams={workstreams}
+            canManageWorkstreams={canManageWorkstreams}
             onManageWorkstreams={() => {
               if (view.kind === 'workstream') setManageWorkstreamId(view.workstreamId);
               else if (workstreams[0]) setView({ kind: 'workstream', workstreamId: workstreams[0].id });
@@ -390,6 +393,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               folderId={view.folderId}
               folderName={folders.find((f) => f.id === view.folderId)?.name ?? 'Files'}
               isAdmin={isAdmin}
+              canManageWorkstreams={canManageWorkstreams}
               onUpload={() => setShowUploadModal(true)}
               uploadRevision={uploadRevision}
               folders={folders}
@@ -403,14 +407,14 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
             <WorkstreamDashboard
               workspaceId={workspace.id}
               workstreamId={view.workstreamId}
-              isAdmin={isAdmin}
+              canManage={canManageWorkstreams}
               onClearLens={() => setView({ kind: 'overview' })}
               onManageMembers={() => setManageWorkstreamId(view.workstreamId)}
             />
           ) : view.kind === 'qna' ? (
             <QnaView
               workspaceId={workspace.id}
-              isAdmin={isAdmin}
+              canManage={canManageWorkstreams}
               currentUserId={userId}
               folders={folders}
               onCountsChanged={refreshWorkstreams}
