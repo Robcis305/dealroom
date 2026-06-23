@@ -15,14 +15,13 @@ interface DashboardData {
 interface Props {
   workspaceId: string;
   workstreamId: string;
-  isAdmin: boolean;
-  /** True for global admins and active cis_team participants — gates Manage members button. */
+  /** True for global admins and active cis_team/admin participants — gates Manage members button. */
   canManage?: boolean;
   onClearLens: () => void;
   onManageMembers?: () => void;
 }
 
-export function WorkstreamDashboard({ workspaceId, workstreamId, isAdmin, canManage, onClearLens, onManageMembers }: Props) {
+export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, onClearLens, onManageMembers }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
 
   const load = useCallback(async () => {

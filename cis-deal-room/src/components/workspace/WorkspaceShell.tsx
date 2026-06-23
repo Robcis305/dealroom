@@ -407,7 +407,6 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
             <WorkstreamDashboard
               workspaceId={workspace.id}
               workstreamId={view.workstreamId}
-              isAdmin={isAdmin}
               canManage={canManageWorkstreams}
               onClearLens={() => setView({ kind: 'overview' })}
               onManageMembers={() => setManageWorkstreamId(view.workstreamId)}
