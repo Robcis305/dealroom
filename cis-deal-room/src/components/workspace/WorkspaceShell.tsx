@@ -328,7 +328,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
             onClick: () => setShowInviteParticipant(true),
           }}
         >
-          No active Client participant. Invite one to progress the deal.
+          No active Client (the company you represent) yet — other roles like Counsel or CIS don&apos;t count. Invite one to progress the deal.
         </Banner>
       )}
 
