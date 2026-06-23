@@ -15,7 +15,7 @@ beforeEach(() => {
 });
 
 describe('ParticipantFormModal — invite mode', () => {
-  it('renders contextual Seller Rep option when CIS advises buyer', () => {
+  it('renders new active role options (Counterparty, Client Counsel) and no legacy Rep options', () => {
     render(
       <ParticipantFormModal
         mode="invite"
@@ -27,7 +27,10 @@ describe('ParticipantFormModal — invite mode', () => {
         folders={folders}
       />
     );
-    expect(screen.getByRole('option', { name: 'Seller Rep' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Counterparty' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Client Counsel' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'View-only' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Seller Rep' })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Buyer Rep' })).not.toBeInTheDocument();
   });
 
