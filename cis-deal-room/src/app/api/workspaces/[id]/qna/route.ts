@@ -4,6 +4,7 @@ import { workspaces } from '@/db/schema';
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
 import { listQuestions, createQuestion } from '@/lib/dal/qna';
+import { enqueueQnaAssignedNotification } from '@/lib/notifications/enqueue-qna-notifications';
 
 export async function GET(
   _request: Request,
@@ -57,11 +58,13 @@ export async function POST(
     .limit(1);
   if (!workspace) return Response.json({ error: 'Workspace not found' }, { status: 404 });
 
+  const assigneeId = typeof body.assigneeId === 'string' ? body.assigneeId : null;
+
   const result = await createQuestion({
     workspaceId,
     title: body.title.trim(),
     workstreamIds: Array.isArray(body.workstreamIds) ? (body.workstreamIds as string[]) : [],
-    assigneeId: typeof body.assigneeId === 'string' ? body.assigneeId : null,
+    assigneeId,
     requestedBy: typeof body.requestedBy === 'string' ? body.requestedBy : null,
     visibility: body.visibility === 'private' ? 'private' : 'public',
     recipientParticipantIds: Array.isArray(body.recipientParticipantIds)
@@ -69,6 +72,12 @@ export async function POST(
       : [],
     linkedDocId: typeof body.linkedDocId === 'string' ? body.linkedDocId : null,
   });
+
+  if (assigneeId) {
+    try {
+      await enqueueQnaAssignedNotification({ workspaceId, questionId: result.id, assigneeUserId: assigneeId });
+    } catch (e) { console.error('[qna] assigned notification failed', e); }
+  }
 
   return Response.json({ id: result.id }, { status: 201 });
 }

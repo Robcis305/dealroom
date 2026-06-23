@@ -100,6 +100,9 @@ export async function POST(request: Request) {
       action: e.action,
       actorName: 'Someone',
       targetName:
+        (e.metadata && typeof (e.metadata as Record<string, unknown>).title === 'string'
+          ? ((e.metadata as Record<string, unknown>).title as string)
+          : null) ??
         (e.metadata && typeof (e.metadata as Record<string, unknown>).fileName === 'string'
           ? ((e.metadata as Record<string, unknown>).fileName as string)
           : null) ??
