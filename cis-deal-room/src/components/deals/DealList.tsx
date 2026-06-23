@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, Building2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { NewDealModal } from './NewDealModal';
+import { NewDealWizard } from './NewDealWizard';
 import { DealCard } from './DealCard';
 import type { WorkspaceStatus } from '@/types';
 
@@ -163,7 +163,7 @@ export function DealList({ workspaces, isAdmin }: DealListProps) {
       )}
 
       {/* New Deal Modal */}
-      <NewDealModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <NewDealWizard open={modalOpen} onClose={() => setModalOpen(false)} />
     </div>
   );
 }
