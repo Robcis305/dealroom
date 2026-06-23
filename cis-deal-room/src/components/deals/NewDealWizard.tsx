@@ -65,13 +65,20 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
   }
 
   async function handleFinish() {
-    const ok = stepActionRef.current ? await stepActionRef.current() : true;
-    if (ok && workspaceId) {
-      router.push(`/workspace/${workspaceId}`);
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const ok = stepActionRef.current ? await stepActionRef.current() : true;
+      if (ok && workspaceId) {
+        router.push(`/workspace/${workspaceId}`);
+      }
+    } finally {
+      setSubmitting(false);
     }
   }
 
   function handleSkipInvite() {
+    if (submitting) return;
     if (workspaceId) {
       router.push(`/workspace/${workspaceId}`);
     }

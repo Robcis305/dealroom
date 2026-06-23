@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { NewDealWizard } from '@/components/deals/NewDealWizard';
 
 vi.mock('next/navigation', () => ({
@@ -151,5 +151,87 @@ describe('NewDealWizard — Workstreams step', () => {
     expect(postedKeys).toHaveLength(2);
     expect(postedKeys).toContain('legal');
     expect(postedKeys).toContain('finance');
+  });
+});
+
+describe('NewDealWizard — Invite step double-click guard', () => {
+  async function advanceToInvite() {
+    render(<NewDealWizard open onClose={() => {}} />);
+
+    // Fill Details
+    fireEvent.change(screen.getByLabelText(/deal codename/i), {
+      target: { value: 'Project Falcon' },
+    });
+    fireEvent.change(screen.getByLabelText(/client name/i), {
+      target: { value: 'Acme Corp' },
+    });
+    fireEvent.click(screen.getByRole('radio', { name: /seller-side/i }));
+
+    // Next on Details — creates workspace
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /folders/i })).toBeInTheDocument());
+
+    // Mock folder POST
+    vi.mocked(fetchWithAuth).mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'f1', name: 'Financials' }),
+    } as Response);
+
+    // Next on Folders
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /workstreams/i })).toBeInTheDocument());
+
+    // Next on Workstreams (no selections)
+    vi.mocked(fetchWithAuth).mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /invite/i })).toBeInTheDocument());
+  }
+
+  it('Finish button is disabled while the invite POST is in flight', async () => {
+    await advanceToInvite();
+
+    // Type an email so the commit fn fires a POST
+    fireEvent.change(screen.getByLabelText(/email address 1/i), {
+      target: { value: 'alice@example.com' },
+    });
+
+    // Set up a deferred participants POST — never resolves until we release it
+    let releasePost!: () => void;
+    const pendingPost = new Promise<Response>((resolve) => {
+      releasePost = () =>
+        resolve({ ok: true, json: async () => ({}) } as Response);
+    });
+
+    vi.mocked(fetchWithAuth).mockImplementation((url) => {
+      if (typeof url === 'string' && url.includes('/participants')) {
+        return pendingPost;
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    });
+
+    // Click Finish — kicks off the pending POST
+    fireEvent.click(screen.getByRole('button', { name: /finish/i }));
+
+    // While the POST is in flight, Finish button must be disabled
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /finish/i })).toBeDisabled();
+    });
+
+    // A second click must not produce a second POST call
+    fireEvent.click(screen.getByRole('button', { name: /finish/i }));
+
+    // Release the POST so the test can clean up
+    await act(async () => {
+      releasePost();
+    });
+
+    // Participants POST was called exactly once (the second click was blocked)
+    const participantCalls = vi.mocked(fetchWithAuth).mock.calls.filter(
+      ([url]) => typeof url === 'string' && (url as string).includes('/participants'),
+    );
+    expect(participantCalls).toHaveLength(1);
   });
 });
