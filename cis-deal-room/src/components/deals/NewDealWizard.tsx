@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { StepDetails } from './wizard/StepDetails';
 import { StepFolders } from './wizard/StepFolders';
 import { StepWorkstreams } from './wizard/StepWorkstreams';
+import { StepInvite } from './wizard/StepInvite';
 import type { CisAdvisorySide } from '@/types';
 
 type WizardStep = 'details' | 'folders' | 'workstreams' | 'invite';
@@ -29,8 +30,8 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState<WizardStep>('details');
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-  const [, setCisAdvisorySide] = useState<CisAdvisorySide | null>(null);
-  const [, setCreatedFolders] = useState<{ id: string; name: string }[]>([]);
+  const [cisAdvisorySide, setCisAdvisorySide] = useState<CisAdvisorySide | null>(null);
+  const [createdFolders, setCreatedFolders] = useState<{ id: string; name: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const stepActionRef = useRef<null | (() => Promise<boolean>)>(null);
@@ -63,7 +64,14 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
     }
   }
 
-  function handleFinish() {
+  async function handleFinish() {
+    const ok = stepActionRef.current ? await stepActionRef.current() : true;
+    if (ok && workspaceId) {
+      router.push(`/workspace/${workspaceId}`);
+    }
+  }
+
+  function handleSkipInvite() {
     if (workspaceId) {
       router.push(`/workspace/${workspaceId}`);
     }
@@ -151,13 +159,17 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
             registerCommit={registerCommit}
           />
         )}
-        {step === 'invite' && (
-          <div className="space-y-3">
-            <h2 className="text-base font-semibold text-text-primary">Invite team</h2>
-            <p className="text-sm text-text-muted">
-              Team invitations coming in the next task.
-            </p>
-          </div>
+        {step === 'invite' && workspaceId && cisAdvisorySide && (
+          <StepInvite
+            workspaceId={workspaceId}
+            cisAdvisorySide={cisAdvisorySide}
+            folders={createdFolders}
+            onDone={() => {
+              // onDone is called by the commit fn after all invites succeed;
+              // navigation is handled by handleFinish
+            }}
+            registerCommit={registerCommit}
+          />
         )}
       </div>
 
@@ -194,13 +206,24 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
         )}
 
         <div className="flex gap-3 ml-auto">
-          {/* Skip — only shown on middle steps (not first, not last) */}
+          {/* Skip — shown on middle steps AND the last (invite) step */}
           {!isFirst && !isLast && (
             <Button
               type="button"
               variant="ghost"
               size="md"
               onClick={advance}
+              disabled={submitting}
+            >
+              Skip
+            </Button>
+          )}
+          {isLast && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={handleSkipInvite}
               disabled={submitting}
             >
               Skip
