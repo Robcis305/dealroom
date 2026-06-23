@@ -103,7 +103,7 @@ describe('createWorkspace()', () => {
     vi.clearAllMocks();
   });
 
-  it('creates workspace and 8 default folders in a transaction', async () => {
+  it('creates the workspace without seeding folders (wizard owns folder creation)', async () => {
     const mockWorkspace = {
       id: 'ws-new',
       name: 'Deal Gamma',
@@ -112,24 +112,11 @@ describe('createWorkspace()', () => {
       status: 'engagement',
     };
 
-    const folderInsertValuesMock = vi.fn().mockResolvedValue([]);
-    const folderInsertMock = vi.fn().mockReturnValue({ values: folderInsertValuesMock });
     const workspaceInsertValuesMock = vi.fn().mockReturnValue({
       returning: vi.fn().mockResolvedValue([mockWorkspace]),
     });
-    const workspaceInsertMock = vi.fn().mockReturnValue({ values: workspaceInsertValuesMock });
 
-    // Track insert calls to distinguish workspace vs folder inserts
-    let insertCallCount = 0;
-    const insertMock = vi.fn().mockImplementation(() => {
-      insertCallCount++;
-      if (insertCallCount === 1) {
-        // First call: workspace insert
-        return { values: workspaceInsertValuesMock };
-      }
-      // Second call: folders insert
-      return { values: folderInsertValuesMock };
-    });
+    const insertMock = vi.fn().mockReturnValue({ values: workspaceInsertValuesMock });
 
     const txMock = { insert: insertMock };
     const txFn = vi.fn().mockImplementation(async (fn: (tx: typeof txMock) => Promise<unknown>) => {
@@ -162,12 +149,8 @@ describe('createWorkspace()', () => {
     });
 
     expect(result).toEqual(mockWorkspace);
-    // Workspace + folders = 2 insert calls
-    expect(insertMock).toHaveBeenCalledTimes(2);
-    // Folders insert receives 8 items
-    const foldersCallArg = folderInsertValuesMock.mock.calls[0][0];
-    expect(Array.isArray(foldersCallArg)).toBe(true);
-    expect(foldersCallArg).toHaveLength(8);
+    // Only the workspace insert — NO folder seeding.
+    expect(insertMock).toHaveBeenCalledTimes(1);
   });
 
   it('throws Admin required when called by non-admin', async () => {

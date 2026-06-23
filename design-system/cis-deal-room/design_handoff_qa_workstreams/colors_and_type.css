@@ -1,0 +1,214 @@
+/* ========================================================================
+   CIS PARTNERS — DESIGN TOKENS
+   Colors and typography for an institutional M&A advisory brand.
+   Black + accent red on warm off-white. Confident, restrained, editorial.
+   ======================================================================== */
+
+/* -------- Webfonts --------
+   Primary face: Whitney SSm (Hoefler & Co.) — provided by the brand.
+   Only the Book weight (≈400) is licensed/installed; heavier weights fall
+   back to DM Sans (Google Fonts) so type still renders correctly when we
+   call for 500/600/700. Replace this stack as more Whitney weights ship.
+   DM Mono is retained for tabular/code contexts. */
+@font-face {
+  font-family: "Whitney SSm";
+  src: url("fonts/WhitneySSm-Book.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=DM+Mono:wght@400;500&display=swap");
+
+:root {
+  /* ============ CORE BRAND ============ */
+  --cis-red:           #E10600;   /* Brand accent — use sparingly */
+  --cis-red-hover:     #B80500;   /* Pressed / hover */
+  --cis-red-soft:      #FBE5E4;   /* 8% red wash for backgrounds */
+  --cis-black:         #000000;   /* True black — wordmark, headlines */
+  --cis-white:         #FFFFFF;
+
+  /* ============ NEUTRALS (warm, paper-toned) ============ */
+  --cis-ink-900:       #0A0A0A;   /* Body text on light */
+  --cis-ink-800:       #1A1A1A;
+  --cis-ink-700:       #2B2B2B;
+  --cis-ink-600:       #4A4A4A;
+  --cis-ink-500:       #6B6B6B;   /* Secondary text */
+  --cis-ink-400:       #9A9A9A;   /* Tertiary, captions */
+  --cis-ink-300:       #C9C7C2;   /* Hairlines, dividers */
+  --cis-ink-200:       #E5E3DD;   /* Subtle fills */
+  --cis-ink-100:       #F1EFE9;   /* Card surface */
+  --cis-paper:         #F7F5EF;   /* Page background — warm off-white */
+  --cis-paper-deep:    #ECE9E1;   /* Section background */
+
+  /* ============ SEMANTIC ============ */
+  --cis-bg:            var(--cis-paper);
+  --cis-surface:       var(--cis-white);
+  --cis-surface-2:     var(--cis-ink-100);
+  --cis-fg:            var(--cis-ink-900);
+  --cis-fg-2:          var(--cis-ink-600);
+  --cis-fg-3:          var(--cis-ink-500);
+  --cis-fg-muted:      var(--cis-ink-400);
+  --cis-border:        var(--cis-ink-300);
+  --cis-border-strong: var(--cis-ink-700);
+  --cis-accent:        var(--cis-red);
+  --cis-on-accent:     var(--cis-white);
+
+  /* ============ DARK SURFACES ============ */
+  --cis-dark-bg:       #0A0A0A;
+  --cis-dark-surface:  #161616;
+  --cis-dark-fg:       #F7F5EF;
+  --cis-dark-fg-2:     #B5B2AB;
+  --cis-dark-border:   #2A2A2A;
+
+  /* ============ STATUS ============ */
+  --cis-success:       #1F6B3A;
+  --cis-warning:       #B07700;
+  --cis-danger:        #C8281F;   /* Slightly desaturated red so it doesn't fight brand red */
+  --cis-info:          #1F4F7A;
+
+  /* ============ TYPOGRAPHY — FAMILIES ============ */
+  --cis-font-sans:     "Whitney SSm", "DM Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --cis-font-mono:     "DM Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --cis-font-script:   "Pinyon Script", "Allura", cursive; /* For signature flourishes — fallback to handwritten serif */
+
+  /* ============ TYPE SCALE (DM Sans) ============ */
+  /* Designed for a confident editorial-meets-institutional feel.
+     Display weights tight; body airy. */
+  --cis-fs-display-xl: clamp(56px, 7.5vw, 112px);
+  --cis-fs-display:    clamp(44px, 5.5vw, 80px);
+  --cis-fs-h1:         clamp(36px, 4vw, 56px);
+  --cis-fs-h2:         clamp(28px, 3vw, 40px);
+  --cis-fs-h3:         24px;
+  --cis-fs-h4:         20px;
+  --cis-fs-h5:         17px;
+  --cis-fs-body-lg:    18px;
+  --cis-fs-body:       16px;
+  --cis-fs-body-sm:    14px;
+  --cis-fs-caption:    13px;
+  --cis-fs-eyebrow:    12px;
+
+  --cis-lh-tight:      1.04;
+  --cis-lh-snug:       1.18;
+  --cis-lh-normal:     1.5;
+  --cis-lh-relaxed:    1.65;
+
+  --cis-tracking-tight:  -0.025em;  /* Display */
+  --cis-tracking-snug:   -0.012em;  /* Headings */
+  --cis-tracking-normal: 0;
+  --cis-tracking-eyebrow: 0.18em;   /* All-caps eyebrow */
+
+  /* ============ SPACING (4px base) ============ */
+  --cis-s-1:  4px;
+  --cis-s-2:  8px;
+  --cis-s-3:  12px;
+  --cis-s-4:  16px;
+  --cis-s-5:  20px;
+  --cis-s-6:  24px;
+  --cis-s-8:  32px;
+  --cis-s-10: 40px;
+  --cis-s-12: 48px;
+  --cis-s-16: 64px;
+  --cis-s-20: 80px;
+  --cis-s-24: 96px;
+  --cis-s-32: 128px;
+
+  /* ============ RADII (restrained — institutional, not playful) ============ */
+  --cis-radius-none: 0;
+  --cis-radius-sm:   2px;
+  --cis-radius-md:   4px;
+  --cis-radius-lg:   8px;
+  --cis-radius-pill: 999px;
+
+  /* ============ BORDERS ============ */
+  --cis-bw-hair:    1px;
+  --cis-bw-strong:  1.5px;
+  --cis-bw-emph:    2px;
+
+  /* ============ SHADOWS (soft, paper-like — never glossy) ============ */
+  --cis-shadow-xs: 0 1px 2px rgba(10, 10, 10, 0.04);
+  --cis-shadow-sm: 0 2px 6px rgba(10, 10, 10, 0.06);
+  --cis-shadow-md: 0 8px 24px rgba(10, 10, 10, 0.08);
+  --cis-shadow-lg: 0 24px 48px -12px rgba(10, 10, 10, 0.18);
+  --cis-shadow-inset: inset 0 0 0 1px rgba(10, 10, 10, 0.06);
+
+  /* ============ MOTION ============ */
+  --cis-ease-standard:  cubic-bezier(0.32, 0.72, 0, 1);   /* Apple-style — used for everything */
+  --cis-ease-out:       cubic-bezier(0.22, 1, 0.36, 1);
+  --cis-ease-in:        cubic-bezier(0.55, 0, 1, 0.45);
+  --cis-dur-fast:    140ms;
+  --cis-dur-base:    220ms;
+  --cis-dur-slow:    420ms;
+
+  /* ============ LAYOUT ============ */
+  --cis-container:    1240px;
+  --cis-gutter:       24px;
+}
+
+/* ========================================================================
+   ELEMENT DEFAULTS
+   ======================================================================== */
+html, body {
+  font-family: var(--cis-font-sans);
+  font-size: var(--cis-fs-body);
+  line-height: var(--cis-lh-normal);
+  color: var(--cis-fg);
+  background: var(--cis-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .cis-h1, h2, .cis-h2, h3, .cis-h3, h4, .cis-h4, h5, .cis-h5 {
+  font-family: var(--cis-font-sans);
+  font-weight: 500;
+  color: var(--cis-fg);
+  margin: 0;
+  text-wrap: balance;
+}
+h1, .cis-h1 { font-size: var(--cis-fs-h1); line-height: var(--cis-lh-tight);  letter-spacing: var(--cis-tracking-snug); font-weight: 500; }
+h2, .cis-h2 { font-size: var(--cis-fs-h2); line-height: var(--cis-lh-snug);   letter-spacing: var(--cis-tracking-snug); font-weight: 500; }
+h3, .cis-h3 { font-size: var(--cis-fs-h3); line-height: var(--cis-lh-snug);   font-weight: 600; }
+h4, .cis-h4 { font-size: var(--cis-fs-h4); line-height: var(--cis-lh-snug);   font-weight: 600; }
+h5, .cis-h5 { font-size: var(--cis-fs-h5); line-height: var(--cis-lh-snug);   font-weight: 600; }
+
+.cis-display-xl,
+.cis-display {
+  font-family: var(--cis-font-sans);
+  font-weight: 500;
+  letter-spacing: var(--cis-tracking-tight);
+  line-height: var(--cis-lh-tight);
+  text-wrap: balance;
+}
+.cis-display-xl { font-size: var(--cis-fs-display-xl); }
+.cis-display    { font-size: var(--cis-fs-display); }
+
+p, .cis-body { font-size: var(--cis-fs-body); line-height: var(--cis-lh-relaxed); color: var(--cis-fg-2); }
+.cis-body-lg { font-size: var(--cis-fs-body-lg); line-height: var(--cis-lh-relaxed); color: var(--cis-fg-2); }
+.cis-body-sm { font-size: var(--cis-fs-body-sm); line-height: var(--cis-lh-normal); color: var(--cis-fg-2); }
+.cis-caption { font-size: var(--cis-fs-caption); line-height: var(--cis-lh-normal); color: var(--cis-fg-3); }
+
+.cis-eyebrow {
+  font-size: var(--cis-fs-eyebrow);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--cis-tracking-eyebrow);
+  color: var(--cis-fg-3);
+}
+
+.cis-mono {
+  font-family: var(--cis-font-mono);
+  font-feature-settings: "tnum", "zero";
+  font-size: var(--cis-fs-body-sm);
+}
+
+.cis-num {
+  font-family: var(--cis-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: var(--cis-tracking-tight);
+}
+
+a { color: var(--cis-fg); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--cis-red); }
+
+hr.cis-rule { border: 0; height: 1px; background: var(--cis-border); margin: var(--cis-s-8) 0; }
+hr.cis-rule-strong { border: 0; height: 1px; background: var(--cis-border-strong); margin: var(--cis-s-8) 0; }
