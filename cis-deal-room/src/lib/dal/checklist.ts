@@ -11,12 +11,11 @@ import {
 import { verifySession } from './index';
 import { logActivity } from './activity';
 import { shouldShowCanonicalPlaybook } from './playbook';
-import type { CisAdvisorySide, ChecklistOwner, ChecklistPriority, ChecklistStatus, ParticipantRole, ViewOnlyShadowSide } from '@/types';
+import type { CisAdvisorySide, ChecklistOwner, ChecklistPriority, ChecklistStatus, ParticipantRole } from '@/types';
 
 interface SessionScope {
   isAdmin: boolean;
   role: ParticipantRole;
-  shadowSide: ViewOnlyShadowSide | null;
   cisAdvisorySide: CisAdvisorySide;
 }
 
@@ -144,14 +143,12 @@ export async function listItemsForViewer(workspaceId: string) {
     .limit(1);
   if (!workspace) throw new Error('Workspace not found');
 
-  // Derive the viewer's role/shadow side (admin bypasses, no participant row needed)
+  // Derive the viewer's role (admin bypasses, no participant row needed)
   let role: ParticipantRole = 'admin';
-  let shadowSide: ViewOnlyShadowSide | null = null;
   if (!session.isAdmin) {
     const [participant] = await db
       .select({
         role: workspaceParticipants.role,
-        shadow: workspaceParticipants.viewOnlyShadowSide,
       })
       .from(workspaceParticipants)
       .where(
@@ -164,13 +161,11 @@ export async function listItemsForViewer(workspaceId: string) {
       .limit(1);
     if (!participant) throw new Error('Unauthorized');
     role = participant.role;
-    shadowSide = participant.shadow;
   }
 
   const filter = ownerFilterForSession({
     isAdmin: session.isAdmin,
     role,
-    shadowSide,
     cisAdvisorySide: workspace.cisAdvisorySide,
   });
 

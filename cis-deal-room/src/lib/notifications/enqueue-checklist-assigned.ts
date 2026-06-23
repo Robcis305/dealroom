@@ -29,7 +29,6 @@ export async function enqueueChecklistAssignedNotifications(input: {
       userId: workspaceParticipants.userId,
       email: users.email,
       role: workspaceParticipants.role,
-      shadow: workspaceParticipants.viewOnlyShadowSide,
     })
     .from(workspaceParticipants)
     .innerJoin(users, eq(users.id, workspaceParticipants.userId))
@@ -44,7 +43,6 @@ export async function enqueueChecklistAssignedNotifications(input: {
     const filter = ownerFilterForSession({
       isAdmin: false,
       role: p.role,
-      shadowSide: p.shadow,
       cisAdvisorySide: workspace.cisAdvisorySide,
     });
     return filter !== null && filter.includes(input.newOwner);

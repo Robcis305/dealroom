@@ -9,7 +9,7 @@ import {
   ownerFilterForSession,
 } from '@/lib/dal/checklist';
 import { getReadinessSummary, shouldShowCanonicalPlaybook, STAGE_META } from '@/lib/dal/playbook';
-import type { ParticipantRole, ViewOnlyShadowSide } from '@/types';
+import type { ParticipantRole } from '@/types';
 
 // Roles that may view the canonical sell-side playbook readiness summary.
 const PLAYBOOK_VISIBLE_ROLES = new Set<ParticipantRole>([
@@ -46,15 +46,13 @@ export async function GET(
     .limit(1);
   if (!workspace) return Response.json({ error: 'Workspace not found' }, { status: 404 });
 
-  // Resolve viewer role + shadow side (mirrors listItemsForViewer pattern)
+  // Resolve viewer role (mirrors listItemsForViewer pattern)
   let role: ParticipantRole = 'admin';
-  let shadowSide: ViewOnlyShadowSide | null = null;
 
   if (!session.isAdmin) {
     const [participant] = await db
       .select({
         role: workspaceParticipants.role,
-        shadow: workspaceParticipants.viewOnlyShadowSide,
       })
       .from(workspaceParticipants)
       .where(
@@ -67,7 +65,6 @@ export async function GET(
       .limit(1);
     if (!participant) return Response.json({ error: 'Forbidden' }, { status: 403 });
     role = participant.role;
-    shadowSide = participant.shadow;
   }
 
   if (!shouldShowCanonicalPlaybook(workspace)) {
@@ -80,7 +77,6 @@ export async function GET(
     const ownerFilter = ownerFilterForSession({
       isAdmin: session.isAdmin,
       role,
-      shadowSide,
       cisAdvisorySide: workspace.cisAdvisorySide,
     });
     if (ownerFilter !== null && ownerFilter.length === 0) {

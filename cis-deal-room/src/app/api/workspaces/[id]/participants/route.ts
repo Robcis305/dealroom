@@ -22,7 +22,6 @@ const inviteSchema = z.object({
     'view_only',
   ]),
   folderIds: z.array(z.string().uuid()).default([]),
-  viewOnlyShadowSide: z.enum(['buyer', 'seller']).nullable().optional(),
   acknowledgement: z.string().optional(),
 });
 
@@ -82,14 +81,8 @@ export async function POST(
   const email = parsed.email.toLowerCase();
 
   // Gate: external-side invites with outstanding deal-killers require acknowledgement.
-  // On a seller_side advisory, counterparty and view_only@buyer are external.
-  // On a buyer_side advisory, counterparty and view_only@seller are external.
-  const externalShadow =
-    workspace.cisAdvisorySide === 'seller_side' ? 'buyer' : 'seller';
-
-  const isExternalInvite =
-    parsed.role === 'counterparty' ||
-    (parsed.role === 'view_only' && parsed.viewOnlyShadowSide === externalShadow);
+  // Counterparty is always external; view_only observers no longer carry a shadow side.
+  const isExternalInvite = parsed.role === 'counterparty';
 
   if (isExternalInvite && shouldShowCanonicalPlaybook(workspace)) {
     const checklist = await getChecklistForWorkspace(workspaceId);
@@ -123,7 +116,6 @@ export async function POST(
     email,
     role: parsed.role,
     folderIds: parsed.folderIds,
-    viewOnlyShadowSide: parsed.viewOnlyShadowSide ?? null,
   });
 
   const appUrl = getAppUrl();

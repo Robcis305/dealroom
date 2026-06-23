@@ -147,27 +147,13 @@ describe('POST /participants — counterparty invite gate (seller_side advisory)
     expect(inviteMock).toHaveBeenCalled();
   });
 
-  it('gates view_only@buyer invite on seller_side advisory when deal-killers outstanding', async () => {
+  it('does not gate view_only invite on seller_side advisory (view_only has no shadow side after 0018)', async () => {
     getOutstandingMock.mockResolvedValueOnce([
       { group: 'cap_table', status: 'blocked', color: 'red', members: [] },
     ]);
 
     const res = await POST(
-      makeReq({ email: 'o@x.com', role: 'view_only', viewOnlyShadowSide: 'buyer', folderIds: [] }),
-      { params: Promise.resolve({ id: 'ws' }) },
-    );
-
-    expect(res.status).toBe(409);
-    expect(inviteMock).not.toHaveBeenCalled();
-  });
-
-  it('does not gate view_only@seller invite on seller_side advisory', async () => {
-    getOutstandingMock.mockResolvedValueOnce([
-      { group: 'cap_table', status: 'blocked', color: 'red', members: [] },
-    ]);
-
-    const res = await POST(
-      makeReq({ email: 'o@x.com', role: 'view_only', viewOnlyShadowSide: 'seller', folderIds: [] }),
+      makeReq({ email: 'o@x.com', role: 'view_only', folderIds: [] }),
       { params: Promise.resolve({ id: 'ws' }) },
     );
 
@@ -205,7 +191,7 @@ describe('POST /participants — buy-side advisory gate', () => {
     expect(getOutstandingMock).not.toHaveBeenCalled();
   });
 
-  it('does NOT gate view_only/seller-shadow invite on buy-side advisory', async () => {
+  it('does NOT gate view_only invite on buy-side advisory', async () => {
     vi.mocked(getWorkspace).mockResolvedValueOnce({
       id: 'ws', name: 'Deal', cisAdvisorySide: 'buyer_side',
     } as any);
@@ -214,7 +200,7 @@ describe('POST /participants — buy-side advisory gate', () => {
     ]);
 
     const res = await POST(
-      makeReq({ email: 's@x.com', role: 'view_only', viewOnlyShadowSide: 'seller', folderIds: [] }),
+      makeReq({ email: 's@x.com', role: 'view_only', folderIds: [] }),
       { params: Promise.resolve({ id: 'ws' }) },
     );
 

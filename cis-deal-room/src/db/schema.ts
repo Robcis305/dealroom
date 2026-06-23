@@ -139,11 +139,6 @@ export const checklistStatusEnum = pgEnum('checklist_status', [
   'n_a',
 ]);
 
-export const viewOnlyShadowSideEnum = pgEnum('view_only_shadow_side', [
-  'buyer',
-  'seller',
-]);
-
 export const capTableStatusEnum = pgEnum('cap_table_status', [
   'draft',
   'published',
@@ -222,7 +217,6 @@ export const workspaceParticipants = pgTable('workspace_participants', {
   status: text('status').notNull().default('invited'),
   invitedAt: timestamp('invited_at').notNull().defaultNow(),
   activatedAt: timestamp('activated_at'),
-  viewOnlyShadowSide: viewOnlyShadowSideEnum('view_only_shadow_side'),
 });
 
 export const folders = pgTable('folders', {
