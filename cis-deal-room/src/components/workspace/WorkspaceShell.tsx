@@ -415,6 +415,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
             <QnaView
               workspaceId={workspace.id}
               isAdmin={isAdmin}
+              canManage={canManageWorkstreams}
               currentUserId={userId}
               folders={folders}
               onCountsChanged={refreshWorkstreams}

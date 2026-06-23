@@ -76,7 +76,7 @@ describe('QnaDetail', () => {
 
   it('renders the question title after fetch', async () => {
     mockDetailResponse(baseQuestion);
-    render(<QnaDetail {...defaultProps} isAdmin={false} />);
+    render(<QnaDetail {...defaultProps} isAdmin={false} canManage={false} />);
     await waitFor(() => {
       expect(screen.getAllByText('What is the ARR?').length).toBeGreaterThan(0);
     });
@@ -84,7 +84,7 @@ describe('QnaDetail', () => {
 
   it('shows the approval gate when approvalGateActive and isAdmin', async () => {
     mockDetailResponse({ ...baseQuestion, approvalGateActive: true });
-    render(<QnaDetail {...defaultProps} isAdmin={true} />);
+    render(<QnaDetail {...defaultProps} isAdmin={true} canManage={true} />);
     await waitFor(() => {
       expect(screen.getByTestId('approval-gate')).toBeInTheDocument();
     });
@@ -93,7 +93,7 @@ describe('QnaDetail', () => {
 
   it('hides the approval gate when approvalGateActive but not admin', async () => {
     mockDetailResponse({ ...baseQuestion, approvalGateActive: true });
-    render(<QnaDetail {...defaultProps} isAdmin={false} />);
+    render(<QnaDetail {...defaultProps} isAdmin={false} canManage={false} />);
     await waitFor(() => {
       expect(screen.getAllByText('What is the ARR?').length).toBeGreaterThan(0);
     });
@@ -102,7 +102,7 @@ describe('QnaDetail', () => {
 
   it('hides the approval gate when isAdmin but approvalGateActive is false', async () => {
     mockDetailResponse({ ...baseQuestion, approvalGateActive: false });
-    render(<QnaDetail {...defaultProps} isAdmin={true} />);
+    render(<QnaDetail {...defaultProps} isAdmin={true} canManage={true} />);
     await waitFor(() => {
       expect(screen.getAllByText('What is the ARR?').length).toBeGreaterThan(0);
     });
@@ -111,7 +111,7 @@ describe('QnaDetail', () => {
 
   it('renders the proposed answer sub-card when proposedAnswer is present', async () => {
     mockDetailResponse(baseQuestion);
-    render(<QnaDetail {...defaultProps} isAdmin={false} />);
+    render(<QnaDetail {...defaultProps} isAdmin={false} canManage={false} />);
     await waitFor(() => {
       expect(
         screen.getByText(/proposed answer — submitted for cis approval/i),
@@ -122,7 +122,7 @@ describe('QnaDetail', () => {
 
   it('renders the thread messages', async () => {
     mockDetailResponse(baseQuestion);
-    render(<QnaDetail {...defaultProps} isAdmin={false} />);
+    render(<QnaDetail {...defaultProps} isAdmin={false} canManage={false} />);
     await waitFor(() => {
       expect(
         screen.getByText('Can you share the ARR breakdown?'),
@@ -130,22 +130,33 @@ describe('QnaDetail', () => {
     });
   });
 
-  it('hides "Propose official answer" for non-admin non-assignee when gate inactive', async () => {
+  it('shows only Chat button for non-manager non-assignee', async () => {
     mockDetailResponse({ ...baseQuestion, approvalGateActive: false });
-    // currentUserId 'u99' is neither admin nor the assignee ('u2')
-    render(<QnaDetail {...defaultProps} isAdmin={false} currentUserId="u99" />);
+    // currentUserId 'u99' is neither canManage nor the assignee ('u2')
+    render(<QnaDetail {...defaultProps} isAdmin={false} canManage={false} currentUserId="u99" />);
     await waitFor(() => {
       expect(screen.getAllByText('What is the ARR?').length).toBeGreaterThan(0);
     });
-    expect(screen.queryByText('Propose official answer')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Answer' })).not.toBeInTheDocument();
   });
 
-  it('shows "Propose official answer" when currentUserId equals the assigneeId', async () => {
+  it('shows Answer button when currentUserId equals the assigneeId', async () => {
     mockDetailResponse({ ...baseQuestion, approvalGateActive: false });
     // currentUserId 'u2' matches assigneeId 'u2' in baseQuestion
-    render(<QnaDetail {...defaultProps} isAdmin={false} currentUserId="u2" />);
+    render(<QnaDetail {...defaultProps} isAdmin={false} canManage={false} currentUserId="u2" />);
     await waitFor(() => {
-      expect(screen.getByText('Propose official answer')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Answer' })).toBeInTheDocument();
     });
+    expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument();
+  });
+
+  it('shows Answer button when canManage is true', async () => {
+    mockDetailResponse({ ...baseQuestion, approvalGateActive: false });
+    render(<QnaDetail {...defaultProps} isAdmin={false} canManage={true} currentUserId="u99" />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Answer' })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument();
   });
 });

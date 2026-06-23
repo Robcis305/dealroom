@@ -35,6 +35,7 @@ type InternalView =
 interface Props {
   workspaceId: string;
   isAdmin: boolean;
+  canManage: boolean;
   currentUserId: string;
   folders: Folder[];
   onCountsChanged?: () => void;
@@ -45,6 +46,7 @@ interface Props {
 export function QnaView({
   workspaceId,
   isAdmin,
+  canManage,
   currentUserId,
   folders,
   onCountsChanged,
@@ -89,6 +91,7 @@ export function QnaView({
           workspaceId={workspaceId}
           questionId={view.id}
           isAdmin={isAdmin}
+          canManage={canManage}
           currentUserId={currentUserId}
           participants={participants}
           onBack={() => setView({ kind: 'list' })}

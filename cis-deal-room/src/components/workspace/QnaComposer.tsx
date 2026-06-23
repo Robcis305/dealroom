@@ -6,11 +6,16 @@ interface Participant {
   name: string;
 }
 
+interface Action {
+  label: string;
+  onSubmit: (body: string) => Promise<void>;
+}
+
 interface Props {
   participants: Participant[];
   placeholder: string;
-  submitLabel: string;
-  onSubmit: (body: string) => Promise<void>;
+  primary: Action;
+  secondary?: Action;
 }
 
 /** Returns the word at the caret position (text up to caret, last token). */
@@ -21,7 +26,7 @@ function getCurrentToken(text: string, caret: number): { token: string; start: n
   return { token: match[1], start: caret - match[1].length };
 }
 
-export function QnaComposer({ participants, placeholder, submitLabel, onSubmit }: Props) {
+export function QnaComposer({ participants, placeholder, primary, secondary }: Props) {
   const [value, setValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [dropdown, setDropdown] = useState<Participant[]>([]);
@@ -70,11 +75,11 @@ export function QnaComposer({ participants, placeholder, submitLabel, onSubmit }
     }, 0);
   }
 
-  async function handleSubmit() {
+  async function handleAction(action: Action) {
     const body = value;
     setSubmitting(true);
     try {
-      await onSubmit(body);
+      await action.onSubmit(body);
       setValue('');
       setDropdown([]);
     } finally {
@@ -115,14 +120,24 @@ export function QnaComposer({ participants, placeholder, submitLabel, onSubmit }
         </ul>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {secondary && (
+          <button
+            type="button"
+            disabled={isEmpty || submitting}
+            onClick={() => handleAction(secondary)}
+            className="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-text-primary disabled:opacity-40"
+          >
+            {secondary.label}
+          </button>
+        )}
         <button
           type="button"
           disabled={isEmpty || submitting}
-          onClick={handleSubmit}
-          className="rounded-md bg-text-primary px-4 py-1.5 text-sm font-medium text-surface disabled:opacity-40"
+          onClick={() => handleAction(primary)}
+          className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-text-inverse disabled:opacity-40"
         >
-          {submitLabel}
+          {primary.label}
         </button>
       </div>
     </div>
