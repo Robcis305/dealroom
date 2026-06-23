@@ -76,6 +76,13 @@ export const activityActionEnum = pgEnum('activity_action', [
   'workstream_updated',
   'document_tagged',
   'document_untagged',
+  'qna_asked',
+  'qna_assigned',
+  'qna_answered',
+  'qna_approved',
+  'qna_changes_requested',
+  'qna_rerouted',
+  'qna_message_posted',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
@@ -86,6 +93,7 @@ export const activityTargetTypeEnum = pgEnum('activity_target_type', [
   'file',
   'participant',
   'workstream',
+  'qna_question',
 ]);
 
 export const playbookCategoryEnum = pgEnum('playbook_category', [
@@ -148,6 +156,10 @@ export const capTableInstrumentEnum = pgEnum('cap_table_instrument', [
   'convertible_note',
   'warrant',
 ]);
+
+export const qnaStatusEnum = pgEnum('qna_status', ['new', 'assigned', 'answered', 'approved']);
+export const qnaVisibilityEnum = pgEnum('qna_visibility', ['public', 'private']);
+export const qnaMessageKindEnum = pgEnum('qna_message_kind', ['message', 'proposed_answer']);
 
 // ─── Tables ───────────────────────────────────────────────────────────────────
 
@@ -432,4 +444,57 @@ export const fileWorkstreams = pgTable(
     taggedBy: uuid('tagged_by').notNull().references(() => users.id),
   },
   (table) => [primaryKey({ columns: [table.fileId, table.workstreamId] })],
+);
+
+// ─── Q&A ──────────────────────────────────────────────────────────────────────
+
+export const qnaQuestions = pgTable('qna_questions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  status: qnaStatusEnum('status').notNull().default('new'),
+  askedById: uuid('asked_by_id').notNull().references(() => users.id),
+  assigneeId: uuid('assignee_id').references(() => users.id),
+  askedAt: timestamp('asked_at').notNull().defaultNow(),
+  requestedBy: date('requested_by'),
+  visibility: qnaVisibilityEnum('visibility').notNull().default('public'),
+  linkedDocId: uuid('linked_doc_id').references(() => files.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const qnaQuestionWorkstreams = pgTable(
+  'qna_question_workstreams',
+  {
+    questionId: uuid('question_id').notNull().references(() => qnaQuestions.id, { onDelete: 'cascade' }),
+    workstreamId: uuid('workstream_id').notNull().references(() => workstreams.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.questionId, t.workstreamId] })],
+);
+
+export const qnaMessages = pgTable('qna_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  questionId: uuid('question_id').notNull().references(() => qnaQuestions.id, { onDelete: 'cascade' }),
+  authorId: uuid('author_id').notNull().references(() => users.id),
+  kind: qnaMessageKindEnum('kind').notNull().default('message'),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const qnaMessageFiles = pgTable(
+  'qna_message_files',
+  {
+    messageId: uuid('message_id').notNull().references(() => qnaMessages.id, { onDelete: 'cascade' }),
+    fileId: uuid('file_id').notNull().references(() => files.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.messageId, t.fileId] })],
+);
+
+export const qnaRecipients = pgTable(
+  'qna_recipients',
+  {
+    questionId: uuid('question_id').notNull().references(() => qnaQuestions.id, { onDelete: 'cascade' }),
+    participantId: uuid('participant_id').notNull().references(() => workspaceParticipants.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.questionId, t.participantId] })],
 );

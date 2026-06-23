@@ -68,6 +68,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       isAdmin={session.isAdmin}
       activeClientCount={activeClientCount}
       userEmail={session.userEmail}
+      userId={session.userId}
       participantRole={participantRole}
     />
   );

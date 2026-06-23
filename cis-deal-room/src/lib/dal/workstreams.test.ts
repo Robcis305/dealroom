@@ -9,13 +9,13 @@ describe('listWorkstreamsWithCounts()', () => {
     vi.clearAllMocks();
   });
 
-  it('seeds, maps counts by id, and returns placeholder zeros', async () => {
+  it('seeds, maps counts by id, and merges live Q&A counts', async () => {
     // ensureWorkstreams insert → onConflictDoNothing chain
     const onConflictDoNothing = vi.fn().mockResolvedValue(undefined);
     const values = vi.fn().mockReturnValue({ onConflictDoNothing });
     const insert = vi.fn().mockReturnValue({ values });
 
-    // listWorkstreamsWithCounts reads: workstreams rows, doc counts, member counts
+    // listWorkstreamsWithCounts reads: workstreams rows, doc counts, member counts, qna counts
     const wsRows = [
       { id: 'w-legal', workspaceId: 'ws-1', key: 'legal', name: 'Legal', color: '#33322F', tileTint: '#ECEBE6', description: 'd', sortOrder: 0 },
     ];
@@ -25,17 +25,19 @@ describe('listWorkstreamsWithCounts()', () => {
       // 2nd select: doc counts grouped
       .mockReturnValueOnce({ from: () => ({ innerJoin: () => ({ where: () => ({ groupBy: vi.fn().mockResolvedValue([{ workstreamId: 'w-legal', count: 31 }]) }) }) }) })
       // 3rd select: member counts grouped
-      .mockReturnValueOnce({ from: () => ({ innerJoin: () => ({ where: () => ({ groupBy: vi.fn().mockResolvedValue([{ workstreamId: 'w-legal', count: 6 }]) }) }) }) });
+      .mockReturnValueOnce({ from: () => ({ innerJoin: () => ({ where: () => ({ groupBy: vi.fn().mockResolvedValue([{ workstreamId: 'w-legal', count: 6 }]) }) }) }) })
+      // 4th select: qna counts grouped (openQa=4, overdue=1)
+      .mockReturnValueOnce({ from: () => ({ innerJoin: () => ({ where: () => ({ groupBy: vi.fn().mockResolvedValue([{ workstreamId: 'w-legal', openQa: 4, overdue: 1 }]) }) }) }) });
 
     vi.doMock('@/db', () => ({ db: { insert, select } }));
-    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {} }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, qnaQuestions: {}, qnaQuestionWorkstreams: {} }));
 
     const { listWorkstreamsWithCounts } = await import('./workstreams');
     const result = await listWorkstreamsWithCounts('ws-1');
 
     expect(insert).toHaveBeenCalled(); // seeded
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ key: 'legal', docCount: 31, memberCount: 6, openQaCount: 0, overdueCount: 0 });
+    expect(result[0]).toMatchObject({ key: 'legal', docCount: 31, memberCount: 6, openQaCount: 4, overdueCount: 1 });
   });
 });
 

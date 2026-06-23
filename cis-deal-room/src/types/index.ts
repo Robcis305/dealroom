@@ -72,9 +72,16 @@ export type ActivityAction =
   | 'workstream_member_removed'
   | 'workstream_updated'
   | 'document_tagged'
-  | 'document_untagged';
+  | 'document_untagged'
+  | 'qna_asked'
+  | 'qna_assigned'
+  | 'qna_answered'
+  | 'qna_approved'
+  | 'qna_changes_requested'
+  | 'qna_rerouted'
+  | 'qna_message_posted';
 
-export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant' | 'workstream';
+export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant' | 'workstream' | 'qna_question';
 
 // ─── Checklist ────────────────────────────────────────────────────────────────
 
@@ -135,4 +142,46 @@ export interface WorkstreamWithCounts extends Workstream {
   memberCount: number;
   openQaCount: number;   // 0 until PR2 (Q&A)
   overdueCount: number;  // 0 until PR2 (Q&A)
+}
+
+// ─── Q&A ──────────────────────────────────────────────────────────────────────
+
+export type { QnaStatus, QnaVisibility, QnaMessageKind } from '@/lib/qna/constants';
+import type { QnaStatus as _QnaStatus, QnaVisibility as _QnaVisibility, QnaMessageKind as _QnaMessageKind } from '@/lib/qna/constants';
+
+export interface QnaQuestionRow {
+  id: string;
+  workspaceId: string;
+  title: string;
+  status: _QnaStatus;
+  askedById: string;
+  askedByName: string;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  askedAt: string;
+  requestedBy: string | null;
+  visibility: _QnaVisibility;
+  linkedDocId: string | null;
+  workstreams: Array<{ id: string; name: string; color: string }>;
+  isOverdue: boolean;
+}
+
+export interface QnaMessage {
+  id: string;
+  questionId: string;
+  authorId: string;
+  authorName: string;
+  kind: _QnaMessageKind;
+  body: string;
+  createdAt: string;
+  attachments: Array<{ fileId: string; name: string }>;
+}
+
+export interface QnaQuestionDetail extends QnaQuestionRow {
+  thread: QnaMessage[];
+  proposedAnswer: QnaMessage | null;
+  recipients: Array<{ participantId: string; name: string }>;
+  linkedDocName: string | null;
+  /** Derived from cisAdvisorySide: the CIS approval gate is live. */
+  approvalGateActive: boolean;
 }
