@@ -12,15 +12,14 @@ import { getReadinessSummary, shouldShowCanonicalPlaybook, STAGE_META } from '@/
 import type { ParticipantRole } from '@/types';
 
 // Roles that may view the canonical sell-side playbook readiness summary.
+// Counterparty is intentionally excluded — the full aggregate leaks client diligence posture.
+// Deprecated roles (seller_rep, seller_counsel, buyer_rep, buyer_counsel) are excluded;
+// migration converts them to the canonical role set before they hit this route.
 const PLAYBOOK_VISIBLE_ROLES = new Set<ParticipantRole>([
   'admin',
   'cis_team',
   'client',
   'client_counsel',
-  'counterparty',
-  // Deprecated — keep working until migrated
-  'seller_rep',
-  'seller_counsel',
 ]);
 
 export async function GET(

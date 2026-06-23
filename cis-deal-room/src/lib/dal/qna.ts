@@ -40,6 +40,7 @@ export async function createQuestion(input: {
       .where(and(
         eq(workspaceParticipants.workspaceId, input.workspaceId),
         eq(workspaceParticipants.userId, session.userId),
+        eq(workspaceParticipants.status, 'active'),
       ))
       .limit(1);
     if (!pRow || pRow.role === 'view_only') throw new Error('Forbidden');
@@ -318,6 +319,7 @@ export async function postMessage(
       .where(and(
         eq(workspaceParticipants.workspaceId, workspaceId),
         eq(workspaceParticipants.userId, session.userId),
+        eq(workspaceParticipants.status, 'active'),
       ))
       .limit(1);
     if (!pRow || pRow.role === 'view_only') throw new Error('Forbidden');
