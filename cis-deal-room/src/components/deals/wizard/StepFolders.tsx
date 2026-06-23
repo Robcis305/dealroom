@@ -18,7 +18,7 @@ interface StepFoldersProps {
   workspaceId: string;
   onDone: (createdFolders: { id: string; name: string }[]) => void;
   onSkip: () => void;
-  registerCommit: (fn: () => Promise<boolean>) => void;
+  registerCommit: (fn: (() => Promise<boolean>) | null) => void;
 }
 
 export function StepFolders({ workspaceId, onDone, registerCommit }: StepFoldersProps) {
@@ -71,6 +71,7 @@ export function StepFolders({ workspaceId, onDone, registerCommit }: StepFolders
       onDone(results);
       return true;
     });
+    return () => registerCommit(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, checked, customFolders, onDone, registerCommit]);
 

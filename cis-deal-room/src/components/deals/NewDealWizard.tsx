@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { StepDetails } from './wizard/StepDetails';
 import { StepFolders } from './wizard/StepFolders';
+import { StepWorkstreams } from './wizard/StepWorkstreams';
 import type { CisAdvisorySide } from '@/types';
 
 type WizardStep = 'details' | 'folders' | 'workstreams' | 'invite';
@@ -34,7 +35,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
   const [serverError, setServerError] = useState<string | null>(null);
   const stepActionRef = useRef<null | (() => Promise<boolean>)>(null);
 
-  function registerCommit(fn: () => Promise<boolean>) {
+  function registerCommit(fn: (() => Promise<boolean>) | null) {
     stepActionRef.current = fn;
   }
 
@@ -142,13 +143,13 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
             registerCommit={registerCommit}
           />
         )}
-        {step === 'workstreams' && (
-          <div className="space-y-3">
-            <h2 className="text-base font-semibold text-text-primary">Workstreams</h2>
-            <p className="text-sm text-text-muted">
-              Workstream setup coming in the next task.
-            </p>
-          </div>
+        {step === 'workstreams' && workspaceId && (
+          <StepWorkstreams
+            workspaceId={workspaceId}
+            onDone={advance}
+            onSkip={advance}
+            registerCommit={registerCommit}
+          />
         )}
         {step === 'invite' && (
           <div className="space-y-3">

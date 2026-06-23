@@ -49,7 +49,7 @@ describe('StepFolders', () => {
     const onDone = vi.fn();
     const onSkip = vi.fn();
     let commitFn: (() => Promise<boolean>) | null = null;
-    const registerCommit = vi.fn((fn: () => Promise<boolean>) => {
+    const registerCommit = vi.fn((fn: (() => Promise<boolean>) | null) => {
       commitFn = fn;
     });
 

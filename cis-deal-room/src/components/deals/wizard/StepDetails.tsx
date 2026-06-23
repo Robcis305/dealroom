@@ -21,7 +21,7 @@ interface StepDetailsProps {
   onError: (msg: string) => void;
   submitting: boolean;
   setSubmitting: (v: boolean) => void;
-  registerCommit?: (fn: () => Promise<boolean>) => void;
+  registerCommit?: (fn: (() => Promise<boolean>) | null) => void;
 }
 
 export function StepDetails({ onCreated, onError, submitting, setSubmitting, registerCommit }: StepDetailsProps) {
@@ -74,6 +74,7 @@ export function StepDetails({ onCreated, onError, submitting, setSubmitting, reg
   // Register commit fn with the container so Next button can trigger it
   useEffect(() => {
     registerCommit?.(submit);
+    return () => registerCommit?.(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, registerCommit]);
 
