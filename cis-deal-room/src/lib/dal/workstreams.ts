@@ -17,27 +17,30 @@ import { logActivity } from './activity';
 import { isCisTeamOrAdmin } from './access';
 import type { ActivityAction, Workstream, WorkstreamWithCounts } from '@/types';
 
-/** Idempotently seed the 5 canonical workstreams for a workspace. */
-export async function ensureWorkstreams(workspaceId: string): Promise<void> {
-  await db
-    .insert(workstreams)
-    .values(
-      CANONICAL_WORKSTREAMS.map((w) => ({
-        workspaceId,
-        key: w.key,
-        name: w.name,
-        color: w.color,
-        tileTint: w.tileTint,
-        description: w.description,
-        sortOrder: w.sortOrder,
-      })),
-    )
-    .onConflictDoNothing();
+export async function createWorkstreamByKey(workspaceId: string, key: string): Promise<Workstream> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!(await isCisTeamOrAdmin(workspaceId, session))) throw new Error('Forbidden');
+  const def = CANONICAL_WORKSTREAMS.find((w) => w.key === key);
+  if (!def) throw new Error('Invalid workstream key');
+  return db.transaction(async (tx) => {
+    const [created] = await tx.insert(workstreams).values({
+      workspaceId, key: def.key, name: def.name, color: def.color,
+      tileTint: def.tileTint, description: def.description, sortOrder: def.sortOrder,
+    }).onConflictDoNothing().returning();
+    if (created) {
+      await logActivity(tx, { workspaceId, userId: session.userId, action: 'workstream_updated',
+        targetType: 'workstream', targetId: created.id, metadata: { created: true, key: def.key } });
+      return created;
+    }
+    const [existing] = await tx.select().from(workstreams)
+      .where(and(eq(workstreams.workspaceId, workspaceId), eq(workstreams.key, def.key))).limit(1);
+    return existing;
+  });
 }
 
-/** Seed (if needed) then return the workspace's workstreams with derived counts. */
+/** Return the workspace's workstreams with derived counts. */
 export async function listWorkstreamsWithCounts(workspaceId: string): Promise<WorkstreamWithCounts[]> {
-  await ensureWorkstreams(workspaceId);
 
   const rows = await db
     .select()
