@@ -153,6 +153,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
         {step === 'folders' && workspaceId && (
           <StepFolders
             workspaceId={workspaceId}
+            initialCreated={createdFolders}
             onDone={(folders) => setCreatedFolders(folders)}
             onSkip={advance}
             registerCommit={registerCommit}

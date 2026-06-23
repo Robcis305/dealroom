@@ -1,5 +1,5 @@
 import { verifySession } from '@/lib/dal/index';
-import { requireDealAccess } from '@/lib/dal/access';
+import { requireDealAccess, isCisTeamOrAdmin } from '@/lib/dal/access';
 import { listWorkstreamsWithCounts, createWorkstreamByKey } from '@/lib/dal/workstreams';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -19,7 +19,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const session = await verifySession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   const { id: workspaceId } = await params;
-  try { await requireDealAccess(workspaceId, session); } catch { return Response.json({ error: 'Forbidden' }, { status: 403 }); }
+  const isCis = await isCisTeamOrAdmin(workspaceId, session);
+  if (!isCis) return Response.json({ error: 'Forbidden' }, { status: 403 });
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }); }
   if (typeof body.key !== 'string') return Response.json({ error: 'key required' }, { status: 400 });

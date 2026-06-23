@@ -235,3 +235,63 @@ describe('NewDealWizard — Invite step double-click guard', () => {
     expect(participantCalls).toHaveLength(1);
   });
 });
+
+describe('NewDealWizard — Folders step idempotency (Back then Next again)', () => {
+  it('re-advancing through Folders step makes no new POSTs and onDone receives the same non-duplicate list', async () => {
+    render(<NewDealWizard open onClose={() => {}} />);
+
+    // Fill Details
+    fireEvent.change(screen.getByLabelText(/deal codename/i), {
+      target: { value: 'Project Falcon' },
+    });
+    fireEvent.change(screen.getByLabelText(/client name/i), {
+      target: { value: 'Acme Corp' },
+    });
+    fireEvent.click(screen.getByRole('radio', { name: /seller-side/i }));
+
+    // Next on Details — creates workspace
+    vi.mocked(fetchWithAuth).mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'w1', cisAdvisorySide: 'seller_side' }),
+    } as Response);
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /folders/i })).toBeInTheDocument());
+
+    // Track folder POSTs
+    let folderPostCount = 0;
+    const foldersMade: string[] = [];
+    vi.mocked(fetchWithAuth).mockImplementation(async (url, opts) => {
+      if (typeof url === 'string' && url.includes('/folders') && opts?.method === 'POST') {
+        folderPostCount++;
+        const body = JSON.parse(opts.body as string) as { name: string };
+        foldersMade.push(body.name);
+        return {
+          ok: true,
+          json: async () => ({ id: `f${folderPostCount}`, name: body.name }),
+        } as Response;
+      }
+      return { ok: true, json: async () => ({}) } as Response;
+    });
+
+    // First Next on Folders — should POST all 8 canonical folders
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /workstreams/i })).toBeInTheDocument());
+
+    const countAfterFirst = folderPostCount;
+    expect(countAfterFirst).toBeGreaterThan(0); // sanity: at least one folder was created
+
+    // Capture onDone result by reading createdFolders from the StepInvite folders prop —
+    // instead, we go Back to Folders then Next again and assert no new POSTs
+    fireEvent.click(screen.getByRole('button', { name: /back/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /folders/i })).toBeInTheDocument());
+
+    // Second Next on Folders — should make ZERO new POSTs (idempotent)
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /workstreams/i })).toBeInTheDocument());
+
+    expect(folderPostCount).toBe(countAfterFirst); // no new POSTs on re-advance
+    // No duplicate folder names in the POST history
+    const uniqueNames = new Set(foldersMade);
+    expect(foldersMade.length).toBe(uniqueNames.size);
+  });
+});

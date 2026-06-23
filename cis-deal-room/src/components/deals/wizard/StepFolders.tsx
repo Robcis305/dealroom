@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 export const CANONICAL_FOLDERS = [
@@ -16,27 +16,48 @@ export const CANONICAL_FOLDERS = [
 
 interface StepFoldersProps {
   workspaceId: string;
+  /** Folders already created in a previous commit of this step (passed back in on remount). */
+  initialCreated?: { id: string; name: string }[];
   onDone: (createdFolders: { id: string; name: string }[]) => void;
   onSkip: () => void;
   registerCommit: (fn: (() => Promise<boolean>) | null) => void;
 }
 
-export function StepFolders({ workspaceId, onDone, registerCommit }: StepFoldersProps) {
+export function StepFolders({ workspaceId, initialCreated, onDone, registerCommit }: StepFoldersProps) {
   const [checked, setChecked] = useState<Set<string>>(new Set(CANONICAL_FOLDERS));
   const [customFolders, setCustomFolders] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  // Tracks folders already successfully created this wizard session (keyed by lower-case name).
+  // Seeded from initialCreated so remounts (Back → Next) don't re-POST.
+  // Using a ref so the commit closure always sees the latest value without re-registering.
+  const alreadyCreatedRef = useRef<{ id: string; name: string }[]>(initialCreated ?? []);
 
   useEffect(() => {
     registerCommit(async (): Promise<boolean> => {
-      const toCreate = [
+      const targetNames = [
         ...CANONICAL_FOLDERS.filter((f) => checked.has(f)),
         ...customFolders,
       ];
+
+      // Determine which names still need to be created (case-insensitive dedup).
+      const createdNamesLower = new Set(
+        alreadyCreatedRef.current.map((f) => f.name.trim().toLowerCase())
+      );
+      const toCreate = targetNames.filter(
+        (name) => !createdNamesLower.has(name.trim().toLowerCase())
+      );
+
+      // Nothing new to POST — return immediately with the full accumulated list.
+      if (toCreate.length === 0) {
+        onDone(alreadyCreatedRef.current);
+        return true;
+      }
+
       setErrors({});
       setSubmitting(true);
-      const results: { id: string; name: string }[] = [];
+      const newlyCreated: { id: string; name: string }[] = [];
       const newErrors: Record<string, string> = {};
 
       await Promise.allSettled(
@@ -54,7 +75,7 @@ export function StepFolders({ workspaceId, onDone, registerCommit }: StepFolders
               return;
             }
             const folder = await res.json();
-            results.push({ id: folder.id as string, name: folder.name as string });
+            newlyCreated.push({ id: folder.id as string, name: folder.name as string });
           } catch {
             newErrors[name] = `Network error creating "${name}"`;
           }
@@ -68,7 +89,9 @@ export function StepFolders({ workspaceId, onDone, registerCommit }: StepFolders
         return false;
       }
 
-      onDone(results);
+      // Accumulate newly created folders into the session ref and call onDone with the full list.
+      alreadyCreatedRef.current = [...alreadyCreatedRef.current, ...newlyCreated];
+      onDone(alreadyCreatedRef.current);
       return true;
     });
     return () => registerCommit(null);
