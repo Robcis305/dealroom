@@ -47,4 +47,24 @@ describe('enqueueOrSend channel routing', () => {
     expect(mockSend).not.toHaveBeenCalled();
     expect(mockInsert).toHaveBeenCalled();
   });
+
+  it('qna channel is NOT muted by notifyUploads=false and sends immediately when digest off', async () => {
+    vi.resetModules();
+    const sendEmail = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('@/lib/email/send', () => ({ sendEmail }));
+    vi.doMock('@/db', () => ({
+      db: {
+        select: () => ({ from: () => ({ where: () => ({ limit: async () => [{ notifyUploads: false, notifyDigest: false }] }) }) }),
+        insert: () => ({ values: vi.fn() }),
+      },
+    }));
+    vi.doMock('@/db/schema', () => ({ notificationQueue: {}, users: {} }));
+    const { enqueueOrSend } = await import('./enqueue-or-send');
+    await enqueueOrSend({
+      userId: 'u1', workspaceId: 'w1', action: 'qna_approved', targetType: 'qna_question',
+      targetId: 'q1', metadata: {}, channel: 'qna',
+      immediateEmail: async () => ({ to: 'a@b.com', subject: 's', react: {} as never }),
+    });
+    expect(sendEmail).toHaveBeenCalledTimes(1); // not muted, delivered immediately
+  });
 });

@@ -5,7 +5,7 @@ import { sendEmail } from '@/lib/email/send';
 import type { ReactElement } from 'react';
 import type { ActivityAction, ActivityTargetType } from '@/types';
 
-type Channel = 'uploads' | 'digest';
+type Channel = 'uploads' | 'digest' | 'qna';
 
 interface Input {
   userId: string;
