@@ -45,8 +45,9 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
   // Resolve participant role for the current user.
   // Admins don't have a participant row — use 'admin' as the role.
   let participantRole: ParticipantRole = 'admin';
+  let participant: { role: ParticipantRole } | undefined;
   if (!session.isAdmin) {
-    const [participant] = await db
+    const [found] = await db
       .select({ role: workspaceParticipants.role })
       .from(workspaceParticipants)
       .where(
@@ -57,10 +58,16 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
         ),
       )
       .limit(1);
-    if (participant) participantRole = participant.role;
+    if (found) {
+      participant = found;
+      participantRole = found.role;
+    }
   }
 
-  const canManageWorkstreams = session.isAdmin || participantRole === 'cis_team' || participantRole === 'admin';
+  const canManageWorkstreams =
+    session.isAdmin ||
+    (participant != null &&
+      (participant.role === 'cis_team' || participant.role === 'admin'));
 
   return (
     <WorkspaceShell

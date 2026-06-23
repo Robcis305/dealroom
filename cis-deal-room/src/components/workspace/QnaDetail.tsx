@@ -17,7 +17,6 @@ interface Participant {
 interface Props {
   workspaceId: string;
   questionId: string;
-  isAdmin: boolean;
   canManage: boolean;
   currentUserId: string;
   participants: Participant[];
@@ -61,7 +60,6 @@ function initials(name: string): string {
 export function QnaDetail({
   workspaceId,
   questionId,
-  isAdmin,
   canManage,
   currentUserId,
   participants,
@@ -147,7 +145,7 @@ export function QnaDetail({
 
   const canAnswer = canManage || question.assigneeId === currentUserId;
 
-  const showApprovalGate = question.approvalGateActive && isAdmin;
+  const showApprovalGate = question.approvalGateActive && canManage;
 
   return (
     <div className="rounded-lg border border-border bg-surface overflow-hidden">

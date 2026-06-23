@@ -591,6 +591,30 @@ describe('submitProposedAnswer()', () => {
     expect(tx.insert).not.toHaveBeenCalled();
   });
 
+  it('non-cis non-assignee (helper→false, different assigneeId) → rejects with /forbidden/i, no insert', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-x', isAdmin: false, sessionId: 's', userEmail: 'x@other.com' }),
+    }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(false) }));
+
+    // Question is assigned to 'other-user', not 'user-x'
+    const { tx, db, mockSchema } = makeSubmitMocks(logActivity, [{ id: 'q-1', assigneeId: 'other-user' }]);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { submitProposedAnswer } = await import('./qna');
+    await expect(submitProposedAnswer({
+      workspaceId: 'ws-1',
+      questionId: 'q-1',
+      body: 'Unauthorized answer.',
+      attachmentFileIds: [],
+      cisAdvisorySide: 'seller_side',
+    })).rejects.toThrow(/forbidden/i);
+    expect(tx.insert).not.toHaveBeenCalled();
+  });
+
   it('cis_team non-global-admin (helper→true): submits proposed answer successfully', async () => {
     const logActivity = vi.fn().mockResolvedValue(undefined);
     vi.doMock('./activity', () => ({ logActivity }));

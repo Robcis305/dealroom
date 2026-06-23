@@ -34,7 +34,6 @@ type InternalView =
 
 interface Props {
   workspaceId: string;
-  isAdmin: boolean;
   canManage: boolean;
   currentUserId: string;
   folders: Folder[];
@@ -45,7 +44,6 @@ interface Props {
 
 export function QnaView({
   workspaceId,
-  isAdmin,
   canManage,
   currentUserId,
   folders,
@@ -90,7 +88,6 @@ export function QnaView({
         <QnaDetail
           workspaceId={workspaceId}
           questionId={view.id}
-          isAdmin={isAdmin}
           canManage={canManage}
           currentUserId={currentUserId}
           participants={participants}
