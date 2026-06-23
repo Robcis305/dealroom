@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { Input } from '@/components/ui/Input';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
@@ -21,9 +21,10 @@ interface StepDetailsProps {
   onError: (msg: string) => void;
   submitting: boolean;
   setSubmitting: (v: boolean) => void;
+  registerCommit?: (fn: () => Promise<boolean>) => void;
 }
 
-export function StepDetails({ onCreated, onError, submitting, setSubmitting }: StepDetailsProps) {
+export function StepDetails({ onCreated, onError, submitting, setSubmitting, registerCommit }: StepDetailsProps) {
   const [formData, setFormData] = useState<{
     name: string;
     clientName: string;
@@ -35,7 +36,7 @@ export function StepDetails({ onCreated, onError, submitting, setSubmitting }: S
   });
   const [errors, setErrors] = useState<Partial<Record<keyof StepDetailsForm, string>>>({});
 
-  async function submit(): Promise<void> {
+  async function submit(): Promise<boolean> {
     const result = stepDetailsSchema.safeParse(formData);
     if (!result.success) {
       const fieldErrors: Partial<Record<keyof StepDetailsForm, string>> = {};
@@ -44,7 +45,7 @@ export function StepDetails({ onCreated, onError, submitting, setSubmitting }: S
         fieldErrors[field] = issue.message;
       }
       setErrors(fieldErrors);
-      return;
+      return false;
     }
     setErrors({});
     setSubmitting(true);
@@ -57,16 +58,24 @@ export function StepDetails({ onCreated, onError, submitting, setSubmitting }: S
       if (!response.ok) {
         const body = await response.json();
         onError(body.error ?? 'Something went wrong. Please try again.');
-        return;
+        return false;
       }
       const workspace = await response.json();
       onCreated({ id: workspace.id, cisAdvisorySide: result.data.cisAdvisorySide });
+      return true;
     } catch {
       onError('Network error. Please try again.');
+      return false;
     } finally {
       setSubmitting(false);
     }
   }
+
+  // Register commit fn with the container so Next button can trigger it
+  useEffect(() => {
+    registerCommit?.(submit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, registerCommit]);
 
   return (
     <form

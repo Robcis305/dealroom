@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { StepDetails } from './wizard/StepDetails';
+import { StepFolders } from './wizard/StepFolders';
 import type { CisAdvisorySide } from '@/types';
 
 type WizardStep = 'details' | 'folders' | 'workstreams' | 'invite';
@@ -28,8 +29,14 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
   const [step, setStep] = useState<WizardStep>('details');
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [, setCisAdvisorySide] = useState<CisAdvisorySide | null>(null);
+  const [, setCreatedFolders] = useState<{ id: string; name: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const stepActionRef = useRef<null | (() => Promise<boolean>)>(null);
+
+  function registerCommit(fn: () => Promise<boolean>) {
+    stepActionRef.current = fn;
+  }
 
   const currentIndex = STEP_KEYS.indexOf(step);
   const isFirst = currentIndex === 0;
@@ -64,13 +71,13 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
   function handleCreated(ws: { id: string; cisAdvisorySide: CisAdvisorySide }) {
     setWorkspaceId(ws.id);
     setCisAdvisorySide(ws.cisAdvisorySide);
-    advance();
+    // Do NOT advance here — handleNext advances after commit returns true
   }
 
-  function handleNext() {
-    if (step === 'details') {
-      const form = document.getElementById('step-details-form') as HTMLFormElement | null;
-      form?.requestSubmit();
+  async function handleNext() {
+    if (stepActionRef.current) {
+      const ok = await stepActionRef.current();
+      if (ok) advance();
     } else {
       advance();
     }
@@ -124,15 +131,16 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
             onError={(msg) => setServerError(msg)}
             submitting={submitting}
             setSubmitting={setSubmitting}
+            registerCommit={registerCommit}
           />
         )}
-        {step === 'folders' && (
-          <div className="space-y-3">
-            <h2 className="text-base font-semibold text-text-primary">Folders</h2>
-            <p className="text-sm text-text-muted">
-              Folder setup coming in the next task.
-            </p>
-          </div>
+        {step === 'folders' && workspaceId && (
+          <StepFolders
+            workspaceId={workspaceId}
+            onDone={(folders) => setCreatedFolders(folders)}
+            onSkip={advance}
+            registerCommit={registerCommit}
+          />
         )}
         {step === 'workstreams' && (
           <div className="space-y-3">
