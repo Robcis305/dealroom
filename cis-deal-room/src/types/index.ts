@@ -104,8 +104,6 @@ export type ChecklistStatus =
   | 'waived'
   | 'n_a';
 
-export type ViewOnlyShadowSide = 'buyer' | 'seller';
-
 // ─── Cap Table ────────────────────────────────────────────────────────────────
 
 export type CapTableStatus = 'draft' | 'published';
