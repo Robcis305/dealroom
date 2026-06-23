@@ -7,6 +7,7 @@ import {
 } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
+import { isCisTeamOrAdmin } from './access';
 import type { QnaStatus, QnaVisibility, QnaQuestionRow, QnaQuestionDetail } from '@/types';
 
 export function nameOfUser(f: string | null, l: string | null, e: string): string {
@@ -333,7 +334,7 @@ export async function applyApprovalAction(input: {
 }): Promise<void> {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
-  if (!session.isAdmin) throw new Error('Admin required');
+  if (!(await isCisTeamOrAdmin(input.workspaceId, session))) throw new Error('Forbidden');
 
   await db.transaction(async (tx) => {
     let setPayload: { status: QnaStatus; updatedAt: Date; assigneeId?: string | null };
@@ -386,11 +387,14 @@ export async function submitProposedAnswer(input: {
 
   await db.transaction(async (tx) => {
     const [q] = await tx
-      .select({ id: qnaQuestions.id })
+      .select({ id: qnaQuestions.id, assigneeId: qnaQuestions.assigneeId })
       .from(qnaQuestions)
       .where(and(eq(qnaQuestions.id, input.questionId), eq(qnaQuestions.workspaceId, input.workspaceId)))
       .limit(1);
     if (!q) throw new Error('Question not found');
+
+    const allowed = (await isCisTeamOrAdmin(input.workspaceId, session)) || q.assigneeId === session.userId;
+    if (!allowed) throw new Error('Forbidden');
 
     const [msg] = await tx.insert(qnaMessages).values({
       questionId: input.questionId,

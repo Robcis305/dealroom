@@ -1,8 +1,27 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { workspaceParticipants, folderAccess, folders, fileWorkstreams, workstreamMembers, files } from '@/db/schema';
 import { canPerform, type FolderAction, type ParticipantRole } from './permissions';
 import type { Session } from '@/types';
+
+/**
+ * True if the session user is a global admin OR an active CIS-side participant
+ * (role 'cis_team' or 'admin') in the given workspace.
+ */
+export async function isCisTeamOrAdmin(workspaceId: string, session: Session): Promise<boolean> {
+  if (session.isAdmin) return true;
+  const [row] = await db
+    .select({ id: workspaceParticipants.id })
+    .from(workspaceParticipants)
+    .where(and(
+      eq(workspaceParticipants.workspaceId, workspaceId),
+      eq(workspaceParticipants.userId, session.userId),
+      eq(workspaceParticipants.status, 'active'),
+      inArray(workspaceParticipants.role, ['cis_team', 'admin']),
+    ))
+    .limit(1);
+  return !!row;
+}
 
 /**
  * Verify the session user has access to the given workspace.

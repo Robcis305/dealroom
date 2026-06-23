@@ -261,12 +261,13 @@ describe('applyApprovalAction()', () => {
     return { tx, db, mockSchema, updateSet, returning };
   }
 
-  it('(a) non-admin session → throws "Admin required"', async () => {
+  it('(a) non-admin session (helper→false) → throws "Forbidden"', async () => {
     const logActivity = vi.fn().mockResolvedValue(undefined);
     vi.doMock('./activity', () => ({ logActivity }));
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(false) }));
 
     const { tx, db, mockSchema } = makeApprovalMocks({ userId: 'user-1', isAdmin: false });
     vi.doMock('@/db', () => ({ db }));
@@ -277,7 +278,26 @@ describe('applyApprovalAction()', () => {
       workspaceId: 'ws-1',
       questionId: 'q-1',
       action: 'approve',
-    })).rejects.toThrow('Admin required');
+    })).rejects.toThrow('Forbidden');
+  });
+
+  it('(a2) cis_team non-global-admin (helper→true) → approves successfully', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'cis-1', isAdmin: false, sessionId: 's', userEmail: 'cis@cis.com' }),
+    }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+
+    const { tx, db, mockSchema, updateSet } = makeApprovalMocks({ userId: 'cis-1', isAdmin: false });
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { applyApprovalAction } = await import('./qna');
+    await applyApprovalAction({ workspaceId: 'ws-1', questionId: 'q-1', action: 'approve' });
+
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'approved' }));
+    expect(logActivity).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'qna_approved' }));
   });
 
   it('(b) approve → status "approved" + logActivity "qna_approved"', async () => {
@@ -286,6 +306,7 @@ describe('applyApprovalAction()', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'admin@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     const { tx, db, mockSchema, updateSet } = makeApprovalMocks({ userId: 'admin-1', isAdmin: true });
     vi.doMock('@/db', () => ({ db }));
@@ -311,6 +332,7 @@ describe('applyApprovalAction()', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'admin@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     const { tx, db, mockSchema, updateSet } = makeApprovalMocks({ userId: 'admin-1', isAdmin: true });
     vi.doMock('@/db', () => ({ db }));
@@ -337,6 +359,7 @@ describe('applyApprovalAction()', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'admin@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     const { tx, db, mockSchema, updateSet } = makeApprovalMocks({ userId: 'admin-1', isAdmin: true });
     vi.doMock('@/db', () => ({ db }));
@@ -433,7 +456,7 @@ describe('postMessage()', () => {
 describe('submitProposedAnswer()', () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
 
-  function makeSubmitMocks(logActivity: ReturnType<typeof vi.fn>, selectResult: Array<{ id: string }> = [{ id: 'q-1' }]) {
+  function makeSubmitMocks(logActivity: ReturnType<typeof vi.fn>, selectResult: Array<{ id: string; assigneeId: string | null }> = [{ id: 'q-1', assigneeId: null }]) {
     const mockSchema = {
       qnaQuestions: { id: 'id', workspaceId: 'workspaceId' },
       qnaMessages: { id: 'id' },
@@ -477,6 +500,7 @@ describe('submitProposedAnswer()', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     const { tx, db, mockSchema, updateSet } = makeSubmitMocks(logActivity);
     vi.doMock('@/db', () => ({ db }));
@@ -513,6 +537,7 @@ describe('submitProposedAnswer()', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     const { tx, db, mockSchema, updateSet } = makeSubmitMocks(logActivity);
     vi.doMock('@/db', () => ({ db }));
@@ -549,6 +574,7 @@ describe('submitProposedAnswer()', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     const { tx, db, mockSchema } = makeSubmitMocks(logActivity, []);
     vi.doMock('@/db', () => ({ db }));
@@ -563,5 +589,30 @@ describe('submitProposedAnswer()', () => {
       cisAdvisorySide: 'seller_side',
     })).rejects.toThrow(/not found/i);
     expect(tx.insert).not.toHaveBeenCalled();
+  });
+
+  it('cis_team non-global-admin (helper→true): submits proposed answer successfully', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'cis-1', isAdmin: false, sessionId: 's', userEmail: 'cis@cis.com' }),
+    }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+
+    const { tx, db, mockSchema, updateSet } = makeSubmitMocks(logActivity);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { submitProposedAnswer } = await import('./qna');
+    await submitProposedAnswer({
+      workspaceId: 'ws-1',
+      questionId: 'q-1',
+      body: 'CIS team answer.',
+      attachmentFileIds: [],
+      cisAdvisorySide: 'seller_side',
+    });
+
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'answered' }));
+    expect(logActivity).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'qna_answered' }));
   });
 });

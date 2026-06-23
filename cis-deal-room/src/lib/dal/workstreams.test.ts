@@ -48,6 +48,7 @@ describe('setFileWorkstreams()', () => {
     const logActivity = vi.fn().mockResolvedValue(undefined);
     vi.doMock('./activity', () => ({ logActivity }));
     vi.doMock('./index', () => ({ verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }) }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     // current tags: none
     const where = vi.fn().mockResolvedValue([]);
@@ -78,6 +79,7 @@ describe('addWorkstreamMember()', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     const onConflictDoNothing = vi.fn().mockResolvedValue(undefined);
     const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing });
@@ -93,12 +95,35 @@ describe('addWorkstreamMember()', () => {
     expect(logActivity).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'workstream_member_added', targetType: 'workstream', targetId: 'w-legal' }));
   });
 
-  it('non-admin: throws', async () => {
+  it('non-admin (helper→false): throws Forbidden', async () => {
     vi.doMock('./index', () => ({ verifySession: vi.fn().mockResolvedValue({ userId: 'u', isAdmin: false, sessionId: 's', userEmail: 'u@x.com' }) }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(false) }));
     vi.doMock('@/db', () => ({ db: {} }));
     vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {} }));
     const { addWorkstreamMember } = await import('./workstreams');
-    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-1')).rejects.toThrow();
+    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-1')).rejects.toThrow('Forbidden');
+  });
+
+  it('cis_team non-global-admin (helper→true): inserts membership and logs activity', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'cis-1', isAdmin: false, sessionId: 's', userEmail: 'cis@cis.com' }),
+    }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+
+    const onConflictDoNothing = vi.fn().mockResolvedValue(undefined);
+    const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing });
+    const tx = { insert: vi.fn().mockReturnValue({ values: insertValues }) };
+    const transaction = vi.fn(async (cb) => cb(tx));
+    vi.doMock('@/db', () => ({ db: { transaction } }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {} }));
+
+    const { addWorkstreamMember } = await import('./workstreams');
+    await addWorkstreamMember('ws-1', 'w-legal', 'p-1');
+
+    expect(tx.insert).toHaveBeenCalled();
+    expect(logActivity).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'workstream_member_added' }));
   });
 });
 
@@ -111,6 +136,7 @@ describe('updateWorkstream()', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     const returning = vi.fn().mockResolvedValue([]);
     const where = vi.fn().mockReturnValue({ returning });
@@ -133,6 +159,7 @@ describe('updateWorkstream()', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     const returning = vi.fn().mockResolvedValue([updatedRow]);
     const where = vi.fn().mockReturnValue({ returning });
@@ -158,12 +185,13 @@ describe('updateWorkstream()', () => {
 describe('removeWorkstreamMember()', () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
 
-  it('non-admin — throws', async () => {
+  it('non-admin (helper→false) — throws Forbidden', async () => {
     vi.doMock('./index', () => ({ verifySession: vi.fn().mockResolvedValue({ userId: 'u', isAdmin: false, sessionId: 's', userEmail: 'u@x.com' }) }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(false) }));
     vi.doMock('@/db', () => ({ db: {} }));
     vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {} }));
     const { removeWorkstreamMember } = await import('./workstreams');
-    await expect(removeWorkstreamMember('ws-1', 'w-legal', 'p-1')).rejects.toThrow();
+    await expect(removeWorkstreamMember('ws-1', 'w-legal', 'p-1')).rejects.toThrow('Forbidden');
   });
 
   it('admin — deletes and logs workstream_member_removed', async () => {
@@ -172,6 +200,7 @@ describe('removeWorkstreamMember()', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     const tx = {
       delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
@@ -201,6 +230,7 @@ describe('setFileWorkstreams() — remove-only path', () => {
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
     }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
 
     // current tags: w-legal and w-finance; desired: []
     const where = vi.fn().mockResolvedValue([{ workstreamId: 'w-legal' }, { workstreamId: 'w-finance' }]);

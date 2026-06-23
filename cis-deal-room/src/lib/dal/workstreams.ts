@@ -14,6 +14,7 @@ import {
 import { CANONICAL_WORKSTREAMS } from '@/lib/workstreams/constants';
 import { verifySession } from './index';
 import { logActivity } from './activity';
+import { isCisTeamOrAdmin } from './access';
 import type { ActivityAction, Workstream, WorkstreamWithCounts } from '@/types';
 
 /** Idempotently seed the 5 canonical workstreams for a workspace. */
@@ -133,7 +134,7 @@ export async function listWorkstreamMembers(workstreamId: string) {
 export async function addWorkstreamMember(workspaceId: string, workstreamId: string, participantId: string): Promise<void> {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
-  if (!session.isAdmin) throw new Error('Admin required');
+  if (!(await isCisTeamOrAdmin(workspaceId, session))) throw new Error('Forbidden');
 
   await db.transaction(async (tx) => {
     await tx.insert(workstreamMembers).values({ workstreamId, participantId, addedBy: session.userId }).onConflictDoNothing();
@@ -151,7 +152,7 @@ export async function addWorkstreamMember(workspaceId: string, workstreamId: str
 export async function removeWorkstreamMember(workspaceId: string, workstreamId: string, participantId: string): Promise<void> {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
-  if (!session.isAdmin) throw new Error('Admin required');
+  if (!(await isCisTeamOrAdmin(workspaceId, session))) throw new Error('Forbidden');
 
   await db.transaction(async (tx) => {
     await tx
@@ -179,7 +180,7 @@ export async function getFileWorkstreamIds(fileId: string): Promise<string[]> {
 export async function setFileWorkstreams(workspaceId: string, fileId: string, workstreamIds: string[]): Promise<void> {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
-  if (!session.isAdmin) throw new Error('Admin required');
+  if (!(await isCisTeamOrAdmin(workspaceId, session))) throw new Error('Forbidden');
 
   const desired = new Set(workstreamIds);
 
@@ -231,7 +232,7 @@ export async function updateWorkstream(
 ): Promise<Workstream> {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
-  if (!session.isAdmin) throw new Error('Admin required');
+  if (!(await isCisTeamOrAdmin(workspaceId, session))) throw new Error('Forbidden');
 
   return db.transaction(async (tx) => {
     const [row] = await tx
