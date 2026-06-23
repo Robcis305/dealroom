@@ -60,6 +60,8 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
     if (participant) participantRole = participant.role;
   }
 
+  const canManageWorkstreams = session.isAdmin || participantRole === 'cis_team';
+
   return (
     <WorkspaceShell
       workspace={workspace}
@@ -70,6 +72,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       userEmail={session.userEmail}
       userId={session.userId}
       participantRole={participantRole}
+      canManageWorkstreams={canManageWorkstreams}
     />
   );
 }
