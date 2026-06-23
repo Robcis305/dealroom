@@ -57,7 +57,7 @@ describe('cap-table DAL — visibility gate (getCapTableForViewer)', () => {
     vi.mocked(verifySession).mockReset();
   });
 
-  // The visibility gate is a pure function over (cap_table.status, role, shadowSide, cisAdvisorySide).
+  // The visibility gate is a pure function over (cap_table.status, role).
   // We test it via the exported `applyCapTableVisibilityGate` helper.
   it('returns full data for admin even when status=draft', async () => {
     const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
@@ -65,82 +65,86 @@ describe('cap-table DAL — visibility gate (getCapTableForViewer)', () => {
     const result = applyCapTableVisibilityGate(ct, {
       isAdmin: true,
       role: 'admin',
-      shadowSide: null,
       cisAdvisorySide: 'seller_side',
     });
     expect(result).toEqual({ visible: true });
   });
 
-  it('returns hidden for buyer_rep when status=draft', async () => {
+  it('returns full data for cis_team even when status=draft', async () => {
     const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
     const ct = { id: 'ct', status: 'draft' as const };
     const result = applyCapTableVisibilityGate(ct, {
       isAdmin: false,
-      role: 'buyer_rep',
-      shadowSide: null,
+      role: 'cis_team',
+      cisAdvisorySide: 'seller_side',
+    });
+    expect(result).toEqual({ visible: true });
+  });
+
+  it('returns full data for client even when status=draft', async () => {
+    const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
+    const ct = { id: 'ct', status: 'draft' as const };
+    const result = applyCapTableVisibilityGate(ct, {
+      isAdmin: false,
+      role: 'client',
+      cisAdvisorySide: 'buyer_side',
+    });
+    expect(result).toEqual({ visible: true });
+  });
+
+  it('returns full data for client_counsel even when status=draft', async () => {
+    const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
+    const ct = { id: 'ct', status: 'draft' as const };
+    const result = applyCapTableVisibilityGate(ct, {
+      isAdmin: false,
+      role: 'client_counsel',
+      cisAdvisorySide: 'seller_side',
+    });
+    expect(result).toEqual({ visible: true });
+  });
+
+  it('returns hidden for counterparty when status=draft', async () => {
+    const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
+    const ct = { id: 'ct', status: 'draft' as const };
+    const result = applyCapTableVisibilityGate(ct, {
+      isAdmin: false,
+      role: 'counterparty',
       cisAdvisorySide: 'seller_side',
     });
     expect(result).toEqual({ visible: false });
   });
 
-  it('returns full data for buyer_rep when status=published', async () => {
+  it('returns full data for counterparty when status=published', async () => {
     const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
     const ct = { id: 'ct', status: 'published' as const };
     const result = applyCapTableVisibilityGate(ct, {
       isAdmin: false,
-      role: 'buyer_rep',
-      shadowSide: null,
+      role: 'counterparty',
       cisAdvisorySide: 'seller_side',
     });
     expect(result).toEqual({ visible: true });
   });
 
-  it('returns full data for client on sell-side workspace (draft)', async () => {
-    const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
-    const ct = { id: 'ct', status: 'draft' as const };
-    const result = applyCapTableVisibilityGate(ct, {
-      isAdmin: false,
-      role: 'client',
-      shadowSide: null,
-      cisAdvisorySide: 'seller_side',
-    });
-    expect(result).toEqual({ visible: true });
-  });
-
-  it('returns hidden for client on buy-side workspace (draft)', async () => {
-    const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
-    const ct = { id: 'ct', status: 'draft' as const };
-    const result = applyCapTableVisibilityGate(ct, {
-      isAdmin: false,
-      role: 'client',
-      shadowSide: null,
-      cisAdvisorySide: 'buyer_side',
-    });
-    expect(result).toEqual({ visible: false });
-  });
-
-  it('returns full data for view_only with shadow=seller (any status)', async () => {
+  it('returns hidden for view_only when status=draft', async () => {
     const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
     const ct = { id: 'ct', status: 'draft' as const };
     const result = applyCapTableVisibilityGate(ct, {
       isAdmin: false,
       role: 'view_only',
-      shadowSide: 'seller',
-      cisAdvisorySide: 'buyer_side',
-    });
-    expect(result).toEqual({ visible: true });
-  });
-
-  it('returns hidden for view_only with shadow=buyer (status=draft)', async () => {
-    const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
-    const ct = { id: 'ct', status: 'draft' as const };
-    const result = applyCapTableVisibilityGate(ct, {
-      isAdmin: false,
-      role: 'view_only',
-      shadowSide: 'buyer',
       cisAdvisorySide: 'seller_side',
     });
     expect(result).toEqual({ visible: false });
+  });
+
+  it('returns full data for view_only when status=published', async () => {
+    const { applyCapTableVisibilityGate } = await import('@/lib/dal/cap-table');
+    const ct = { id: 'ct', status: 'published' as const };
+    const result = applyCapTableVisibilityGate(ct, {
+      isAdmin: false,
+      role: 'view_only',
+      cisAdvisorySide: 'seller_side',
+    });
+    expect(result).toEqual({ visible: true });
   });
 });
 

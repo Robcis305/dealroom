@@ -12,14 +12,12 @@ import type {
   CapTableStatus,
   CisAdvisorySide,
   ParticipantRole,
-  ViewOnlyShadowSide,
 } from '@/types';
 import type { ParsedRow, ParseWarning } from '@/lib/cap-table/parse-csv';
 
 interface SessionScope {
   isAdmin: boolean;
   role: ParticipantRole;
-  shadowSide: ViewOnlyShadowSide | null;
   cisAdvisorySide: CisAdvisorySide;
 }
 
@@ -28,11 +26,11 @@ interface CapTableSummary {
   status: CapTableStatus;
 }
 
-const SELLER_SIDE_ROLES: ReadonlySet<ParticipantRole> = new Set([
+const FULL_VIEW_ROLES: ReadonlySet<ParticipantRole> = new Set([
   'admin',
   'cis_team',
-  'seller_rep',
-  'seller_counsel',
+  'client',
+  'client_counsel',
 ]);
 
 /**
@@ -40,37 +38,17 @@ const SELLER_SIDE_ROLES: ReadonlySet<ParticipantRole> = new Set([
  * scope, returns whether the viewer should see the full cap table data.
  *
  * Rules:
- *   - admin / cis_team / seller-side roles: always visible
- *   - client on sell-side workspace: visible
- *   - client on buy-side workspace: hidden when draft
- *   - buyer-side roles: hidden when draft
- *   - view_only shadow=seller: visible (regardless of cisAdvisorySide)
- *   - view_only shadow=buyer: hidden when draft
- *   - counsel (deprecated): hidden
+ *   - admin / cis_team / client / client_counsel: always visible
+ *   - counterparty, view_only, and any deprecated/unknown role: published only
  */
 export function applyCapTableVisibilityGate(
   ct: CapTableSummary,
   scope: SessionScope,
 ): { visible: boolean } {
   if (scope.isAdmin) return { visible: true };
-  if (SELLER_SIDE_ROLES.has(scope.role)) return { visible: true };
-
-  if (scope.role === 'client') {
-    if (scope.cisAdvisorySide === 'seller_side') return { visible: true };
-    return { visible: ct.status === 'published' };
-  }
-
-  if (scope.role === 'view_only') {
-    if (scope.shadowSide === 'seller') return { visible: true };
-    return { visible: ct.status === 'published' };
-  }
-
-  if (scope.role === 'buyer_rep' || scope.role === 'buyer_counsel') {
-    return { visible: ct.status === 'published' };
-  }
-
-  // counsel (deprecated) and any unknown role
-  return { visible: false };
+  if (FULL_VIEW_ROLES.has(scope.role)) return { visible: true };
+  // counterparty, view_only, and any deprecated/unknown role: published only
+  return { visible: ct.status === 'published' };
 }
 
 /** Returns the workspace's cap_tables row, or null. No auth check. */

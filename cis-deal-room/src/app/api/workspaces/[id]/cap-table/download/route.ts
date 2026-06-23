@@ -10,7 +10,7 @@ import {
   getCapTableForWorkspace,
 } from '@/lib/dal/cap-table';
 import { getS3Client, S3_BUCKET } from '@/lib/storage/s3';
-import type { ParticipantRole, ViewOnlyShadowSide } from '@/types';
+import type { ParticipantRole } from '@/types';
 
 export async function GET(
   _request: Request,
@@ -32,12 +32,10 @@ export async function GET(
 
   // Visibility gate (same as GET /cap-table)
   let role: ParticipantRole = 'admin';
-  let shadowSide: ViewOnlyShadowSide | null = null;
   if (!session.isAdmin) {
     const [participant] = await db
       .select({
         role: workspaceParticipants.role,
-        shadow: workspaceParticipants.viewOnlyShadowSide,
       })
       .from(workspaceParticipants)
       .where(
@@ -50,7 +48,6 @@ export async function GET(
       .limit(1);
     if (!participant) return Response.json({ error: 'Forbidden' }, { status: 403 });
     role = participant.role;
-    shadowSide = participant.shadow;
   }
 
   const [workspace] = await db
@@ -66,7 +63,6 @@ export async function GET(
     {
       isAdmin: session.isAdmin,
       role,
-      shadowSide,
       cisAdvisorySide: workspace.cisAdvisorySide,
     },
   );
