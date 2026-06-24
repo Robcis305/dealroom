@@ -140,6 +140,17 @@ export async function createWorkspace(input: {
 }
 
 /**
+ * Permanently deletes a workspace and all cascade-deleted child data.
+ * Admin-only. This action cannot be undone.
+ */
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+  await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+}
+
+/**
  * Updates the status of a workspace and logs the change.
  * Admin-only.
  */

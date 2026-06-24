@@ -1,8 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { FileText, Users } from 'lucide-react';
+import { FileText, Users, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { WorkspaceStatus } from '@/types';
 
 interface DealCardProps {
@@ -15,6 +20,7 @@ interface DealCardProps {
   lastActivityAction: string | null;
   lastActivityAt: Date | string | null;
   isAdmin: boolean;
+  onDelete?: (id: string) => void;
 }
 
 function formatRelative(ts: Date | string): string {
@@ -50,32 +56,83 @@ function actionSummary(action: string | null, at: Date | string | null): string 
 }
 
 export function DealCard({
-  id, name, clientName, status, docCount, participantCount, lastActivityAction, lastActivityAt, isAdmin,
+  id, name, clientName, status, docCount, participantCount, lastActivityAction, lastActivityAt, isAdmin, onDelete,
 }: DealCardProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  async function handleDelete() {
+    try {
+      const res = await fetchWithAuth(`/api/workspaces/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success(`"${name}" permanently deleted`);
+        setConfirmOpen(false);
+        onDelete?.(id);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error ?? 'Failed to delete deal room');
+      }
+    } catch {
+      // fetchWithAuth throws on 401 (session expired) and handles its own toast + redirect
+    }
+  }
+
   return (
-    <Link
-      href={`/workspace/${id}`}
-      className="block bg-surface border border-border rounded-xl p-5 transition-colors
-        hover:border-accent hover:bg-accent-subtle/30 focus:outline-none focus:ring-2 focus:ring-accent"
-    >
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <h3 className="text-base font-semibold text-text-primary truncate flex-1">{name}</h3>
-        <Badge status={status} />
+    <>
+      <div className="relative group">
+        <Link
+          href={`/workspace/${id}`}
+          className="block bg-surface border border-border rounded-xl p-5 transition-colors
+            hover:border-accent hover:bg-accent-subtle/30 focus:outline-none focus:ring-2 focus:ring-accent"
+        >
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <h3 className="text-base font-semibold text-text-primary truncate flex-1">{name}</h3>
+            <Badge status={status} />
+          </div>
+          {isAdmin && (
+            <p className="text-sm text-text-secondary truncate mb-3">{clientName}</p>
+          )}
+          <div className="flex flex-col gap-1 text-xs text-text-muted">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1">
+                <FileText size={12} /> {docCount} {docCount === 1 ? 'doc' : 'docs'}
+              </span>
+              <span className="flex items-center gap-1">
+                <Users size={12} /> {participantCount} {participantCount === 1 ? 'participant' : 'participants'}
+              </span>
+            </div>
+            <span>{actionSummary(lastActivityAction, lastActivityAt)}</span>
+          </div>
+        </Link>
+
+        {isAdmin && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setConfirmOpen(true);
+            }}
+            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 focus:opacity-100
+              transition-opacity duration-150 px-2 py-1"
+            aria-label={`Delete ${name}`}
+          >
+            <Trash2 size={13} />
+          </Button>
+        )}
       </div>
-      {isAdmin && (
-        <p className="text-sm text-text-secondary truncate mb-3">{clientName}</p>
-      )}
-      <div className="flex flex-col gap-1 text-xs text-text-muted">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1">
-            <FileText size={12} /> {docCount} {docCount === 1 ? 'doc' : 'docs'}
-          </span>
-          <span className="flex items-center gap-1">
-            <Users size={12} /> {participantCount} {participantCount === 1 ? 'participant' : 'participants'}
-          </span>
-        </div>
-        <span>{actionSummary(lastActivityAction, lastActivityAt)}</span>
-      </div>
-    </Link>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Permanently delete deal room?"
+        description={`This will permanently delete "${name}" and all its data — files, folders, participants, activity logs, and the cap table. This cannot be undone.`}
+        tone="destructive"
+        confirmLabel="Delete permanently"
+        requireTypedValue={name}
+        typedValueLabel={`Type the deal codename to confirm: ${name}`}
+      />
+    </>
   );
 }

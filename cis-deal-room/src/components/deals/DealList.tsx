@@ -27,13 +27,18 @@ interface DealListProps {
   isAdmin: boolean;
 }
 
-export function DealList({ workspaces, isAdmin }: DealListProps) {
+export function DealList({ workspaces: initialWorkspaces, isAdmin }: DealListProps) {
+  const [workspaces, setWorkspaces] = useState(initialWorkspaces);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   // 'active' is a pseudo-filter meaning "any status except archived". It's
   // the default so archived deals are hidden from the main list unless the
   // admin explicitly picks Archived or All statuses.
   const [statusFilter, setStatusFilter] = useState<WorkspaceStatus | 'all' | 'active'>('active');
+
+  function handleDelete(id: string) {
+    setWorkspaces((prev) => prev.filter((w) => w.id !== id));
+  }
 
   const filtered = useMemo(() => {
     const lower = search.toLowerCase();
@@ -156,6 +161,7 @@ export function DealList({ workspaces, isAdmin }: DealListProps) {
                 lastActivityAction={w.lastActivityAction}
                 lastActivityAt={w.lastActivityAt}
                 isAdmin={isAdmin}
+                onDelete={handleDelete}
               />
             ))}
           </div>
