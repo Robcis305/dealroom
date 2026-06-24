@@ -144,8 +144,10 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
         ))}
       </div>
 
-      {/* Step body — scrolls when content (e.g. many invite rows) exceeds the modal height */}
-      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+      {/* Step body — scrolls when content (e.g. many invite rows) exceeds the modal
+          height. px-2 -mx-2 gives focus rings room before the overflow clip edge
+          (overflow-y forces x-clipping) without shifting content out of alignment. */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 -mx-2">
         {step === 'details' && (
           <StepDetails
             onCreated={handleCreated}
