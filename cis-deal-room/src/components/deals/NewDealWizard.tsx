@@ -194,8 +194,10 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
         </p>
       )}
 
-      {/* Footer — pinned below the scrollable body */}
-      <div className="flex gap-3 pt-4 mt-2 border-t border-border shrink-0">
+      {/* Footer — pinned below the scrollable body.
+          Hierarchy: Back/Cancel = secondary (outline), Skip = quiet/optional
+          (borderless text), Next/Finish = primary. */}
+      <div className="flex items-center gap-2 pt-4 mt-2 border-t border-border shrink-0">
         {/* Left side: Cancel on first step, Back on subsequent steps */}
         {isFirst ? (
           <Button
@@ -219,53 +221,32 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
           </Button>
         )}
 
-        <div className="flex gap-3 ml-auto">
-          {/* Skip — shown on middle steps AND the last (invite) step */}
-          {!isFirst && !isLast && (
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Skip — quiet/optional; shown on middle steps AND the last (invite) step */}
+          {!isFirst && (
             <Button
               type="button"
               variant="ghost"
               size="md"
-              onClick={advance}
+              onClick={isLast ? handleSkipInvite : advance}
               disabled={submitting}
-            >
-              Skip
-            </Button>
-          )}
-          {isLast && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="md"
-              onClick={handleSkipInvite}
-              disabled={submitting}
+              className="border-transparent bg-transparent text-text-secondary hover:text-text-primary hover:border-transparent"
             >
               Skip
             </Button>
           )}
 
-          {/* Next / Finish */}
-          {isLast ? (
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={handleFinish}
-              disabled={submitting}
-            >
-              Finish
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={handleNext}
-              disabled={submitting}
-            >
-              {submitting ? 'Creating...' : 'Next'}
-            </Button>
-          )}
+          {/* Next / Finish — primary, consistent width */}
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            onClick={isLast ? handleFinish : handleNext}
+            disabled={submitting}
+            className="min-w-[104px]"
+          >
+            {isLast ? 'Finish' : submitting ? 'Creating…' : 'Next'}
+          </Button>
         </div>
       </div>
     </Modal>
