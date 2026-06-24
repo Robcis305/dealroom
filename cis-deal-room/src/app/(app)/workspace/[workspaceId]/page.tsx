@@ -12,6 +12,7 @@ import type { ParticipantRole } from '@/types';
 
 interface WorkspacePageProps {
   params: Promise<{ workspaceId: string }>;
+  searchParams: Promise<{ tab?: string; question?: string }>;
 }
 
 // Never cache this page — session-aware and data changes frequently
@@ -21,9 +22,12 @@ export const dynamic = 'force-dynamic';
  * Workspace page — Server Component.
  * Next.js 15: params is a Promise, must be awaited.
  */
-export default async function WorkspacePage({ params }: WorkspacePageProps) {
+export default async function WorkspacePage({ params, searchParams }: WorkspacePageProps) {
   // Next.js 15 async params
   const { workspaceId } = await params;
+  const { tab, question } = await searchParams;
+  // Q&A notification emails deep-link with ?tab=qna&question=<id>
+  const initialQuestionId = tab === 'qna' && question ? question : null;
 
   const session = await verifySession();
   if (!session) {
@@ -81,6 +85,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       participantRole={participantRole}
       canManageWorkstreams={canManageWorkstreams}
       welcome={welcome}
+      initialQuestionId={initialQuestionId}
     />
   );
 }

@@ -810,3 +810,84 @@ describe('submitProposedAnswer()', () => {
     expect(logActivity).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'qna_answered' }));
   });
 });
+
+describe('deleteQuestion()', () => {
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
+
+  const mockSchema = {
+    qnaQuestions: { id: 'id', workspaceId: 'workspaceId', title: 'title' },
+    qnaMessages: {}, qnaMessageFiles: {}, qnaQuestionWorkstreams: {},
+    qnaRecipients: {}, workstreams: {}, users: {}, files: {}, workspaceParticipants: {},
+  };
+
+  function makeDeleteMocks(titleRows: Array<{ title: string }>) {
+    const limit = vi.fn().mockResolvedValue(titleRows);
+    const selectWhere = vi.fn().mockReturnValue({ limit });
+    const from = vi.fn().mockReturnValue({ where: selectWhere });
+    const select = vi.fn().mockReturnValue({ from });
+    const deleteWhere = vi.fn().mockResolvedValue(undefined);
+    const deleteCall = vi.fn().mockReturnValue({ where: deleteWhere });
+    const tx = { select, delete: deleteCall };
+    const transaction = vi.fn(async (cb: (t: typeof tx) => Promise<unknown>) => cb(tx));
+    return { tx, db: { transaction }, deleteCall };
+  }
+
+  it('throws Forbidden for non-cis/non-admin and never deletes', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'user-1', isAdmin: false, sessionId: 's', userEmail: 'u@cis.com' }),
+    }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(false) }));
+
+    const { db } = makeDeleteMocks([{ title: 'Q' }]);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { deleteQuestion } = await import('./qna');
+    await expect(deleteQuestion({ workspaceId: 'ws-1', questionId: 'q-1' })).rejects.toThrow('Forbidden');
+    expect(logActivity).not.toHaveBeenCalled();
+  });
+
+  it('deletes and logs qna_deleted (with title) for cis/admin', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'cis-1', isAdmin: false, sessionId: 's', userEmail: 'cis@cis.com' }),
+    }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+
+    const { tx, db, deleteCall } = makeDeleteMocks([{ title: 'How many entities do you have' }]);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { deleteQuestion } = await import('./qna');
+    await deleteQuestion({ workspaceId: 'ws-1', questionId: 'q-1' });
+
+    expect(logActivity).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        action: 'qna_deleted', targetType: 'qna_question', targetId: 'q-1',
+        metadata: { title: 'How many entities do you have' },
+      }),
+    );
+    expect(deleteCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws Question not found when the row is missing', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({ userId: 'cis-1', isAdmin: false, sessionId: 's', userEmail: 'cis@cis.com' }),
+    }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+
+    const { db, deleteCall } = makeDeleteMocks([]);
+    vi.doMock('@/db', () => ({ db }));
+    vi.doMock('@/db/schema', () => mockSchema);
+
+    const { deleteQuestion } = await import('./qna');
+    await expect(deleteQuestion({ workspaceId: 'ws-1', questionId: 'q-x' })).rejects.toThrow('Question not found');
+    expect(deleteCall).not.toHaveBeenCalled();
+  });
+});

@@ -459,3 +459,41 @@ export async function submitProposedAnswer(input: {
     }
   });
 }
+
+/**
+ * Permanently deletes a question and all its cascade-deleted children
+ * (messages, attachments, workstream links, recipients). CIS team / admin only.
+ * Logs the deletion (with the title for the activity feed) before removing the row.
+ */
+export async function deleteQuestion(input: {
+  workspaceId: string;
+  questionId: string;
+}): Promise<void> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!(await isCisTeamOrAdmin(input.workspaceId, session))) throw new Error('Forbidden');
+
+  await db.transaction(async (tx) => {
+    const [q] = await tx
+      .select({ title: qnaQuestions.title })
+      .from(qnaQuestions)
+      .where(and(eq(qnaQuestions.id, input.questionId), eq(qnaQuestions.workspaceId, input.workspaceId)))
+      .limit(1);
+    if (!q) throw new Error('Question not found');
+
+    // Log before delete — activity_logs.targetId has no FK to qna_questions,
+    // so the row survives the cascade and keeps an audit trail.
+    await logActivity(tx, {
+      workspaceId: input.workspaceId,
+      userId: session.userId,
+      action: 'qna_deleted',
+      targetType: 'qna_question',
+      targetId: input.questionId,
+      metadata: { title: q.title },
+    });
+
+    await tx
+      .delete(qnaQuestions)
+      .where(and(eq(qnaQuestions.id, input.questionId), eq(qnaQuestions.workspaceId, input.workspaceId)));
+  });
+}

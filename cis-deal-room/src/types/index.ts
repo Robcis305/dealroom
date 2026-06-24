@@ -52,6 +52,7 @@ export type ActivityAction =
   | 'created_folder'
   | 'renamed_folder'
   | 'created_workspace'
+  | 'renamed_workspace'
   | 'revoked_access'
   | 'status_changed'
   | 'participant_updated'
@@ -81,7 +82,8 @@ export type ActivityAction =
   | 'qna_approved'
   | 'qna_changes_requested'
   | 'qna_rerouted'
-  | 'qna_message_posted';
+  | 'qna_message_posted'
+  | 'qna_deleted';
 
 export type ActivityTargetType = 'workspace' | 'folder' | 'file' | 'participant' | 'workstream' | 'qna_question';
 
