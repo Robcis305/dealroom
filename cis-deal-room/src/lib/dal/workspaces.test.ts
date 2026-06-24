@@ -97,6 +97,54 @@ describe('getWorkspacesForUser()', () => {
   });
 });
 
+describe('deleteWorkspace()', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it('throws Admin required and does NOT call db.delete when called by non-admin', async () => {
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({
+        userId: 'user-1',
+        isAdmin: false,
+        sessionId: 's2',
+        userEmail: 'user@example.com',
+      }),
+    }));
+
+    const deleteMock = vi.fn();
+    vi.doMock('@/db', () => ({
+      db: { delete: deleteMock },
+    }));
+
+    const { deleteWorkspace } = await import('./workspaces');
+    await expect(deleteWorkspace('ws-123')).rejects.toThrow('Admin required');
+    expect(deleteMock).not.toHaveBeenCalled();
+  });
+
+  it('calls db.delete with the workspace id when called by admin', async () => {
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({
+        userId: 'admin-1',
+        isAdmin: true,
+        sessionId: 's1',
+        userEmail: 'admin@cis.com',
+      }),
+    }));
+
+    const whereMock = vi.fn().mockResolvedValue(undefined);
+    const deleteMock = vi.fn().mockReturnValue({ where: whereMock });
+    vi.doMock('@/db', () => ({
+      db: { delete: deleteMock },
+    }));
+
+    const { deleteWorkspace } = await import('./workspaces');
+    await deleteWorkspace('ws-123');
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('createWorkspace()', () => {
   beforeEach(() => {
     vi.resetModules();
