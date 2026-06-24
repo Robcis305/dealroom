@@ -47,12 +47,14 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
 
   function advance() {
     if (!isLast) {
+      setServerError(null);
       setStep(STEP_KEYS[currentIndex + 1]);
     }
   }
 
   function goBack() {
     if (!isFirst) {
+      setServerError(null);
       setStep(STEP_KEYS[currentIndex - 1]);
     }
   }
@@ -67,6 +69,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
 
   async function handleFinish() {
     if (submitting) return;
+    setServerError(null);
     setSubmitting(true);
     try {
       const ok = stepActionRef.current ? await stepActionRef.current() : true;
@@ -92,6 +95,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
   }
 
   async function handleNext() {
+    setServerError(null);
     if (stepActionRef.current) {
       const ok = await stepActionRef.current();
       if (ok) advance();
