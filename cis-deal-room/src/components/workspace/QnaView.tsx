@@ -38,6 +38,8 @@ interface Props {
   currentUserId: string;
   folders: Folder[];
   onCountsChanged?: () => void;
+  /** Deep-link from a notification email: open straight to this question's detail. */
+  initialQuestionId?: string | null;
 }
 
 // ─── QnaView ──────────────────────────────────────────────────────────────────
@@ -48,8 +50,11 @@ export function QnaView({
   currentUserId,
   folders,
   onCountsChanged,
+  initialQuestionId = null,
 }: Props) {
-  const [view, setView] = useState<InternalView>({ kind: 'list' });
+  const [view, setView] = useState<InternalView>(
+    initialQuestionId ? { kind: 'detail', id: initialQuestionId } : { kind: 'list' },
+  );
   const [showAsk, setShowAsk] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
 

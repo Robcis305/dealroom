@@ -23,7 +23,8 @@ async function send(opts: {
   action: 'qna_assigned' | 'qna_answered' | 'qna_approved';
   heading: string; intro: string; questionTitle: string; workspaceName: string;
 }) {
-  const workspaceUrl = `${getAppUrl()}/workspace/${opts.workspaceId}`;
+  // Deep-link straight to the question; WorkspaceShell reads ?tab=qna&question=<id>.
+  const workspaceUrl = `${getAppUrl()}/workspace/${opts.workspaceId}?tab=qna&question=${opts.questionId}`;
   await enqueueOrSend({
     userId: opts.userId,
     workspaceId: opts.workspaceId,

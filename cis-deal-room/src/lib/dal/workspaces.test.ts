@@ -224,3 +224,83 @@ describe('createWorkspace()', () => {
     ).rejects.toThrow('Admin required');
   });
 });
+
+describe('updateWorkspaceName()', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    vi.doMock('./index', () => ({ verifySession }));
+    vi.doMock('./activity', () => ({ logActivity }));
+  });
+
+  function adminSession() {
+    vi.mocked(verifySession).mockResolvedValue({
+      userId: 'admin-1',
+      isAdmin: true,
+      sessionId: 's1',
+      userEmail: 'admin@cis.com',
+    });
+  }
+
+  it('throws Admin required and does NOT update when called by non-admin', async () => {
+    vi.mocked(verifySession).mockResolvedValue({
+      userId: 'user-1',
+      isAdmin: false,
+      sessionId: 's2',
+      userEmail: 'user@example.com',
+    });
+
+    const updateMock = vi.fn();
+    vi.doMock('@/db', () => ({ db: { update: updateMock } }));
+
+    const { updateWorkspaceName } = await import('./workspaces');
+    await expect(updateWorkspaceName('ws-1', 'New Name')).rejects.toThrow('Admin required');
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it('throws Name required for blank/whitespace names', async () => {
+    adminSession();
+    const updateMock = vi.fn();
+    vi.doMock('@/db', () => ({ db: { update: updateMock } }));
+
+    const { updateWorkspaceName } = await import('./workspaces');
+    await expect(updateWorkspaceName('ws-1', '   ')).rejects.toThrow('Name required');
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it('trims, updates, and logs renamed_workspace when called by admin', async () => {
+    adminSession();
+
+    const renamed = { id: 'ws-1', name: 'Project Lighthouse' };
+    const returningMock = vi.fn().mockResolvedValue([renamed]);
+    const whereMock = vi.fn().mockReturnValue({ returning: returningMock });
+    const setMock = vi.fn().mockReturnValue({ where: whereMock });
+    const updateMock = vi.fn().mockReturnValue({ set: setMock });
+    vi.doMock('@/db', () => ({ db: { update: updateMock } }));
+
+    const { updateWorkspaceName } = await import('./workspaces');
+    const result = await updateWorkspaceName('ws-1', '  Project Lighthouse  ');
+
+    expect(result).toEqual(renamed);
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Project Lighthouse' }),
+    );
+    expect(vi.mocked(logActivity)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ action: 'renamed_workspace', metadata: { newName: 'Project Lighthouse' } }),
+    );
+  });
+
+  it('throws Workspace not found when no row is updated', async () => {
+    adminSession();
+
+    const returningMock = vi.fn().mockResolvedValue([]);
+    const whereMock = vi.fn().mockReturnValue({ returning: returningMock });
+    const setMock = vi.fn().mockReturnValue({ where: whereMock });
+    const updateMock = vi.fn().mockReturnValue({ set: setMock });
+    vi.doMock('@/db', () => ({ db: { update: updateMock } }));
+
+    const { updateWorkspaceName } = await import('./workspaces');
+    await expect(updateWorkspaceName('ws-missing', 'X')).rejects.toThrow('Workspace not found');
+  });
+});

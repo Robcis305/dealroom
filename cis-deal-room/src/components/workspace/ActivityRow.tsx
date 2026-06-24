@@ -28,6 +28,7 @@ const ACTION_VERBS: Record<string, string> = {
   created_folder: 'created folder',
   renamed_folder: 'renamed folder',
   created_workspace: 'created workspace',
+  renamed_workspace: 'renamed deal room',
   revoked_access: 'revoked access to',
   status_changed: 'changed status',
   notified_batch: 'notified participants about',
@@ -37,6 +38,7 @@ const ACTION_VERBS: Record<string, string> = {
   checklist_item_waived: 'marked as waived',
   checklist_item_na: 'marked as N/A',
   checklist_item_assigned: 'assigned',
+  qna_deleted: 'deleted question',
 };
 
 // Actions whose verb already mentions "folder" — don't repeat the word as a target

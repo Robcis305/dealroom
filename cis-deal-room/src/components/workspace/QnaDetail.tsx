@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, FileText, Lock, Globe } from 'lucide-react';
+import { ChevronLeft, FileText, Lock, Globe, Trash2 } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import type { QnaQuestionDetail } from '@/types';
 import { QnaStatusChip } from './QnaStatusChip';
@@ -69,6 +69,7 @@ export function QnaDetail({
   const [question, setQuestion] = useState<QnaQuestionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionPending, setActionPending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // ── Fetch detail ────────────────────────────────────────────────────────────
 
@@ -125,6 +126,28 @@ export function QnaDetail({
     }
   }
 
+  async function handleDelete(): Promise<void> {
+    if (!question) return;
+    const ok = window.confirm(
+      `Delete "${question.title}"? This permanently removes the question and its entire discussion. This cannot be undone.`,
+    );
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/qna/${questionId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        onChanged();
+        onBack();
+      } else {
+        setDeleting(false);
+      }
+    } catch {
+      setDeleting(false);
+    }
+  }
+
   // ── Render states ────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -137,8 +160,18 @@ export function QnaDetail({
 
   if (!question) {
     return (
-      <div className="rounded-lg border border-border bg-surface p-8 text-sm text-text-muted">
-        Question not found.
+      <div className="rounded-lg border border-border bg-surface p-8 flex flex-col items-start gap-3">
+        <p className="text-sm text-text-muted">
+          This question is no longer available — it may have been deleted.
+        </p>
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm font-medium text-text-primary hover:text-accent transition-colors"
+        >
+          <ChevronLeft size={16} />
+          Back to Q&amp;A
+        </button>
       </div>
     );
   }
@@ -170,6 +203,19 @@ export function QnaDetail({
         </span>
 
         <QnaStatusChip status={question.status} overdue={question.isOverdue} />
+
+        {canManage && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="flex items-center justify-center rounded p-1.5 text-text-muted hover:bg-danger-subtle hover:text-danger transition-colors disabled:opacity-40"
+            aria-label="Delete question"
+            title="Delete question"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
       </div>
 
       {/* ── Two-column body ───────────────────────────────────────────────────── */}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ArrowLeft, Upload, PanelRightOpen } from 'lucide-react';
+import { ChevronDown, ArrowLeft, Upload, PanelRightOpen, Pencil, Check, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 import { Badge } from '@/components/ui/Badge';
 import { Logo } from '@/components/ui/Logo';
@@ -60,6 +60,8 @@ interface WorkspaceShellProps {
   canManageWorkstreams: boolean;
   /** First-entry welcome data. null if no welcome is due. */
   welcome?: WelcomeProp | null;
+  /** Deep-link from a Q&A notification email: open the Q&A tab on this question. */
+  initialQuestionId?: string | null;
 }
 
 type FileCounts = Record<string, number>;
@@ -73,11 +75,15 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, userEmail, userId, participantRole, canManageWorkstreams, welcome = null }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, userEmail, userId, participantRole, canManageWorkstreams, welcome = null, initialQuestionId = null }: WorkspaceShellProps) {
   const [showWelcome, setShowWelcome] = useState(!!welcome);
-  const [view, setView] = useState<CenterView>({ kind: 'overview' });
+  const [view, setView] = useState<CenterView>(initialQuestionId ? { kind: 'qna' } : { kind: 'overview' });
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [dealName, setDealName] = useState(workspace.name);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(workspace.name);
+  const [renamePending, setRenamePending] = useState(false);
   const [folders, setFolders] = useState(initialFolders);
   const [fileCounts, setFileCounts] = useState<FileCounts>(initialFileCounts);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -216,6 +222,35 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
     setShowUploadModal(true);
   }
 
+  function startRename() {
+    setNameDraft(dealName);
+    setEditingName(true);
+  }
+
+  async function handleRenameSubmit() {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === dealName) {
+      setEditingName(false);
+      return;
+    }
+    const previous = dealName;
+    setDealName(trimmed); // optimistic
+    setEditingName(false);
+    setRenamePending(true);
+    try {
+      const res = await fetchWithAuth(`/api/workspaces/${workspace.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (!res.ok) setDealName(previous); // revert on failure
+    } catch {
+      setDealName(previous);
+    } finally {
+      setRenamePending(false);
+    }
+  }
+
   async function handleStatusChange(newStatus: WorkspaceStatus) {
     const previous = status;
     // Optimistic update
@@ -251,10 +286,62 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
           <Logo size="sm" inverse />
         </Link>
 
-        {/* Deal name */}
-        <span className="text-sm font-semibold text-text-primary truncate min-w-0 flex-1">
-          {workspace.name}
-        </span>
+        {/* Deal name — inline-editable for admins */}
+        {editingName ? (
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenameSubmit();
+                if (e.key === 'Escape') setEditingName(false);
+              }}
+              autoFocus
+              aria-label="Deal room name"
+              className="text-sm font-semibold text-text-primary bg-surface border border-border
+                rounded px-2 py-1 min-w-0 flex-1 max-w-xs focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            <button
+              type="button"
+              onClick={handleRenameSubmit}
+              aria-label="Save name"
+              className="flex items-center justify-center rounded p-1 text-text-muted
+                hover:text-text-primary hover:bg-surface-elevated transition-colors cursor-pointer"
+            >
+              <Check size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingName(false)}
+              aria-label="Cancel rename"
+              className="flex items-center justify-center rounded p-1 text-text-muted
+                hover:text-text-primary hover:bg-surface-elevated transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 group">
+            <span className="text-sm font-semibold text-text-primary truncate min-w-0">
+              {dealName}
+            </span>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={startRename}
+                disabled={renamePending}
+                aria-label="Rename deal room"
+                title="Rename deal room"
+                className="flex items-center justify-center rounded p-1 text-text-muted
+                  hover:text-text-primary hover:bg-surface-elevated transition-colors cursor-pointer
+                  opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-40"
+              >
+                <Pencil size={13} />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Status badge — clickable for admin */}
         {isAdmin ? (
@@ -357,7 +444,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
         <main className="flex-1 min-w-0 overflow-y-auto bg-surface-elevated border-x border-border">
           {view.kind === 'overview' ? (
             <DealOverview
-              workspace={workspace}
+              workspace={{ ...workspace, name: dealName }}
               status={status}
               folders={folders}
               fileCounts={fileCounts}
@@ -416,6 +503,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               currentUserId={userId}
               folders={folders}
               onCountsChanged={refreshWorkstreams}
+              initialQuestionId={initialQuestionId}
             />
           ) : null}
         </main>

@@ -152,6 +152,38 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
 }
 
 /**
+ * Renames a workspace and logs the change. Trims the input and rejects empty
+ * names. Admin-only.
+ */
+export async function updateWorkspaceName(workspaceId: string, name: string) {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('Name required');
+
+  const [updated] = await db
+    .update(workspaces)
+    .set({ name: trimmed, updatedAt: new Date() })
+    .where(eq(workspaces.id, workspaceId))
+    .returning();
+
+  if (!updated) throw new Error('Workspace not found');
+
+  await logActivity(db, {
+    workspaceId,
+    userId: session.userId,
+    action: 'renamed_workspace',
+    targetType: 'workspace',
+    targetId: workspaceId,
+    metadata: { newName: trimmed },
+  });
+
+  return updated;
+}
+
+/**
  * Updates the status of a workspace and logs the change.
  * Admin-only.
  */

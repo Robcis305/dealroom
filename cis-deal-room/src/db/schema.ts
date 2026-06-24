@@ -55,6 +55,7 @@ export const activityActionEnum = pgEnum('activity_action', [
   'created_folder',
   'renamed_folder',
   'created_workspace',
+  'renamed_workspace',
   'revoked_access',
   'status_changed',
   'participant_updated',
@@ -85,6 +86,7 @@ export const activityActionEnum = pgEnum('activity_action', [
   'qna_changes_requested',
   'qna_rerouted',
   'qna_message_posted',
+  'qna_deleted',
 ]);
 
 export const magicLinkPurposeEnum = pgEnum('magic_link_purpose', ['login', 'invitation']);
