@@ -1,21 +1,9 @@
 import { desc, eq, and, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { workspaces, workspaceParticipants, folders, files, activityLogs } from '@/db/schema';
+import { workspaces, workspaceParticipants, files, activityLogs } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
 import type { WorkspaceStatus, CisAdvisorySide } from '@/types';
-
-/** Ordered list of default folders created with every new workspace. */
-const DEFAULT_FOLDERS = [
-  'Financials',
-  'Legal',
-  'Operations',
-  'Human Capital',
-  'Tax',
-  'Technology',
-  'Deal Documents',
-  'Miscellaneous',
-] as const;
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
@@ -95,7 +83,8 @@ export async function getWorkspace(workspaceId: string) {
 // ─── Write ────────────────────────────────────────────────────────────────────
 
 /**
- * Creates a new workspace and 8 default folders in a single transaction.
+ * Creates a new workspace. Folders are created later by the New Deal wizard's
+ * Folders step (not auto-seeded here).
  * Logs a 'created_workspace' activity row inside the same transaction.
  * Admin-only.
  */
@@ -122,16 +111,20 @@ export async function createWorkspace(input: {
       })
       .returning();
 
-    // 2. Insert 8 default folders
-    await tx.insert(folders).values(
-      DEFAULT_FOLDERS.map((name, index) => ({
-        workspaceId: workspace.id,
-        name,
-        sortOrder: index,
-      }))
-    );
+    // 2. Add the creator as an active CIS Team participant of their own deal,
+    //    so they appear in participant/member lists and can be added to
+    //    workstreams (admin rights alone don't create a participant row).
+    await tx.insert(workspaceParticipants).values({
+      workspaceId: workspace.id,
+      userId: session.userId,
+      role: 'cis_team',
+      status: 'active',
+      activatedAt: new Date(),
+    });
 
     // 3. Log activity inside the same transaction
+    // Note: folders are NOT seeded here — the New Deal wizard's Folders step
+    // owns folder creation so the admin can choose/uncheck which to create.
     await logActivity(tx, {
       workspaceId: workspace.id,
       userId: session.userId,
@@ -144,6 +137,17 @@ export async function createWorkspace(input: {
   });
 
   return createdWorkspace;
+}
+
+/**
+ * Permanently deletes a workspace and all cascade-deleted child data.
+ * Admin-only. This action cannot be undone.
+ */
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+  if (!session.isAdmin) throw new Error('Admin required');
+  await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
 }
 
 /**

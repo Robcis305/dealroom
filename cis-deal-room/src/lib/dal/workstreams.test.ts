@@ -9,11 +9,8 @@ describe('listWorkstreamsWithCounts()', () => {
     vi.clearAllMocks();
   });
 
-  it('seeds, maps counts by id, and merges live Q&A counts', async () => {
-    // ensureWorkstreams insert → onConflictDoNothing chain
-    const onConflictDoNothing = vi.fn().mockResolvedValue(undefined);
-    const values = vi.fn().mockReturnValue({ onConflictDoNothing });
-    const insert = vi.fn().mockReturnValue({ values });
+  it('does NOT seed — returns rows (and empty [] if none) without calling insert', async () => {
+    const insert = vi.fn();
 
     // listWorkstreamsWithCounts reads: workstreams rows, doc counts, member counts, qna counts
     const wsRows = [
@@ -35,9 +32,104 @@ describe('listWorkstreamsWithCounts()', () => {
     const { listWorkstreamsWithCounts } = await import('./workstreams');
     const result = await listWorkstreamsWithCounts('ws-1');
 
-    expect(insert).toHaveBeenCalled(); // seeded
+    expect(insert).not.toHaveBeenCalled(); // no seeding
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ key: 'legal', docCount: 31, memberCount: 6, openQaCount: 4, overdueCount: 1 });
+  });
+
+  it('returns [] when workspace has no workstreams (no seeding)', async () => {
+    const insert = vi.fn();
+    const select = vi.fn()
+      .mockReturnValueOnce({ from: () => ({ where: () => ({ orderBy: vi.fn().mockResolvedValue([]) }) }) })
+      .mockReturnValueOnce({ from: () => ({ innerJoin: () => ({ where: () => ({ groupBy: vi.fn().mockResolvedValue([]) }) }) }) })
+      .mockReturnValueOnce({ from: () => ({ innerJoin: () => ({ where: () => ({ groupBy: vi.fn().mockResolvedValue([]) }) }) }) })
+      .mockReturnValueOnce({ from: () => ({ innerJoin: () => ({ where: () => ({ groupBy: vi.fn().mockResolvedValue([]) }) }) }) });
+
+    vi.doMock('@/db', () => ({ db: { insert, select } }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, qnaQuestions: {}, qnaQuestionWorkstreams: {} }));
+
+    const { listWorkstreamsWithCounts } = await import('./workstreams');
+    const result = await listWorkstreamsWithCounts('ws-1');
+
+    expect(insert).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+});
+
+describe('createWorkstreamByKey()', () => {
+  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); });
+
+  it('non-cis/admin (isCisTeamOrAdmin→false) → throws Forbidden', async () => {
+    vi.doMock('./index', () => ({ verifySession: vi.fn().mockResolvedValue({ userId: 'u-1', isAdmin: false, sessionId: 's', userEmail: 'u@x.com' }) }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(false) }));
+    vi.doMock('@/db', () => ({ db: {} }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {}, qnaQuestions: {}, qnaQuestionWorkstreams: {} }));
+
+    const { createWorkstreamByKey } = await import('./workstreams');
+    await expect(createWorkstreamByKey('ws-1', 'legal')).rejects.toThrow('Forbidden');
+  });
+
+  it('invalid key → throws Invalid workstream key', async () => {
+    vi.doMock('./index', () => ({ verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }) }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+    vi.doMock('@/db', () => ({ db: {} }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {}, qnaQuestions: {}, qnaQuestionWorkstreams: {} }));
+
+    const { createWorkstreamByKey } = await import('./workstreams');
+    await expect(createWorkstreamByKey('ws-1', 'bogus')).rejects.toThrow('Invalid workstream key');
+  });
+
+  it('valid key + authorized → inserts with canonical values and returns the row', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({ verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }) }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+
+    const createdRow = { id: 'w-new', workspaceId: 'ws-1', key: 'legal', name: 'Legal', color: '#33322F', tileTint: '#ECEBE6', description: 'Contracts, corporate governance, regulatory & intellectual property', sortOrder: 0 };
+    const onConflictDoNothing = vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([createdRow]) });
+    const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing });
+    const tx = {
+      insert: vi.fn().mockReturnValue({ values: insertValues }),
+      select: vi.fn(),
+    };
+    vi.doMock('@/db', () => ({ db: { transaction: vi.fn(async (cb) => cb(tx)) } }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {}, qnaQuestions: {}, qnaQuestionWorkstreams: {} }));
+
+    const { createWorkstreamByKey } = await import('./workstreams');
+    const result = await createWorkstreamByKey('ws-1', 'legal');
+
+    expect(tx.insert).toHaveBeenCalled();
+    // check values included canonical fields
+    expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ key: 'legal', name: 'Legal', workspaceId: 'ws-1' }));
+    expect(logActivity).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'workstream_updated', targetType: 'workstream', metadata: expect.objectContaining({ created: true, key: 'legal' }) }));
+    expect(result).toMatchObject({ id: 'w-new', key: 'legal', name: 'Legal' });
+  });
+
+  it('idempotent — conflict returns existing row without logging activity', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
+    vi.doMock('./index', () => ({ verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }) }));
+    vi.doMock('./access', () => ({ isCisTeamOrAdmin: vi.fn().mockResolvedValue(true) }));
+
+    const existingRow = { id: 'w-existing', workspaceId: 'ws-1', key: 'legal', name: 'Legal', color: '#33322F', tileTint: '#ECEBE6', description: 'd', sortOrder: 0 };
+    // insert returns [] (conflict), then select returns existing row
+    const onConflictDoNothing = vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) });
+    const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing });
+    const limit = vi.fn().mockResolvedValue([existingRow]);
+    const where = vi.fn().mockReturnValue({ limit });
+    const from = vi.fn().mockReturnValue({ where });
+    const tx = {
+      insert: vi.fn().mockReturnValue({ values: insertValues }),
+      select: vi.fn().mockReturnValue({ from }),
+    };
+    vi.doMock('@/db', () => ({ db: { transaction: vi.fn(async (cb) => cb(tx)) } }));
+    vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: {}, activityLogs: {}, qnaQuestions: {}, qnaQuestionWorkstreams: {} }));
+
+    const { createWorkstreamByKey } = await import('./workstreams');
+    const result = await createWorkstreamByKey('ws-1', 'legal');
+
+    expect(logActivity).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ id: 'w-existing', key: 'legal' });
   });
 });
 
@@ -117,7 +209,7 @@ describe('addWorkstreamMember()', () => {
     await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-1')).rejects.toThrow('Forbidden');
   });
 
-  it('target participant inactive → throws Forbidden', async () => {
+  it('target participant inactive → throws ParticipantNotActive', async () => {
     vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
@@ -129,11 +221,11 @@ describe('addWorkstreamMember()', () => {
     vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: { id: 'id', status: 'status', role: 'role' }, activityLogs: {} }));
 
     const { addWorkstreamMember } = await import('./workstreams');
-    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-inactive')).rejects.toThrow(/Forbidden|Invalid participant/);
+    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-inactive')).rejects.toThrow('ParticipantNotActive');
     expect(tx.insert).not.toHaveBeenCalled();
   });
 
-  it('target participant view_only → throws Forbidden', async () => {
+  it('target participant view_only → throws ParticipantViewOnly', async () => {
     vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
@@ -145,7 +237,7 @@ describe('addWorkstreamMember()', () => {
     vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: { id: 'id', status: 'status', role: 'role' }, activityLogs: {} }));
 
     const { addWorkstreamMember } = await import('./workstreams');
-    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-vo')).rejects.toThrow(/Forbidden|Invalid participant/);
+    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-vo')).rejects.toThrow('ParticipantViewOnly');
     expect(tx.insert).not.toHaveBeenCalled();
   });
 

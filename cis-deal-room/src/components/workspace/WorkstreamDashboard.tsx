@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Layers, FileText, MessageSquare } from 'lucide-react';
+import { Layers, FileText, MessageSquare, Users, ChevronDown } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetch-with-auth';
 
 interface Member { participantId: string; firstName: string | null; lastName: string | null; email: string; role: string; }
@@ -17,19 +17,22 @@ interface Props {
   workstreamId: string;
   /** True for global admins and active cis_team/admin participants — gates Manage members button. */
   canManage?: boolean;
+  /** Bump to force a re-fetch (e.g. after members change). */
+  refreshKey?: number;
   onClearLens: () => void;
   onManageMembers?: () => void;
 }
 
-export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, onClearLens, onManageMembers }: Props) {
+export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, refreshKey, onClearLens, onManageMembers }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [showMembers, setShowMembers] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetchWithAuth(`/api/workspaces/${workspaceId}/workstreams/${workstreamId}`);
     if (res.ok) setData(await res.json());
   }, [workspaceId, workstreamId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   if (!data) return <p className="p-8 text-sm text-text-muted">Loading…</p>;
   const ws = data.workstream;
@@ -79,14 +82,60 @@ export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, onCl
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {stats.map((s) => (
-            <div key={s.key} className={`rounded-lg border p-4 bg-surface ${s.accent && s.figure > 0 ? 'border-[#F3C9C7]' : 'border-border'}`}>
-              <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{s.label}</p>
-              <p className={`text-[38px] leading-none font-medium tabular-nums mt-2 ${s.accent && s.figure > 0 ? 'text-[#C8281F]' : 'text-text-primary'}`}>{s.figure}</p>
-              <p className="text-xs text-text-muted mt-2">{s.sub}</p>
-            </div>
-          ))}
+          {stats.map((s) => {
+            const cardBody = (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wider text-text-muted flex items-center gap-1">
+                  {s.label}
+                  {s.key === 'members' && (
+                    <ChevronDown size={13} className={`transition-transform ${showMembers ? 'rotate-180' : ''}`} aria-hidden="true" />
+                  )}
+                </p>
+                <p className={`text-[38px] leading-none font-medium tabular-nums mt-2 ${s.accent && s.figure > 0 ? 'text-[#C8281F]' : 'text-text-primary'}`}>{s.figure}</p>
+                <p className="text-xs text-text-muted mt-2">{s.key === 'members' ? (showMembers ? 'hide list' : 'click to view') : s.sub}</p>
+              </>
+            );
+            const base = `rounded-lg border p-4 bg-surface text-left ${s.accent && s.figure > 0 ? 'border-[#F3C9C7]' : 'border-border'}`;
+            return s.key === 'members' ? (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setShowMembers((v) => !v)}
+                aria-expanded={showMembers}
+                className={`${base} hover:border-accent transition-colors cursor-pointer`}
+              >
+                {cardBody}
+              </button>
+            ) : (
+              <div key={s.key} className={base}>{cardBody}</div>
+            );
+          })}
         </div>
+
+        {/* Members reveal — who is on this workstream */}
+        {showMembers && (
+          <div className="rounded-lg border border-border bg-surface p-4 mb-6">
+            <p className="text-sm font-medium text-text-primary flex items-center gap-2 mb-3"><Users size={15} /> Workstream members</p>
+            {data.members.length === 0 ? (
+              <p className="text-sm text-text-muted">No members yet.{canManage && onManageMembers ? ' Use “Manage members” to add people.' : ''}</p>
+            ) : (
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {data.members.map((m) => {
+                  const name = [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email;
+                  return (
+                    <li key={m.participantId} className="flex items-center gap-2 text-sm py-1">
+                      <span className="w-7 h-7 rounded-full bg-surface-elevated border border-border flex items-center justify-center shrink-0 text-xs text-text-muted">
+                        {(name[0] ?? '?').toUpperCase()}
+                      </span>
+                      <span className="text-text-primary truncate">{name}</span>
+                      <span className="text-xs text-text-muted ml-auto">{m.role}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Two-column: activity + quick links */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">

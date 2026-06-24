@@ -97,13 +97,61 @@ describe('getWorkspacesForUser()', () => {
   });
 });
 
+describe('deleteWorkspace()', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it('throws Admin required and does NOT call db.delete when called by non-admin', async () => {
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({
+        userId: 'user-1',
+        isAdmin: false,
+        sessionId: 's2',
+        userEmail: 'user@example.com',
+      }),
+    }));
+
+    const deleteMock = vi.fn();
+    vi.doMock('@/db', () => ({
+      db: { delete: deleteMock },
+    }));
+
+    const { deleteWorkspace } = await import('./workspaces');
+    await expect(deleteWorkspace('ws-123')).rejects.toThrow('Admin required');
+    expect(deleteMock).not.toHaveBeenCalled();
+  });
+
+  it('calls db.delete with the workspace id when called by admin', async () => {
+    vi.doMock('./index', () => ({
+      verifySession: vi.fn().mockResolvedValue({
+        userId: 'admin-1',
+        isAdmin: true,
+        sessionId: 's1',
+        userEmail: 'admin@cis.com',
+      }),
+    }));
+
+    const whereMock = vi.fn().mockResolvedValue(undefined);
+    const deleteMock = vi.fn().mockReturnValue({ where: whereMock });
+    vi.doMock('@/db', () => ({
+      db: { delete: deleteMock },
+    }));
+
+    const { deleteWorkspace } = await import('./workspaces');
+    await deleteWorkspace('ws-123');
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('createWorkspace()', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
   });
 
-  it('creates workspace and 8 default folders in a transaction', async () => {
+  it('creates the workspace + creator participant, without seeding folders', async () => {
     const mockWorkspace = {
       id: 'ws-new',
       name: 'Deal Gamma',
@@ -112,24 +160,11 @@ describe('createWorkspace()', () => {
       status: 'engagement',
     };
 
-    const folderInsertValuesMock = vi.fn().mockResolvedValue([]);
-    const folderInsertMock = vi.fn().mockReturnValue({ values: folderInsertValuesMock });
     const workspaceInsertValuesMock = vi.fn().mockReturnValue({
       returning: vi.fn().mockResolvedValue([mockWorkspace]),
     });
-    const workspaceInsertMock = vi.fn().mockReturnValue({ values: workspaceInsertValuesMock });
 
-    // Track insert calls to distinguish workspace vs folder inserts
-    let insertCallCount = 0;
-    const insertMock = vi.fn().mockImplementation(() => {
-      insertCallCount++;
-      if (insertCallCount === 1) {
-        // First call: workspace insert
-        return { values: workspaceInsertValuesMock };
-      }
-      // Second call: folders insert
-      return { values: folderInsertValuesMock };
-    });
+    const insertMock = vi.fn().mockReturnValue({ values: workspaceInsertValuesMock });
 
     const txMock = { insert: insertMock };
     const txFn = vi.fn().mockImplementation(async (fn: (tx: typeof txMock) => Promise<unknown>) => {
@@ -162,12 +197,17 @@ describe('createWorkspace()', () => {
     });
 
     expect(result).toEqual(mockWorkspace);
-    // Workspace + folders = 2 insert calls
+    // Workspace insert + creator-participant insert — and NO folder seeding (would be a 3rd).
     expect(insertMock).toHaveBeenCalledTimes(2);
-    // Folders insert receives 8 items
-    const foldersCallArg = folderInsertValuesMock.mock.calls[0][0];
-    expect(Array.isArray(foldersCallArg)).toBe(true);
-    expect(foldersCallArg).toHaveLength(8);
+    // The creator is added as an active CIS Team participant.
+    const participantValues = workspaceInsertValuesMock.mock.calls
+      .map((c) => c[0])
+      .find((v) => v && v.role === 'cis_team');
+    expect(participantValues).toMatchObject({
+      userId: 'admin-1',
+      role: 'cis_team',
+      status: 'active',
+    });
   });
 
   it('throws Admin required when called by non-admin', async () => {

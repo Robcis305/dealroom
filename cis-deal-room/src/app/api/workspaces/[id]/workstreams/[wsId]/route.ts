@@ -1,6 +1,6 @@
 import { verifySession } from '@/lib/dal/index';
 import { requireDealAccess } from '@/lib/dal/access';
-import { getWorkstream, listWorkstreamMembers, updateWorkstream, getWorkstreamActivity } from '@/lib/dal/workstreams';
+import { listWorkstreamsWithCounts, listWorkstreamMembers, updateWorkstream, getWorkstreamActivity } from '@/lib/dal/workstreams';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string; wsId: string }> }) {
   const session = await verifySession();
@@ -11,7 +11,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   } catch {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
-  const workstream = await getWorkstream(workspaceId, wsId);
+  // Reuse the list query so the detail view shows the same derived counts
+  // (documents / members / open Q&A / overdue) as the stat cards expect.
+  const all = await listWorkstreamsWithCounts(workspaceId);
+  const workstream = all.find((w) => w.id === wsId);
   if (!workstream) return Response.json({ error: 'Not found' }, { status: 404 });
   const [members, recentActivity] = await Promise.all([
     listWorkstreamMembers(wsId),

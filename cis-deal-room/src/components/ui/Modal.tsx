@@ -42,8 +42,9 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         className={twMerge(
           clsx(
             'bg-surface border border-border rounded-xl p-6 shadow-2xl',
-            'w-full max-w-lg mx-4',
-            'max-sm:rounded-none max-sm:mx-0 max-sm:min-h-screen max-sm:max-w-none',
+            'w-full max-w-lg',
+            'flex flex-col max-h-[90vh]',
+            'max-sm:rounded-none max-sm:mx-0 max-sm:min-h-screen max-sm:max-h-screen max-sm:max-w-none',
             'transition-all duration-200',
             className
           )
@@ -51,7 +52,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 shrink-0">
             <h2 className="text-base font-semibold text-text-primary">{title}</h2>
             <button
               onClick={onClose}
@@ -63,7 +64,9 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
             </button>
           </div>
         )}
-        {children}
+        {/* Scrollable body: children that mark sections shrink-0 (header/footer)
+            stay pinned while a flex-1 section scrolls. Plain content just scrolls. */}
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">{children}</div>
       </div>
     </div>
   );

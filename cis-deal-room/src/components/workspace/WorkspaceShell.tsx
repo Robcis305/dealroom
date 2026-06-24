@@ -85,6 +85,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   const [folderAccessFocus, setFolderAccessFocus] = useState(0);
   const [workstreams, setWorkstreams] = useState<WorkstreamWithCounts[]>([]);
   const [manageWorkstreamId, setManageWorkstreamId] = useState<string | null>(null);
+  const [dashboardRefresh, setDashboardRefresh] = useState(0);
   const resizingRef = useRef(false);
 
   // Folder-header "Folder access" button: reveal the panel, switch to the
@@ -394,6 +395,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               workspaceId={workspace.id}
               workstreamId={view.workstreamId}
               canManage={canManageWorkstreams}
+              refreshKey={dashboardRefresh}
               onClearLens={() => setView({ kind: 'overview' })}
               onManageMembers={() => setManageWorkstreamId(view.workstreamId)}
             />
@@ -494,7 +496,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
           workstreamId={manageWorkstreamId}
           workstreamName={workstreams.find((w) => w.id === manageWorkstreamId)?.name ?? 'Workstream'}
           onClose={() => setManageWorkstreamId(null)}
-          onChanged={refreshWorkstreams}
+          onChanged={() => { refreshWorkstreams(); setDashboardRefresh((n) => n + 1); }}
         />
       )}
     </div>
