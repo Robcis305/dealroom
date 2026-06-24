@@ -17,11 +17,13 @@ interface Props {
   workstreamId: string;
   /** True for global admins and active cis_team/admin participants — gates Manage members button. */
   canManage?: boolean;
+  /** Bump to force a re-fetch (e.g. after members change). */
+  refreshKey?: number;
   onClearLens: () => void;
   onManageMembers?: () => void;
 }
 
-export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, onClearLens, onManageMembers }: Props) {
+export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, refreshKey, onClearLens, onManageMembers }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
 
   const load = useCallback(async () => {
@@ -29,7 +31,7 @@ export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, onCl
     if (res.ok) setData(await res.json());
   }, [workspaceId, workstreamId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   if (!data) return <p className="p-8 text-sm text-text-muted">Loading…</p>;
   const ws = data.workstream;
