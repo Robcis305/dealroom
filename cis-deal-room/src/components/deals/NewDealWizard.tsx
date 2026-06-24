@@ -102,7 +102,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
   return (
     <Modal open={open} onClose={handleClose} title="New Deal Room" className="max-w-xl">
       {/* Progress header */}
-      <div className="flex items-center gap-1 mb-6">
+      <div className="flex items-center gap-1 mb-6 shrink-0">
         {STEPS.map((s, i) => (
           <div key={s.key} className="flex items-center gap-1 flex-1 min-w-0">
             <div className="flex flex-col items-center flex-1 min-w-0">
@@ -139,8 +139,8 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
         ))}
       </div>
 
-      {/* Step body */}
-      <div className="min-h-[200px]">
+      {/* Step body — scrolls when content (e.g. many invite rows) exceeds the modal height */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
         {step === 'details' && (
           <StepDetails
             onCreated={handleCreated}
@@ -183,13 +183,13 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
 
       {/* Server error */}
       {serverError && (
-        <p className="mt-3 text-xs text-accent bg-accent-subtle border border-accent/20 rounded-lg px-3 py-2">
+        <p className="mt-3 text-xs text-accent bg-accent-subtle border border-accent/20 rounded-lg px-3 py-2 shrink-0">
           {serverError}
         </p>
       )}
 
-      {/* Footer */}
-      <div className="flex gap-3 pt-4 mt-2 border-t border-border">
+      {/* Footer — pinned below the scrollable body */}
+      <div className="flex gap-3 pt-4 mt-2 border-t border-border shrink-0">
         {/* Left side: Cancel on first step, Back on subsequent steps */}
         {isFirst ? (
           <Button
