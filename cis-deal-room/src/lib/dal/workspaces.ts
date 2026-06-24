@@ -111,7 +111,18 @@ export async function createWorkspace(input: {
       })
       .returning();
 
-    // 2. Log activity inside the same transaction
+    // 2. Add the creator as an active CIS Team participant of their own deal,
+    //    so they appear in participant/member lists and can be added to
+    //    workstreams (admin rights alone don't create a participant row).
+    await tx.insert(workspaceParticipants).values({
+      workspaceId: workspace.id,
+      userId: session.userId,
+      role: 'cis_team',
+      status: 'active',
+      activatedAt: new Date(),
+    });
+
+    // 3. Log activity inside the same transaction
     // Note: folders are NOT seeded here — the New Deal wizard's Folders step
     // owns folder creation so the admin can choose/uncheck which to create.
     await logActivity(tx, {

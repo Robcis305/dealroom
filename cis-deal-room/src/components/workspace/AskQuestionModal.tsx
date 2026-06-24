@@ -151,12 +151,12 @@ export function AskQuestionModal({ workspaceId, folders, onClose, onCreated }: P
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(10,10,10,0.42)' }}
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-border rounded-[10px] w-[640px] max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-surface border border-border rounded-[10px] w-full max-w-[640px] max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

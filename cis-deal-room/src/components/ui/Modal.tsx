@@ -42,7 +42,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         className={twMerge(
           clsx(
             'bg-surface border border-border rounded-xl p-6 shadow-2xl',
-            'w-full max-w-lg mx-4',
+            'w-full max-w-lg',
             'flex flex-col max-h-[90vh]',
             'max-sm:rounded-none max-sm:mx-0 max-sm:min-h-screen max-sm:max-h-screen max-sm:max-w-none',
             'transition-all duration-200',

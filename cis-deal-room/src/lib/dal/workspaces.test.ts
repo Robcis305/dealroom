@@ -103,7 +103,7 @@ describe('createWorkspace()', () => {
     vi.clearAllMocks();
   });
 
-  it('creates the workspace without seeding folders (wizard owns folder creation)', async () => {
+  it('creates the workspace + creator participant, without seeding folders', async () => {
     const mockWorkspace = {
       id: 'ws-new',
       name: 'Deal Gamma',
@@ -149,8 +149,17 @@ describe('createWorkspace()', () => {
     });
 
     expect(result).toEqual(mockWorkspace);
-    // Only the workspace insert — NO folder seeding.
-    expect(insertMock).toHaveBeenCalledTimes(1);
+    // Workspace insert + creator-participant insert — and NO folder seeding (would be a 3rd).
+    expect(insertMock).toHaveBeenCalledTimes(2);
+    // The creator is added as an active CIS Team participant.
+    const participantValues = workspaceInsertValuesMock.mock.calls
+      .map((c) => c[0])
+      .find((v) => v && v.role === 'cis_team');
+    expect(participantValues).toMatchObject({
+      userId: 'admin-1',
+      role: 'cis_team',
+      status: 'active',
+    });
   });
 
   it('throws Admin required when called by non-admin', async () => {

@@ -62,8 +62,8 @@ export function WorkstreamMembersModal({ workspaceId, workstreamId, workstreamNa
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(10,10,10,0.42)' }} onClick={onClose}>
-      <div className="bg-surface border border-border rounded-[10px] w-[480px] max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(10,10,10,0.42)' }} onClick={onClose}>
+      <div className="bg-surface border border-border rounded-[10px] w-full max-w-[480px] max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h3 className="text-base font-semibold text-text-primary">Manage {workstreamName} members</h3>
           <button onClick={onClose} aria-label="Close" className="text-text-muted hover:text-text-primary cursor-pointer"><X size={18} /></button>

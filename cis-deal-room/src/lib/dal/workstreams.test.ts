@@ -209,7 +209,7 @@ describe('addWorkstreamMember()', () => {
     await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-1')).rejects.toThrow('Forbidden');
   });
 
-  it('target participant inactive → throws Forbidden', async () => {
+  it('target participant inactive → throws ParticipantNotActive', async () => {
     vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
@@ -221,11 +221,11 @@ describe('addWorkstreamMember()', () => {
     vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: { id: 'id', status: 'status', role: 'role' }, activityLogs: {} }));
 
     const { addWorkstreamMember } = await import('./workstreams');
-    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-inactive')).rejects.toThrow(/Forbidden|Invalid participant/);
+    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-inactive')).rejects.toThrow('ParticipantNotActive');
     expect(tx.insert).not.toHaveBeenCalled();
   });
 
-  it('target participant view_only → throws Forbidden', async () => {
+  it('target participant view_only → throws ParticipantViewOnly', async () => {
     vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
@@ -237,7 +237,7 @@ describe('addWorkstreamMember()', () => {
     vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: { id: 'id', status: 'status', role: 'role' }, activityLogs: {} }));
 
     const { addWorkstreamMember } = await import('./workstreams');
-    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-vo')).rejects.toThrow(/Forbidden|Invalid participant/);
+    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-vo')).rejects.toThrow('ParticipantViewOnly');
     expect(tx.insert).not.toHaveBeenCalled();
   });
 
