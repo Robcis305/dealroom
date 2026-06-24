@@ -32,6 +32,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [cisAdvisorySide, setCisAdvisorySide] = useState<CisAdvisorySide | null>(null);
   const [createdFolders, setCreatedFolders] = useState<{ id: string; name: string }[]>([]);
+  const [createdWorkstreams, setCreatedWorkstreams] = useState<{ id: string; name: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const stepActionRef = useRef<null | (() => Promise<boolean>)>(null);
@@ -162,7 +163,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
         {step === 'workstreams' && workspaceId && (
           <StepWorkstreams
             workspaceId={workspaceId}
-            onDone={advance}
+            onDone={(created) => { setCreatedWorkstreams(created); advance(); }}
             onSkip={advance}
             registerCommit={registerCommit}
           />
@@ -172,6 +173,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
             workspaceId={workspaceId}
             cisAdvisorySide={cisAdvisorySide}
             folders={createdFolders}
+            workstreams={createdWorkstreams}
             onDone={() => {
               // onDone is called by the commit fn after all invites succeed;
               // navigation is handled by handleFinish

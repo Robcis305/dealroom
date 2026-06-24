@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { NewDealWizard } from '@/components/deals/NewDealWizard';
+import { StepInvite } from '@/components/deals/wizard/StepInvite';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -293,5 +294,97 @@ describe('NewDealWizard — Folders step idempotency (Back then Next again)', ()
     // No duplicate folder names in the POST history
     const uniqueNames = new Set(foldersMade);
     expect(foldersMade.length).toBe(uniqueNames.size);
+  });
+});
+
+describe('StepInvite — workstream assignment', () => {
+  it('POSTs workstreamIds when a workstream checkbox is selected', async () => {
+    const commitRef: { fn: (() => Promise<boolean>) | null } = { fn: null };
+    function registerCommit(fn: (() => Promise<boolean>) | null) {
+      commitRef.fn = fn;
+    }
+
+    render(
+      <StepInvite
+        workspaceId="ws1"
+        cisAdvisorySide="seller_side"
+        folders={[]}
+        workstreams={[{ id: 'wst1', name: 'Legal' }]}
+        onDone={() => {}}
+        registerCommit={registerCommit}
+      />
+    );
+
+    // Add email to the first row
+    fireEvent.change(screen.getByLabelText(/email address 1/i), {
+      target: { value: 'bob@example.com' },
+    });
+
+    // Select the "Legal" workstream checkbox
+    fireEvent.click(screen.getByRole('checkbox', { name: /^legal$/i }));
+
+    // Mock participants POST and capture body
+    let capturedBody: Record<string, unknown> | null = null;
+    vi.mocked(fetchWithAuth).mockImplementation(async (url, opts) => {
+      if (typeof url === 'string' && url.includes('/participants')) {
+        capturedBody = JSON.parse(opts?.body as string) as Record<string, unknown>;
+      }
+      return { ok: true, json: async () => ({}) } as Response;
+    });
+
+    // Trigger commit
+    await act(async () => {
+      await commitRef.fn?.();
+    });
+
+    expect(capturedBody).not.toBeNull();
+    expect(capturedBody!.workstreamIds).toEqual(['wst1']);
+  });
+
+  it('POSTs all workstreamIds when "All workstreams" is toggled', async () => {
+    const commitRef: { fn: (() => Promise<boolean>) | null } = { fn: null };
+    function registerCommit(fn: (() => Promise<boolean>) | null) {
+      commitRef.fn = fn;
+    }
+
+    render(
+      <StepInvite
+        workspaceId="ws1"
+        cisAdvisorySide="seller_side"
+        folders={[]}
+        workstreams={[
+          { id: 'wst1', name: 'Legal' },
+          { id: 'wst2', name: 'Finance' },
+        ]}
+        onDone={() => {}}
+        registerCommit={registerCommit}
+      />
+    );
+
+    // Add email
+    fireEvent.change(screen.getByLabelText(/email address 1/i), {
+      target: { value: 'carol@example.com' },
+    });
+
+    // Click "All workstreams"
+    fireEvent.click(screen.getByRole('checkbox', { name: /all workstreams/i }));
+
+    let capturedBody: Record<string, unknown> | null = null;
+    vi.mocked(fetchWithAuth).mockImplementation(async (url, opts) => {
+      if (typeof url === 'string' && url.includes('/participants')) {
+        capturedBody = JSON.parse(opts?.body as string) as Record<string, unknown>;
+      }
+      return { ok: true, json: async () => ({}) } as Response;
+    });
+
+    await act(async () => {
+      await commitRef.fn?.();
+    });
+
+    expect(capturedBody).not.toBeNull();
+    const ids = capturedBody!.workstreamIds as string[];
+    expect(ids).toContain('wst1');
+    expect(ids).toContain('wst2');
+    expect(ids).toHaveLength(2);
   });
 });
