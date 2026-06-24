@@ -5,6 +5,7 @@ import { workspaceParticipants } from '@/db/schema';
 import { getWorkspace } from '@/lib/dal/workspaces';
 import { getFoldersForWorkspace } from '@/lib/dal/folders';
 import { getFileCountsByFolder } from '@/lib/dal/files';
+import { getWelcomeForParticipant } from '@/lib/dal/participants';
 import { verifySession } from '@/lib/dal';
 import { WorkspaceShell } from '@/components/workspace/WorkspaceShell';
 import type { ParticipantRole } from '@/types';
@@ -67,6 +68,8 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
     (participant != null &&
       (participant.role === 'cis_team' || participant.role === 'admin'));
 
+  const welcome = await getWelcomeForParticipant(workspaceId, session, workspace.cisAdvisorySide);
+
   return (
     <WorkspaceShell
       workspace={workspace}
@@ -77,6 +80,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       userId={session.userId}
       participantRole={participantRole}
       canManageWorkstreams={canManageWorkstreams}
+      welcome={welcome}
     />
   );
 }

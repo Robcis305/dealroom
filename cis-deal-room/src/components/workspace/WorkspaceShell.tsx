@@ -17,6 +17,7 @@ import { ChecklistView } from './ChecklistView';
 import { WorkstreamDashboard } from './WorkstreamDashboard';
 import { WorkstreamMembersModal } from './WorkstreamMembersModal';
 import { QnaView } from './QnaView';
+import { WelcomeModal } from './WelcomeModal';
 import type { WorkspaceStatus, ParticipantRole, DealKillerGroup, PendingHighlight, WorkstreamWithCounts } from '@/types';
 
 interface Workspace {
@@ -39,6 +40,12 @@ interface Folder {
   updatedAt: Date | string;
 }
 
+interface WelcomeProp {
+  roleLabel: string;
+  folders: string[];
+  workstreams: string[];
+}
+
 interface WorkspaceShellProps {
   workspace: Workspace;
   folders: Folder[];
@@ -51,6 +58,8 @@ interface WorkspaceShellProps {
   participantRole: ParticipantRole;
   /** True for global admins and active cis_team participants — gates workstream Manage UI. */
   canManageWorkstreams: boolean;
+  /** First-entry welcome data. null if no welcome is due. */
+  welcome?: WelcomeProp | null;
 }
 
 type FileCounts = Record<string, number>;
@@ -64,7 +73,8 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, userEmail, userId, participantRole, canManageWorkstreams }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, userEmail, userId, participantRole, canManageWorkstreams, welcome = null }: WorkspaceShellProps) {
+  const [showWelcome, setShowWelcome] = useState(!!welcome);
   const [view, setView] = useState<CenterView>({ kind: 'overview' });
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -499,6 +509,17 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
           workstreamName={workstreams.find((w) => w.id === manageWorkstreamId)?.name ?? 'Workstream'}
           onClose={() => setManageWorkstreamId(null)}
           onChanged={() => { refreshWorkstreams(); setDashboardRefresh((n) => n + 1); }}
+        />
+      )}
+
+      {welcome && showWelcome && (
+        <WelcomeModal
+          workspaceId={workspace.id}
+          dealName={workspace.name}
+          roleLabel={welcome.roleLabel}
+          folders={welcome.folders}
+          workstreams={welcome.workstreams}
+          onDismiss={() => setShowWelcome(false)}
         />
       )}
     </div>

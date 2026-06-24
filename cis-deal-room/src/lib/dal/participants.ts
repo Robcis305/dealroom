@@ -13,8 +13,9 @@ import {
 import { verifySession } from './index';
 import { logActivity } from './activity';
 import { generateToken, hashToken } from '@/lib/auth/tokens';
+import { roleLabel } from '@/lib/participants/roles';
 import type { ParticipantRole } from './permissions';
-import type { Session } from '@/types';
+import type { Session, CisAdvisorySide } from '@/types';
 
 const INVITATION_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 
@@ -368,6 +369,57 @@ export async function countActiveClientParticipants(workspaceId: string): Promis
     );
 
   return Number(row?.count ?? 0);
+}
+
+/**
+ * Returns welcome data for the first-time-entry modal, or null if no welcome
+ * is due (admin without a participant row, already onboarded, or not active).
+ */
+export async function getWelcomeForParticipant(
+  workspaceId: string,
+  session: Session,
+  side: CisAdvisorySide,
+): Promise<{ roleLabel: string; folders: string[]; workstreams: string[] } | null> {
+  // Admins don't have participant rows; no welcome for them.
+  if (session.isAdmin) return null;
+
+  const [participant] = await db
+    .select({
+      id: workspaceParticipants.id,
+      role: workspaceParticipants.role,
+      onboardedAt: workspaceParticipants.onboardedAt,
+    })
+    .from(workspaceParticipants)
+    .where(
+      and(
+        eq(workspaceParticipants.workspaceId, workspaceId),
+        eq(workspaceParticipants.userId, session.userId),
+        eq(workspaceParticipants.status, 'active'),
+      )
+    )
+    .limit(1);
+
+  if (!participant || participant.onboardedAt != null) return null;
+
+  // Fetch folder names accessible to this participant
+  const folderRows = await db
+    .select({ name: folders.name })
+    .from(folderAccess)
+    .innerJoin(folders, eq(folders.id, folderAccess.folderId))
+    .where(eq(folderAccess.participantId, participant.id));
+
+  // Fetch workstream names for this participant
+  const workstreamRows = await db
+    .select({ name: workstreams.name })
+    .from(workstreamMembers)
+    .innerJoin(workstreams, eq(workstreams.id, workstreamMembers.workstreamId))
+    .where(eq(workstreamMembers.participantId, participant.id));
+
+  return {
+    roleLabel: roleLabel(participant.role, side),
+    folders: folderRows.map((r) => r.name),
+    workstreams: workstreamRows.map((r) => r.name),
+  };
 }
 
 /**

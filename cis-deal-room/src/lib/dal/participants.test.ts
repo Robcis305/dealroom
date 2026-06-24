@@ -254,6 +254,129 @@ describe('markOnboarded()', () => {
   });
 });
 
+// ─── getWelcomeForParticipant ──────────────────────────────────────────────────
+
+describe('getWelcomeForParticipant()', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it('returns null when participant has onboardedAt set', async () => {
+    const session = {
+      userId: 'user-1',
+      isAdmin: false,
+      sessionId: 's1',
+      userEmail: 'user@example.com',
+    };
+
+    // select().from().where().limit() → row with onboardedAt set
+    vi.doMock('@/db', () => ({
+      db: {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([
+                { id: 'part-1', role: 'client', onboardedAt: new Date('2025-01-01') },
+              ]),
+            }),
+          }),
+        }),
+      },
+    }));
+
+    const { getWelcomeForParticipant } = await import('./participants');
+    const result = await getWelcomeForParticipant('ws-1', session, 'buyer_side');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when no participant row exists', async () => {
+    const session = {
+      userId: 'user-1',
+      isAdmin: false,
+      sessionId: 's1',
+      userEmail: 'user@example.com',
+    };
+
+    vi.doMock('@/db', () => ({
+      db: {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        }),
+      },
+    }));
+
+    const { getWelcomeForParticipant } = await import('./participants');
+    const result = await getWelcomeForParticipant('ws-1', session, 'buyer_side');
+    expect(result).toBeNull();
+  });
+
+  it('returns { roleLabel, folders, workstreams } when active + onboardedAt null', async () => {
+    const session = {
+      userId: 'user-1',
+      isAdmin: false,
+      sessionId: 's1',
+      userEmail: 'user@example.com',
+    };
+
+    let selectCallIdx = 0;
+    vi.doMock('@/db', () => ({
+      db: {
+        select: vi.fn().mockImplementation(() => {
+          const idx = selectCallIdx++;
+          if (idx === 0) {
+            // participant lookup
+            return {
+              from: vi.fn().mockReturnValue({
+                where: vi.fn().mockReturnValue({
+                  limit: vi.fn().mockResolvedValue([
+                    { id: 'part-1', role: 'client', onboardedAt: null },
+                  ]),
+                }),
+              }),
+            };
+          } else if (idx === 1) {
+            // folder names query
+            return {
+              from: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  where: vi.fn().mockResolvedValue([
+                    { name: 'Financials' },
+                    { name: 'Legal' },
+                  ]),
+                }),
+              }),
+            };
+          } else {
+            // workstream names query
+            return {
+              from: vi.fn().mockReturnValue({
+                innerJoin: vi.fn().mockReturnValue({
+                  where: vi.fn().mockResolvedValue([
+                    { name: 'Due Diligence' },
+                  ]),
+                }),
+              }),
+            };
+          }
+        }),
+      },
+    }));
+
+    const { getWelcomeForParticipant } = await import('./participants');
+    const result = await getWelcomeForParticipant('ws-1', session, 'buyer_side');
+
+    expect(result).not.toBeNull();
+    expect(result?.roleLabel).toBe('Client');
+    expect(result?.folders).toEqual(['Financials', 'Legal']);
+    expect(result?.workstreams).toEqual(['Due Diligence']);
+  });
+});
+
 // ─── getParticipants — workstreamIds shape ────────────────────────────────────
 
 describe('getParticipants() — returns workstreamIds', () => {
