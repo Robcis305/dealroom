@@ -19,3 +19,8 @@
 .env
 .env.local
 .env.*.local
+
+# Installed agent-skill plugins + scratch (per-machine tooling, like .claude/)
+.agents/
+.planning/
+skills-lock.json
