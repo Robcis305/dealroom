@@ -442,6 +442,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
                 workspaceId={workspace.id}
                 cisAdvisorySide={workspace.cisAdvisorySide}
                 folders={folders}
+                workstreams={workstreams.map((w) => ({ id: w.id, name: w.name }))}
                 isAdmin={isAdmin}
                 participantsRefreshToken={participantsRefresh}
                 currentUserEmail={userEmail}
@@ -487,6 +488,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
           workspaceId={workspace.id}
           cisAdvisorySide={workspace.cisAdvisorySide}
           folders={folders}
+          workstreams={workstreams.map((w) => ({ id: w.id, name: w.name }))}
         />
       )}
 
