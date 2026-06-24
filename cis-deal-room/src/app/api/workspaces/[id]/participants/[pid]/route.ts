@@ -13,6 +13,7 @@ const patchSchema = z.object({
     'view_only',
   ]),
   folderIds: z.array(z.string().uuid()).default([]),
+  workstreamIds: z.array(z.string().uuid()).default([]),
 });
 
 export async function PATCH(
@@ -49,6 +50,7 @@ export async function PATCH(
     await updateParticipant(pid, {
       role: parsed.role,
       folderIds: parsed.folderIds,
+      workstreamIds: parsed.workstreamIds,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Update failed';
