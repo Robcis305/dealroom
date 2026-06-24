@@ -134,14 +134,14 @@ describe('inviteParticipant', () => {
   it('throws Unauthorized when no session', async () => {
     vi.mocked(verifySession).mockResolvedValue(null);
     await expect(
-      inviteParticipant({ workspaceId: WORKSPACE_ID, email: 'x@y.com', role: 'client', folderIds: [] })
+      inviteParticipant({ workspaceId: WORKSPACE_ID, email: 'x@y.com', role: 'client', folderIds: [], workstreamIds: [] })
     ).rejects.toThrow('Unauthorized');
   });
 
   it('throws Admin required for non-admin', async () => {
     vi.mocked(verifySession).mockResolvedValue({ ...adminSession, isAdmin: false });
     await expect(
-      inviteParticipant({ workspaceId: WORKSPACE_ID, email: 'x@y.com', role: 'client', folderIds: [] })
+      inviteParticipant({ workspaceId: WORKSPACE_ID, email: 'x@y.com', role: 'client', folderIds: [], workstreamIds: [] })
     ).rejects.toThrow('Admin required');
   });
 
@@ -158,6 +158,7 @@ describe('inviteParticipant', () => {
       email: 'x@y.com',
       role: 'client',
       folderIds: [],
+      workstreamIds: [],
     });
     expect(result.participant.id).toBe('p1');
     expect(mockTransaction).toHaveBeenCalledTimes(1);
@@ -180,6 +181,7 @@ describe('inviteParticipant', () => {
       email: 'x@y.com',
       role: 'client',
       folderIds: [],
+      workstreamIds: [],
     });
     expect(result.rawToken).toMatch(/^[0-9a-f]{64}$/i);
   });
@@ -205,6 +207,7 @@ describe('inviteParticipant', () => {
         email: 'x@y.com',
         role: 'client',
         folderIds: ['f-external'],
+        workstreamIds: [],
       })
     ).rejects.toThrow('Forbidden');
   });
@@ -230,6 +233,7 @@ describe('inviteParticipant', () => {
       email: 'x@y.com',
       role: 'counsel',
       folderIds: [],
+      workstreamIds: [],
     });
 
     // Transaction should have been called once
@@ -316,6 +320,7 @@ describe('validateShadowSide via inviteParticipant', () => {
       email: 'viewer@example.com',
       role: 'view_only',
       folderIds: [],
+      workstreamIds: [],
     });
 
     const participantInsertCall = mockInsertValues.mock.calls.find(
@@ -339,7 +344,7 @@ describe('updateParticipant', () => {
       { id: PARTICIPANT_ID, workspaceId: WORKSPACE_ID, userId: adminSession.userId, email: 'admin@cis.com', role: 'admin' },
     ]);
     await expect(
-      updateParticipant(PARTICIPANT_ID, { role: 'client', folderIds: [] })
+      updateParticipant(PARTICIPANT_ID, { role: 'client', folderIds: [], workstreamIds: [] })
     ).rejects.toThrow('Cannot demote self');
   });
 
@@ -357,7 +362,7 @@ describe('updateParticipant', () => {
       .mockResolvedValueOnce([{ id: 'f-external', workspaceId: 'w-other' }]);
 
     await expect(
-      updateParticipant(PARTICIPANT_ID, { role: 'client', folderIds: ['f-external'] })
+      updateParticipant(PARTICIPANT_ID, { role: 'client', folderIds: ['f-external'], workstreamIds: [] })
     ).rejects.toThrow('Forbidden');
   });
 });

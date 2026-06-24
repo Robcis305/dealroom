@@ -4,7 +4,12 @@ import { ParticipantFormModal } from '@/components/workspace/ParticipantFormModa
 
 const folders = [
   { id: 'f1', name: 'Financials' },
-  { id: 'f2', name: 'Legal' },
+  { id: 'f2', name: 'Legal Docs' },
+];
+
+const workstreams = [
+  { id: 'ws1', name: 'Legal WS' },
+  { id: 'ws2', name: 'Finance WS' },
 ];
 
 const WORKSPACE_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -25,6 +30,7 @@ describe('ParticipantFormModal — invite mode', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={folders}
+        workstreams={[]}
       />
     );
     expect(screen.getByRole('option', { name: 'Counterparty' })).toBeInTheDocument();
@@ -50,6 +56,7 @@ describe('ParticipantFormModal — invite mode', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={folders}
+        workstreams={[]}
       />
     );
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'x@y.com' } });
@@ -77,6 +84,7 @@ describe('ParticipantFormModal — invite mode', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={folders}
+        workstreams={[]}
       />
     );
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'x@y.com' } });
@@ -103,6 +111,7 @@ describe('ParticipantFormModal — invite mode', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={folders}
+        workstreams={[]}
       />
     );
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'viewer@y.com' } });
@@ -115,6 +124,69 @@ describe('ParticipantFormModal — invite mode', () => {
       `/api/workspaces/${WORKSPACE_ID}/participants`,
       expect.objectContaining({ method: 'POST' })
     );
+  });
+
+  it('renders workstream checkboxes when workstreams prop is provided', () => {
+    render(
+      <ParticipantFormModal
+        mode="invite"
+        open
+        onClose={() => {}}
+        onSuccess={() => {}}
+        workspaceId={WORKSPACE_ID}
+        cisAdvisorySide="buyer_side"
+        folders={folders}
+        workstreams={workstreams}
+      />
+    );
+    expect(screen.getByText('Workstream access')).toBeInTheDocument();
+    expect(screen.getByLabelText('Legal WS')).toBeInTheDocument();
+    expect(screen.getByLabelText('Finance WS')).toBeInTheDocument();
+  });
+
+  it('includes selected workstreamIds in POST body on invite', async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    vi.mocked(global.fetch).mockImplementation(async (_url, init) => {
+      capturedBody = JSON.parse((init as RequestInit).body as string);
+      return { ok: true, status: 201, json: async () => ({ id: 'p3' }) } as Response;
+    });
+    const onSuccess = vi.fn();
+    render(
+      <ParticipantFormModal
+        mode="invite"
+        open
+        onClose={() => {}}
+        onSuccess={onSuccess}
+        workspaceId={WORKSPACE_ID}
+        cisAdvisorySide="buyer_side"
+        folders={folders}
+        workstreams={workstreams}
+      />
+    );
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'ws@y.com' } });
+    // Select the ws1 workstream checkbox (labelled 'Legal WS' in workstreams)
+    const wsCheckbox = screen.getByLabelText('Legal WS');
+    fireEvent.click(wsCheckbox);
+    fireEvent.click(screen.getByRole('button', { name: /send invitation/i }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(capturedBody).not.toBeNull();
+    expect(capturedBody!.workstreamIds).toEqual(['ws1']);
+  });
+
+  it('hides workstream section when workstreams prop is empty', () => {
+    render(
+      <ParticipantFormModal
+        mode="invite"
+        open
+        onClose={() => {}}
+        onSuccess={() => {}}
+        workspaceId={WORKSPACE_ID}
+        cisAdvisorySide="buyer_side"
+        folders={folders}
+        workstreams={[]}
+      />
+    );
+    expect(screen.queryByText('Workstream access')).not.toBeInTheDocument();
   });
 });
 
@@ -129,6 +201,7 @@ describe('ParticipantFormModal — edit mode', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={folders}
+        workstreams={[]}
         existing={{
           id: PARTICIPANT_ID,
           email: 'exists@x.com',
@@ -143,7 +216,7 @@ describe('ParticipantFormModal — edit mode', () => {
     expect((screen.getByLabelText(/email/i) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByLabelText(/role/i) as HTMLSelectElement).value).toBe('client');
     expect((screen.getByLabelText('Financials') as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByLabelText('Legal') as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByLabelText('Legal Docs') as HTMLInputElement).checked).toBe(false);
   });
 
   it('PATCHes to /participants/[pid] on save', async () => {
@@ -162,6 +235,7 @@ describe('ParticipantFormModal — edit mode', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={folders}
+        workstreams={[]}
         existing={{
           id: PARTICIPANT_ID,
           email: 'exists@x.com',
@@ -178,5 +252,63 @@ describe('ParticipantFormModal — edit mode', () => {
       )
     );
     expect(onSuccess).toHaveBeenCalled();
+  });
+
+  it('pre-checks workstreams from existing.workstreamIds in edit mode', () => {
+    render(
+      <ParticipantFormModal
+        mode="edit"
+        open
+        onClose={() => {}}
+        onSuccess={() => {}}
+        workspaceId={WORKSPACE_ID}
+        cisAdvisorySide="buyer_side"
+        folders={folders}
+        workstreams={workstreams}
+        existing={{
+          id: PARTICIPANT_ID,
+          email: 'exists@x.com',
+          role: 'client',
+          folderIds: [],
+          workstreamIds: ['ws1'],
+        }}
+      />
+    );
+    // ws1 is 'Legal WS' in our workstreams fixture — should be pre-checked
+    expect((screen.getByLabelText('Legal WS') as HTMLInputElement).checked).toBe(true);
+    // ws2 is 'Finance WS' — not in workstreamIds, should be unchecked
+    expect((screen.getByLabelText('Finance WS') as HTMLInputElement).checked).toBe(false);
+  });
+
+  it('includes workstreamIds in PATCH body on edit save', async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    vi.mocked(global.fetch).mockImplementation(async (_url, init) => {
+      capturedBody = JSON.parse((init as RequestInit).body as string);
+      return { ok: true, status: 200, json: async () => ({ success: true }) } as Response;
+    });
+    const onSuccess = vi.fn();
+    render(
+      <ParticipantFormModal
+        mode="edit"
+        open
+        onClose={() => {}}
+        onSuccess={onSuccess}
+        workspaceId={WORKSPACE_ID}
+        cisAdvisorySide="buyer_side"
+        folders={folders}
+        workstreams={workstreams}
+        existing={{
+          id: PARTICIPANT_ID,
+          email: 'exists@x.com',
+          role: 'client',
+          folderIds: [],
+          workstreamIds: ['ws1'],
+        }}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(capturedBody).not.toBeNull();
+    expect(capturedBody!.workstreamIds).toEqual(['ws1']);
   });
 });

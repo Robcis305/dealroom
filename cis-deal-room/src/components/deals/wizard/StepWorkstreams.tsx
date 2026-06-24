@@ -6,7 +6,7 @@ import { CANONICAL_WORKSTREAMS } from '@/lib/workstreams/constants';
 
 interface StepWorkstreamsProps {
   workspaceId: string;
-  onDone: () => void;
+  onDone: (created: { id: string; name: string }[]) => void;
   onSkip: () => void;
   registerCommit: (fn: (() => Promise<boolean>) | null) => void;
 }
@@ -21,13 +21,14 @@ export function StepWorkstreams({ workspaceId, onDone, registerCommit }: StepWor
       const toCreate = CANONICAL_WORKSTREAMS.filter((ws) => checked.has(ws.key));
 
       if (toCreate.length === 0) {
-        onDone();
+        onDone([]);
         return true;
       }
 
       setErrors({});
       setSubmitting(true);
       const newErrors: Record<string, string> = {};
+      const created: { id: string; name: string }[] = [];
 
       await Promise.allSettled(
         toCreate.map(async (ws) => {
@@ -41,6 +42,9 @@ export function StepWorkstreams({ workspaceId, onDone, registerCommit }: StepWor
               const body = await res.json().catch(() => ({}));
               newErrors[ws.key] =
                 (body as { error?: string }).error ?? `Failed to create "${ws.name}"`;
+            } else {
+              const body = await res.json();
+              created.push({ id: body.workstream.id, name: body.workstream.name });
             }
           } catch {
             newErrors[ws.key] = `Network error creating "${ws.name}"`;
@@ -55,7 +59,7 @@ export function StepWorkstreams({ workspaceId, onDone, registerCommit }: StepWor
         return false;
       }
 
-      onDone();
+      onDone(created);
       return true;
     });
     return () => registerCommit(null);

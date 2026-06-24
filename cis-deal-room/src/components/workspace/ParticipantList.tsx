@@ -18,6 +18,11 @@ interface Folder {
   name: string;
 }
 
+interface Workstream {
+  id: string;
+  name: string;
+}
+
 interface ParticipantRow {
   id: string;
   userId: string;
@@ -29,6 +34,7 @@ interface ParticipantRow {
   invitedAt: string | Date;
   activatedAt: string | Date | null;
   folderIds: string[];
+  workstreamIds?: string[];
   lastSeen: string | Date | null;
 }
 
@@ -36,6 +42,7 @@ interface ParticipantListProps {
   workspaceId: string;
   cisAdvisorySide: CisAdvisorySide;
   folders: Folder[];
+  workstreams?: Workstream[];
   isAdmin: boolean;
   /** Parent increments to force a refetch (e.g., after an invite succeeds) */
   refreshToken: number;
@@ -51,6 +58,7 @@ export function ParticipantList({
   workspaceId,
   cisAdvisorySide,
   folders,
+  workstreams = [],
   isAdmin,
   refreshToken,
   currentUserEmail,
@@ -244,6 +252,7 @@ export function ParticipantList({
           workspaceId={workspaceId}
           cisAdvisorySide={cisAdvisorySide}
           folders={folders}
+          workstreams={workstreams}
         />
       )}
 
@@ -256,11 +265,13 @@ export function ParticipantList({
           workspaceId={workspaceId}
           cisAdvisorySide={cisAdvisorySide}
           folders={folders}
+          workstreams={workstreams}
           existing={{
             id: editing.id,
             email: editing.email,
             role: editing.role,
             folderIds: editing.folderIds,
+            workstreamIds: editing.workstreamIds,
           }}
         />
       )}

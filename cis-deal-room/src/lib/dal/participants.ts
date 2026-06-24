@@ -7,11 +7,15 @@ import {
   folders,
   magicLinkTokens,
   sessions,
+  workstreams,
+  workstreamMembers,
 } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
 import { generateToken, hashToken } from '@/lib/auth/tokens';
+import { roleLabel } from '@/lib/participants/roles';
 import type { ParticipantRole } from './permissions';
+import type { Session, CisAdvisorySide } from '@/types';
 
 const INVITATION_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 
@@ -42,16 +46,34 @@ async function assertAllFoldersInWorkspace(
   }
 }
 
+async function assertAllWorkstreamsInWorkspace(
+  tx: Tx,
+  workspaceId: string,
+  workstreamIds: string[]
+): Promise<void> {
+  if (workstreamIds.length === 0) return;
+  const rows = await tx
+    .select({ id: workstreams.id, workspaceId: workstreams.workspaceId })
+    .from(workstreams)
+    .where(inArray(workstreams.id, workstreamIds));
+  if (rows.length !== workstreamIds.length) throw new Error('Workstream not found');
+  for (const r of rows) {
+    if (r.workspaceId !== workspaceId) throw new Error('Forbidden');
+  }
+}
+
 interface InviteInput {
   workspaceId: string;
   email: string;
   role: ParticipantRole;
   folderIds: string[];
+  workstreamIds: string[];
 }
 
 interface UpdateInput {
   role: ParticipantRole;
   folderIds: string[];
+  workstreamIds: string[];
 }
 
 /**
@@ -75,6 +97,11 @@ export async function getParticipants(workspaceId: string) {
       invitedAt: workspaceParticipants.invitedAt,
       activatedAt: workspaceParticipants.activatedAt,
       folderIds: sql<string[]>`coalesce(array_agg(${folderAccess.folderId}) filter (where ${folderAccess.folderId} is not null), '{}')`,
+      workstreamIds: sql<string[]>`(
+        select coalesce(array_agg(wm.workstream_id), '{}')
+        from workstream_members wm
+        where wm.participant_id = ${workspaceParticipants.id}
+      )`,
       lastSeen: sql<Date | null>`(select max(${sessions.lastActiveAt}) from ${sessions} where ${sessions.userId} = ${users.id})`,
     })
     .from(workspaceParticipants)
@@ -189,6 +216,19 @@ export async function inviteParticipant(input: InviteInput) {
       );
     }
 
+    // Workstream membership — mirror folder access (assignable to invited participants).
+    await assertAllWorkstreamsInWorkspace(tx, input.workspaceId, input.workstreamIds);
+    await tx.delete(workstreamMembers).where(eq(workstreamMembers.participantId, participant.id));
+    if (input.workstreamIds.length > 0) {
+      await tx.insert(workstreamMembers).values(
+        input.workstreamIds.map((workstreamId) => ({
+          workstreamId,
+          participantId: participant.id,
+          addedBy: session.userId,
+        }))
+      );
+    }
+
     // 4. Create invitation token (delete any existing invitation tokens for this email)
     // Fix #2: Scope delete to only 'invitation' purpose tokens, not login tokens
     await tx
@@ -279,6 +319,19 @@ export async function updateParticipant(participantId: string, input: UpdateInpu
         }))
       );
     }
+
+    // Workstream membership — mirror folder access replacement.
+    await assertAllWorkstreamsInWorkspace(tx, existing.workspaceId, input.workstreamIds);
+    await tx.delete(workstreamMembers).where(eq(workstreamMembers.participantId, participantId));
+    if (input.workstreamIds.length > 0) {
+      await tx.insert(workstreamMembers).values(
+        input.workstreamIds.map((workstreamId) => ({
+          workstreamId,
+          participantId,
+          addedBy: session.userId,
+        }))
+      );
+    }
   });
 
   await logActivity(db, {
@@ -316,6 +369,74 @@ export async function countActiveClientParticipants(workspaceId: string): Promis
     );
 
   return Number(row?.count ?? 0);
+}
+
+/**
+ * Returns welcome data for the first-time-entry modal, or null if no welcome
+ * is due (admin without a participant row, already onboarded, or not active).
+ */
+export async function getWelcomeForParticipant(
+  workspaceId: string,
+  session: Session,
+  side: CisAdvisorySide,
+): Promise<{ roleLabel: string; folders: string[]; workstreams: string[] } | null> {
+  // Admins don't have participant rows; no welcome for them.
+  if (session.isAdmin) return null;
+
+  const [participant] = await db
+    .select({
+      id: workspaceParticipants.id,
+      role: workspaceParticipants.role,
+      onboardedAt: workspaceParticipants.onboardedAt,
+    })
+    .from(workspaceParticipants)
+    .where(
+      and(
+        eq(workspaceParticipants.workspaceId, workspaceId),
+        eq(workspaceParticipants.userId, session.userId),
+        eq(workspaceParticipants.status, 'active'),
+      )
+    )
+    .limit(1);
+
+  if (!participant || participant.onboardedAt != null) return null;
+
+  // Fetch folder names accessible to this participant
+  const folderRows = await db
+    .select({ name: folders.name })
+    .from(folderAccess)
+    .innerJoin(folders, eq(folders.id, folderAccess.folderId))
+    .where(eq(folderAccess.participantId, participant.id));
+
+  // Fetch workstream names for this participant
+  const workstreamRows = await db
+    .select({ name: workstreams.name })
+    .from(workstreamMembers)
+    .innerJoin(workstreams, eq(workstreams.id, workstreamMembers.workstreamId))
+    .where(eq(workstreamMembers.participantId, participant.id));
+
+  return {
+    roleLabel: roleLabel(participant.role, side),
+    folders: folderRows.map((r) => r.name),
+    workstreams: workstreamRows.map((r) => r.name),
+  };
+}
+
+/**
+ * Marks the caller as having seen the onboarding welcome modal.
+ * Idempotent — safe to call multiple times. Scoped to the caller's own
+ * participant row in the given workspace (userId comes from the session).
+ */
+export async function markOnboarded(workspaceId: string, session: Session): Promise<void> {
+  await db
+    .update(workspaceParticipants)
+    .set({ onboardedAt: new Date() })
+    .where(
+      and(
+        eq(workspaceParticipants.workspaceId, workspaceId),
+        eq(workspaceParticipants.userId, session.userId),
+      )
+    );
 }
 
 /**

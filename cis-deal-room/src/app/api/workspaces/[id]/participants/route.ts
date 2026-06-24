@@ -22,6 +22,7 @@ const inviteSchema = z.object({
     'view_only',
   ]),
   folderIds: z.array(z.string().uuid()).default([]),
+  workstreamIds: z.array(z.string().uuid()).default([]),
   acknowledgement: z.string().optional(),
 });
 
@@ -116,6 +117,7 @@ export async function POST(
     email,
     role: parsed.role,
     folderIds: parsed.folderIds,
+    workstreamIds: parsed.workstreamIds,
   });
 
   const appUrl = getAppUrl();

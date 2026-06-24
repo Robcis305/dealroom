@@ -65,8 +65,11 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
           </div>
         )}
         {/* Scrollable body: children that mark sections shrink-0 (header/footer)
-            stay pinned while a flex-1 section scrolls. Plain content just scrolls. */}
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">{children}</div>
+            stay pinned while a flex-1 section scrolls. Plain content just scrolls.
+            p-2 -m-2: overflow-y clips on every edge, which would cut off focus
+            rings/outlines on edge elements (left fields, bottom footer buttons) —
+            the padding moves the clip boundary outward without shifting content. */}
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col p-2 -m-2">{children}</div>
       </div>
     </div>
   );

@@ -144,9 +144,9 @@ export async function addWorkstreamMember(workspaceId: string, workstreamId: str
     .from(workspaceParticipants)
     .where(eq(workspaceParticipants.id, participantId))
     .limit(1);
-  // Distinct errors so the caller can tell the user WHY (vs. an opaque "Forbidden").
+  // View-only participants cannot join a workstream; invited participants CAN
+  // (membership is assignable before they accept, mirroring folder access).
   if (!targetRow) throw new Error('ParticipantNotFound');
-  if (targetRow.status !== 'active') throw new Error('ParticipantNotActive');
   if (targetRow.role === 'view_only') throw new Error('ParticipantViewOnly');
 
   await db.transaction(async (tx) => {

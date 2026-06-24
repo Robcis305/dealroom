@@ -10,12 +10,18 @@ interface Folder {
   name: string;
 }
 
+interface Workstream {
+  id: string;
+  name: string;
+}
+
 export type RightPanelTab = 'activity' | 'participants';
 
 interface RightPanelProps {
   workspaceId: string;
   cisAdvisorySide: CisAdvisorySide;
   folders: Folder[];
+  workstreams?: Workstream[];
   isAdmin: boolean;
   /** Parent increments to force a participant refetch */
   participantsRefreshToken: number;
@@ -37,6 +43,7 @@ export function RightPanel({
   workspaceId,
   cisAdvisorySide,
   folders,
+  workstreams = [],
   isAdmin,
   participantsRefreshToken,
   currentUserEmail,
@@ -85,6 +92,7 @@ export function RightPanel({
             workspaceId={workspaceId}
             cisAdvisorySide={cisAdvisorySide}
             folders={folders}
+            workstreams={workstreams}
             isAdmin={isAdmin}
             refreshToken={participantsRefreshToken}
             currentUserEmail={currentUserEmail}

@@ -113,7 +113,7 @@ export function WorkstreamMembersModal({ workspaceId, workstreamId, workstreamNa
 
         <div className="overflow-y-auto p-2 flex-1 min-h-0">
           {(() => {
-            const eligible = participants.filter((p) => p.status === 'active' && p.role !== 'view_only');
+            const eligible = participants.filter((p) => p.role !== 'view_only');
             const excluded = participants.length - eligible.length;
             return (
               <>
@@ -131,7 +131,7 @@ export function WorkstreamMembersModal({ workspaceId, workstreamId, workstreamNa
                 {eligible.length === 0 && <p className="p-4 text-sm text-text-muted">No participants to add.</p>}
                 {excluded > 0 && (
                   <p className="px-3 py-2 text-xs text-text-muted">
-                    {excluded} participant{excluded === 1 ? '' : 's'} not shown (pending invite or view-only).
+                    {excluded} view-only participant{excluded === 1 ? '' : 's'} not shown.
                   </p>
                 )}
               </>

@@ -209,8 +209,9 @@ describe('addWorkstreamMember()', () => {
     await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-1')).rejects.toThrow('Forbidden');
   });
 
-  it('target participant inactive → throws ParticipantNotActive', async () => {
-    vi.doMock('./activity', () => ({ logActivity: vi.fn().mockResolvedValue(undefined) }));
+  it('target participant invited (not yet active) → ALLOWED, proceeds to insert', async () => {
+    const logActivity = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('./activity', () => ({ logActivity }));
     vi.doMock('./index', () => ({
       verifySession: vi.fn().mockResolvedValue({ userId: 'admin-1', isAdmin: true, sessionId: 's', userEmail: 'a@cis.com' }),
     }));
@@ -221,8 +222,10 @@ describe('addWorkstreamMember()', () => {
     vi.doMock('@/db/schema', () => ({ workstreams: {}, workstreamMembers: {}, fileWorkstreams: {}, files: {}, workspaceParticipants: { id: 'id', status: 'status', role: 'role' }, activityLogs: {} }));
 
     const { addWorkstreamMember } = await import('./workstreams');
-    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-inactive')).rejects.toThrow('ParticipantNotActive');
-    expect(tx.insert).not.toHaveBeenCalled();
+    // invited participants are now eligible — should NOT throw
+    await expect(addWorkstreamMember('ws-1', 'w-legal', 'p-invited')).resolves.toBeUndefined();
+    expect(tx.insert).toHaveBeenCalled();
+    expect(logActivity).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'workstream_member_added' }));
   });
 
   it('target participant view_only → throws ParticipantViewOnly', async () => {

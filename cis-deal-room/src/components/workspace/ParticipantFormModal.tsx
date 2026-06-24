@@ -20,11 +20,17 @@ interface Folder {
   name: string;
 }
 
+interface Workstream {
+  id: string;
+  name: string;
+}
+
 interface ExistingParticipant {
   id: string;
   email: string;
   role: ParticipantRole;
   folderIds: string[];
+  workstreamIds?: string[];
 }
 
 type ParticipantFormMode = 'invite' | 'edit';
@@ -37,6 +43,7 @@ interface ParticipantFormModalProps {
   workspaceId: string;
   cisAdvisorySide: CisAdvisorySide;
   folders: Folder[];
+  workstreams: Workstream[];
   /** Required when mode === 'edit' */
   existing?: ExistingParticipant;
 }
@@ -49,6 +56,7 @@ export function ParticipantFormModal({
   workspaceId,
   cisAdvisorySide,
   folders,
+  workstreams,
   existing,
 }: ParticipantFormModalProps) {
   const roleOptions = assignableRolesFor(cisAdvisorySide);
@@ -58,6 +66,9 @@ export function ParticipantFormModal({
   const [role, setRole] = useState<ParticipantRole>(defaultRole);
   const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(
     new Set(existing?.folderIds ?? [])
+  );
+  const [workstreamIds, setWorkstreamIds] = useState<Set<string>>(
+    new Set(existing?.workstreamIds ?? [])
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +82,15 @@ export function ParticipantFormModal({
       const next = new Set(prev);
       if (next.has(folderId)) next.delete(folderId);
       else next.add(folderId);
+      return next;
+    });
+  }
+
+  function toggleWorkstream(workstreamId: string) {
+    setWorkstreamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(workstreamId)) next.delete(workstreamId);
+      else next.add(workstreamId);
       return next;
     });
   }
@@ -96,11 +116,13 @@ export function ParticipantFormModal({
             email: email.trim(),
             role,
             folderIds: Array.from(selectedFolderIds),
+            workstreamIds: Array.from(workstreamIds),
             ...(acknowledgement ? { acknowledgement } : {}),
           }
         : {
             role,
             folderIds: Array.from(selectedFolderIds),
+            workstreamIds: Array.from(workstreamIds),
           };
 
     try {
@@ -140,6 +162,7 @@ export function ParticipantFormModal({
     setEmail(existing?.email ?? '');
     setRole(defaultRole);
     setSelectedFolderIds(new Set(existing?.folderIds ?? []));
+    setWorkstreamIds(new Set(existing?.workstreamIds ?? []));
     setError(null);
     setOutstanding(null);
     setAcknowledgement('');
@@ -209,6 +232,27 @@ export function ParticipantFormModal({
             ))}
           </div>
         </div>
+
+        {workstreams.length > 0 && (
+          <div>
+            <p className="block text-sm font-medium text-text-secondary mb-1.5">Workstream access</p>
+            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              {workstreams.map((ws) => (
+                <label key={ws.id} className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    aria-label={ws.name}
+                    checked={workstreamIds.has(ws.id)}
+                    onChange={() => toggleWorkstream(ws.id)}
+                    disabled={submitting}
+                    className="rounded bg-surface-sunken border-border accent-accent"
+                  />
+                  {ws.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {error && <p className="text-xs text-danger">{error}</p>}
 

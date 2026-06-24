@@ -10,6 +10,7 @@ interface InviteRow {
   email: string;
   role: ParticipantRole;
   folderIds: string[];
+  workstreamIds: string[];
   error: string | null;
 }
 
@@ -17,6 +18,7 @@ interface StepInviteProps {
   workspaceId: string;
   cisAdvisorySide: CisAdvisorySide;
   folders: { id: string; name: string }[];
+  workstreams: { id: string; name: string }[];
   onDone: () => void;
   registerCommit: (fn: (() => Promise<boolean>) | null) => void;
 }
@@ -24,13 +26,14 @@ interface StepInviteProps {
 let nextId = 1;
 
 function makeRow(defaultRole: ParticipantRole): InviteRow {
-  return { id: nextId++, email: '', role: defaultRole, folderIds: [], error: null };
+  return { id: nextId++, email: '', role: defaultRole, folderIds: [], workstreamIds: [], error: null };
 }
 
 export function StepInvite({
   workspaceId,
   cisAdvisorySide,
   folders,
+  workstreams,
   onDone,
   registerCommit,
 }: StepInviteProps) {
@@ -66,6 +69,7 @@ export function StepInvite({
                 email: row.email.trim(),
                 role: row.role,
                 folderIds: row.folderIds,
+                workstreamIds: [...row.workstreamIds],
               }),
             });
             if (!res.ok) {
@@ -138,6 +142,34 @@ export function StepInvite({
     );
   }
 
+  function toggleWorkstream(rowId: number, workstreamId: string) {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== rowId) return r;
+        const has = r.workstreamIds.includes(workstreamId);
+        return {
+          ...r,
+          workstreamIds: has
+            ? r.workstreamIds.filter((id) => id !== workstreamId)
+            : [...r.workstreamIds, workstreamId],
+        };
+      })
+    );
+  }
+
+  function toggleAllWorkstreams(rowId: number) {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== rowId) return r;
+        const allSelected = workstreams.every((ws) => r.workstreamIds.includes(ws.id));
+        return {
+          ...r,
+          workstreamIds: allSelected ? [] : workstreams.map((ws) => ws.id),
+        };
+      })
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -156,6 +188,9 @@ export function StepInvite({
 
           const allFoldersSelected =
             folders.length > 0 && folders.every((f) => row.folderIds.includes(f.id));
+
+          const allWorkstreamsSelected =
+            workstreams.length > 0 && workstreams.every((ws) => row.workstreamIds.includes(ws.id));
 
           return (
             <div
@@ -228,6 +263,39 @@ export function StepInvite({
                           aria-label={folder.name}
                         />
                         <span className="text-sm text-text-primary truncate">{folder.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Workstream access */}
+              {workstreams.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-text-muted font-medium">Workstream access</p>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="accent-accent w-4 h-4 cursor-pointer"
+                      checked={allWorkstreamsSelected}
+                      onChange={() => toggleAllWorkstreams(row.id)}
+                      disabled={submitting}
+                      aria-label="All workstreams"
+                    />
+                    <span className="text-sm text-text-primary">All workstreams</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-1">
+                    {workstreams.map((ws) => (
+                      <label key={ws.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="accent-accent w-4 h-4 cursor-pointer"
+                          checked={row.workstreamIds.includes(ws.id)}
+                          onChange={() => toggleWorkstream(row.id, ws.id)}
+                          disabled={submitting}
+                          aria-label={ws.name}
+                        />
+                        <span className="text-sm text-text-primary truncate">{ws.name}</span>
                       </label>
                     ))}
                   </div>

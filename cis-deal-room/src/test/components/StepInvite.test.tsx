@@ -33,6 +33,7 @@ describe('StepInvite', () => {
         workspaceId="w1"
         cisAdvisorySide="seller_side"
         folders={FOLDERS}
+        workstreams={[]}
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         onDone={onDone as unknown as () => void}
         registerCommit={(fn) => {

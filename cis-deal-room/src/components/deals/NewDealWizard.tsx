@@ -32,6 +32,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [cisAdvisorySide, setCisAdvisorySide] = useState<CisAdvisorySide | null>(null);
   const [createdFolders, setCreatedFolders] = useState<{ id: string; name: string }[]>([]);
+  const [createdWorkstreams, setCreatedWorkstreams] = useState<{ id: string; name: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const stepActionRef = useRef<null | (() => Promise<boolean>)>(null);
@@ -46,12 +47,14 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
 
   function advance() {
     if (!isLast) {
+      setServerError(null);
       setStep(STEP_KEYS[currentIndex + 1]);
     }
   }
 
   function goBack() {
     if (!isFirst) {
+      setServerError(null);
       setStep(STEP_KEYS[currentIndex - 1]);
     }
   }
@@ -66,6 +69,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
 
   async function handleFinish() {
     if (submitting) return;
+    setServerError(null);
     setSubmitting(true);
     try {
       const ok = stepActionRef.current ? await stepActionRef.current() : true;
@@ -91,6 +95,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
   }
 
   async function handleNext() {
+    setServerError(null);
     if (stepActionRef.current) {
       const ok = await stepActionRef.current();
       if (ok) advance();
@@ -139,8 +144,10 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
         ))}
       </div>
 
-      {/* Step body — scrolls when content (e.g. many invite rows) exceeds the modal height */}
-      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+      {/* Step body — scrolls when content (e.g. many invite rows) exceeds the modal
+          height. px-2 -mx-2 gives focus rings room before the overflow clip edge
+          (overflow-y forces x-clipping) without shifting content out of alignment. */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 -mx-2">
         {step === 'details' && (
           <StepDetails
             onCreated={handleCreated}
@@ -162,7 +169,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
         {step === 'workstreams' && workspaceId && (
           <StepWorkstreams
             workspaceId={workspaceId}
-            onDone={advance}
+            onDone={(created) => { setCreatedWorkstreams(created); advance(); }}
             onSkip={advance}
             registerCommit={registerCommit}
           />
@@ -172,6 +179,7 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
             workspaceId={workspaceId}
             cisAdvisorySide={cisAdvisorySide}
             folders={createdFolders}
+            workstreams={createdWorkstreams}
             onDone={() => {
               // onDone is called by the commit fn after all invites succeed;
               // navigation is handled by handleFinish
@@ -188,8 +196,10 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
         </p>
       )}
 
-      {/* Footer — pinned below the scrollable body */}
-      <div className="flex gap-3 pt-4 mt-2 border-t border-border shrink-0">
+      {/* Footer — pinned below the scrollable body.
+          Hierarchy: Back/Cancel = secondary (outline), Skip = quiet/optional
+          (borderless text), Next/Finish = primary. */}
+      <div className="flex items-center gap-2 pt-4 mt-2 border-t border-border shrink-0">
         {/* Left side: Cancel on first step, Back on subsequent steps */}
         {isFirst ? (
           <Button
@@ -213,53 +223,32 @@ export function NewDealWizard({ open, onClose }: NewDealWizardProps) {
           </Button>
         )}
 
-        <div className="flex gap-3 ml-auto">
-          {/* Skip — shown on middle steps AND the last (invite) step */}
-          {!isFirst && !isLast && (
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Skip — quiet/optional; shown on middle steps AND the last (invite) step */}
+          {!isFirst && (
             <Button
               type="button"
               variant="ghost"
               size="md"
-              onClick={advance}
+              onClick={isLast ? handleSkipInvite : advance}
               disabled={submitting}
-            >
-              Skip
-            </Button>
-          )}
-          {isLast && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="md"
-              onClick={handleSkipInvite}
-              disabled={submitting}
+              className="border-transparent bg-transparent text-text-secondary hover:text-text-primary hover:border-transparent"
             >
               Skip
             </Button>
           )}
 
-          {/* Next / Finish */}
-          {isLast ? (
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={handleFinish}
-              disabled={submitting}
-            >
-              Finish
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={handleNext}
-              disabled={submitting}
-            >
-              {submitting ? 'Creating...' : 'Next'}
-            </Button>
-          )}
+          {/* Next / Finish — primary, consistent width */}
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            onClick={isLast ? handleFinish : handleNext}
+            disabled={submitting}
+            className="min-w-[104px]"
+          >
+            {isLast ? 'Finish' : submitting ? 'Creating…' : 'Next'}
+          </Button>
         </div>
       </div>
     </Modal>

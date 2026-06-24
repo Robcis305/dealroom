@@ -217,6 +217,7 @@ export const workspaceParticipants = pgTable('workspace_participants', {
   status: text('status').notNull().default('invited'),
   invitedAt: timestamp('invited_at').notNull().defaultNow(),
   activatedAt: timestamp('activated_at'),
+  onboardedAt: timestamp('onboarded_at'),
 });
 
 export const folders = pgTable('folders', {
