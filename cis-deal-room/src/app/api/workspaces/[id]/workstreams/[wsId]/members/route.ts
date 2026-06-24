@@ -25,8 +25,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (e instanceof Error) {
       if (e.message === 'Forbidden' || e.message === 'Unauthorized')
         return Response.json({ error: 'Forbidden' }, { status: 403 });
-      if (e.message === 'ParticipantNotActive')
-        return Response.json({ error: "This person hasn't accepted their invite yet — they need to sign in before they can join a workstream." }, { status: 409 });
       if (e.message === 'ParticipantViewOnly')
         return Response.json({ error: 'View-only participants cannot be added to a workstream.' }, { status: 409 });
       if (e.message === 'ParticipantNotFound')

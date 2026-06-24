@@ -33,7 +33,7 @@ beforeEach(() => {
 });
 
 describe('WorkstreamMembersModal — active-only filter', () => {
-  it('shows only active, non-view-only participants', async () => {
+  it('shows active AND invited non-view-only participants; excludes only view-only', async () => {
     render(
       <WorkstreamMembersModal
         workspaceId={WORKSPACE_ID}
@@ -50,10 +50,10 @@ describe('WorkstreamMembersModal — active-only filter', () => {
     expect(screen.getByText('Alice')).toBeInTheDocument();
     // active admin — shown
     expect(screen.getByText('Dave')).toBeInTheDocument();
+    // invited (not yet accepted) — now shown (rendered as first name since firstName is set)
+    expect(screen.getByText('Bob')).toBeInTheDocument();
 
-    // invited (not yet active) — excluded
-    expect(screen.queryByText('bob@x.com')).not.toBeInTheDocument();
-    // view_only — excluded
+    // view_only — still excluded
     expect(screen.queryByText('carol@x.com')).not.toBeInTheDocument();
   });
 
@@ -69,11 +69,11 @@ describe('WorkstreamMembersModal — active-only filter', () => {
     );
 
     await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
-    // 2 excluded (bob invited + carol view_only)
-    expect(screen.getByText(/2 participants not shown/i)).toBeInTheDocument();
+    // only 1 excluded now (carol view_only); invited Bob is shown
+    expect(screen.getByText(/1 view-only participant/i)).toBeInTheDocument();
   });
 
-  it('shows "No participants to add" when all are excluded', async () => {
+  it('shows "No participants to add" when all are view-only (excluded)', async () => {
     vi.mocked(global.fetch).mockImplementation((url: string | Request | URL) => {
       const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
       if (urlStr.includes('/members')) {
@@ -83,7 +83,7 @@ describe('WorkstreamMembersModal — active-only filter', () => {
         ok: true,
         json: async () => [
           { id: 'p1', firstName: null, lastName: null, email: 'v@x.com', role: 'view_only', status: 'active' },
-          { id: 'p2', firstName: null, lastName: null, email: 'i@x.com', role: 'client', status: 'invited' },
+          { id: 'p2', firstName: null, lastName: null, email: 'v2@x.com', role: 'view_only', status: 'active' },
         ],
       } as Response);
     });
