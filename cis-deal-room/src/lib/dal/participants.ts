@@ -14,6 +14,7 @@ import { verifySession } from './index';
 import { logActivity } from './activity';
 import { generateToken, hashToken } from '@/lib/auth/tokens';
 import type { ParticipantRole } from './permissions';
+import type { Session } from '@/types';
 
 const INVITATION_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 
@@ -367,6 +368,23 @@ export async function countActiveClientParticipants(workspaceId: string): Promis
     );
 
   return Number(row?.count ?? 0);
+}
+
+/**
+ * Marks the caller as having seen the onboarding welcome modal.
+ * Idempotent — safe to call multiple times. Scoped to the caller's own
+ * participant row in the given workspace (userId comes from the session).
+ */
+export async function markOnboarded(workspaceId: string, session: Session): Promise<void> {
+  await db
+    .update(workspaceParticipants)
+    .set({ onboardedAt: new Date() })
+    .where(
+      and(
+        eq(workspaceParticipants.workspaceId, workspaceId),
+        eq(workspaceParticipants.userId, session.userId),
+      )
+    );
 }
 
 /**

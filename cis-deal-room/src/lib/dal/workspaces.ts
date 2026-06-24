@@ -120,6 +120,7 @@ export async function createWorkspace(input: {
       role: 'cis_team',
       status: 'active',
       activatedAt: new Date(),
+      onboardedAt: new Date(),
     });
 
     // 3. Log activity inside the same transaction

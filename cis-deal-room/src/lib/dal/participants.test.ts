@@ -218,6 +218,42 @@ describe('assertAllWorkstreamsInWorkspace — guard paths', () => {
   });
 });
 
+// ─── markOnboarded ────────────────────────────────────────────────────────────
+
+describe('markOnboarded()', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it('issues UPDATE on workspace_participants setting onboardedAt, scoped to workspaceId + userId', async () => {
+    const session = {
+      userId: 'user-42',
+      isAdmin: false,
+      sessionId: 's1',
+      userEmail: 'user@example.com',
+    };
+
+    const whereSpy = vi.fn().mockResolvedValue(undefined);
+    const setSpy = vi.fn().mockReturnValue({ where: whereSpy });
+    const updateSpy = vi.fn().mockReturnValue({ set: setSpy });
+
+    vi.doMock('@/db', () => ({
+      db: { update: updateSpy },
+    }));
+
+    const { markOnboarded } = await import('./participants');
+    await markOnboarded('ws-1', session);
+
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    const setArg = setSpy.mock.calls[0][0];
+    expect(setArg).toHaveProperty('onboardedAt');
+    expect(setArg.onboardedAt).toBeInstanceOf(Date);
+    expect(whereSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ─── getParticipants — workstreamIds shape ────────────────────────────────────
 
 describe('getParticipants() — returns workstreamIds', () => {

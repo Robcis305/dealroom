@@ -208,6 +208,7 @@ describe('createWorkspace()', () => {
       role: 'cis_team',
       status: 'active',
     });
+    expect(participantValues.onboardedAt).toBeInstanceOf(Date);
   });
 
   it('throws Admin required when called by non-admin', async () => {
