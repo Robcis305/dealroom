@@ -1,6 +1,6 @@
 import { desc, eq, and, count, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { files, folders, users, checklistItems, checklistItemFiles } from '@/db/schema';
+import { files, folders, users, checklistItems, checklistItemFiles, fileWorkstreams, folderAccess, workspaceParticipants } from '@/db/schema';
 import { verifySession } from './index';
 import { logActivity } from './activity';
 
@@ -63,6 +63,63 @@ export async function getFilesForFolder(folderId: string) {
     .innerJoin(users, eq(users.id, files.uploadedBy))
     .where(and(eq(files.folderId, folderId), isNull(files.deletedAt)))
     .orderBy(desc(files.createdAt));
+}
+
+/**
+ * Returns all non-deleted files tagged with the given workstream, scoped to the
+ * folders the current user can see (admin → all folders in the workspace;
+ * otherwise only folders the user has a folderAccess row for). Each row carries
+ * its folderName so the UI can group by folder. Ordered by folder then newest.
+ */
+export async function getFilesForWorkstream(workspaceId: string, workstreamId: string) {
+  const session = await verifySession();
+  if (!session) throw new Error('Unauthorized');
+
+  // Non-admins are limited to folders they have explicit access to.
+  let accessibleFolderIds: string[] | null = null; // null = no restriction (admin)
+  if (!session.isAdmin) {
+    const accessRows = await db
+      .select({ folderId: folderAccess.folderId })
+      .from(folderAccess)
+      .innerJoin(workspaceParticipants, eq(workspaceParticipants.id, folderAccess.participantId))
+      .where(
+        and(
+          eq(workspaceParticipants.userId, session.userId),
+          eq(workspaceParticipants.workspaceId, workspaceId),
+          eq(workspaceParticipants.status, 'active'),
+        ),
+      );
+    accessibleFolderIds = accessRows.map((r) => r.folderId);
+    if (accessibleFolderIds.length === 0) return [];
+  }
+
+  return db
+    .select({
+      id: files.id,
+      folderId: files.folderId,
+      folderName: folders.name,
+      name: files.name,
+      sizeBytes: files.sizeBytes,
+      mimeType: files.mimeType,
+      version: files.version,
+      createdAt: files.createdAt,
+      uploadedByEmail: users.email,
+      uploadedByFirstName: users.firstName,
+      uploadedByLastName: users.lastName,
+    })
+    .from(fileWorkstreams)
+    .innerJoin(files, eq(files.id, fileWorkstreams.fileId))
+    .innerJoin(folders, eq(folders.id, files.folderId))
+    .innerJoin(users, eq(users.id, files.uploadedBy))
+    .where(
+      and(
+        eq(fileWorkstreams.workstreamId, workstreamId),
+        eq(folders.workspaceId, workspaceId),
+        isNull(files.deletedAt),
+        accessibleFolderIds ? inArray(files.folderId, accessibleFolderIds) : undefined,
+      ),
+    )
+    .orderBy(folders.name, desc(files.createdAt));
 }
 
 /**

@@ -15,6 +15,7 @@ import { UploadModal } from './UploadModal';
 import { ParticipantFormModal } from './ParticipantFormModal';
 import { ChecklistView } from './ChecklistView';
 import { WorkstreamDashboard } from './WorkstreamDashboard';
+import { WorkstreamDocsView } from './WorkstreamDocsView';
 import { WorkstreamMembersModal } from './WorkstreamMembersModal';
 import { QnaView } from './QnaView';
 import { WelcomeModal } from './WelcomeModal';
@@ -496,6 +497,14 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               onClearLens={() => setView({ kind: 'overview' })}
               onManageMembers={() => setManageWorkstreamId(view.workstreamId)}
               onOpenQna={(workstreamId) => setView({ kind: 'qna', workstreamId })}
+              onOpenDocs={(workstreamId) => setView({ kind: 'workstreamDocs', workstreamId })}
+            />
+          ) : view.kind === 'workstreamDocs' ? (
+            <WorkstreamDocsView
+              workspaceId={workspace.id}
+              workstreamId={view.workstreamId}
+              workstreamName={workstreams.find((w) => w.id === view.workstreamId)?.name ?? 'Workstream'}
+              onBack={() => setView({ kind: 'workstream', workstreamId: view.workstreamId })}
             />
           ) : view.kind === 'qna' ? (
             <QnaView

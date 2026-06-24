@@ -23,9 +23,11 @@ interface Props {
   onManageMembers?: () => void;
   /** Open the Q&A module filtered to this workstream. */
   onOpenQna?: (workstreamId: string) => void;
+  /** Open the documents tagged to this workstream. */
+  onOpenDocs?: (workstreamId: string) => void;
 }
 
-export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, refreshKey, onClearLens, onManageMembers, onOpenQna }: Props) {
+export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, refreshKey, onClearLens, onManageMembers, onOpenQna, onOpenDocs }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [showMembers, setShowMembers] = useState(false);
 
@@ -157,10 +159,19 @@ export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, refr
             )}
           </div>
           <div className="space-y-3">
-            <div className="rounded-lg border border-border bg-surface p-4">
+            <button
+              type="button"
+              onClick={() => onOpenDocs?.(ws.id)}
+              disabled={!onOpenDocs}
+              className="w-full text-left rounded-lg border border-border bg-surface p-4 transition-colors hover:border-accent hover:bg-surface-elevated focus:outline-none focus:ring-2 focus:ring-accent disabled:cursor-default disabled:hover:border-border disabled:hover:bg-surface cursor-pointer"
+            >
               <p className="text-sm font-medium text-text-primary flex items-center gap-2"><FileText size={15} /> {ws.name} documents</p>
-              <p className="text-xs text-text-muted mt-1">{ws.docCount} files tagged {ws.name}</p>
-            </div>
+              <p className="text-xs text-text-muted mt-1">
+                {ws.docCount > 0
+                  ? `${ws.docCount} ${ws.docCount === 1 ? 'file' : 'files'} tagged ${ws.name} · view`
+                  : `No files tagged ${ws.name} yet`}
+              </p>
+            </button>
             <button
               type="button"
               onClick={() => onOpenQna?.(ws.id)}

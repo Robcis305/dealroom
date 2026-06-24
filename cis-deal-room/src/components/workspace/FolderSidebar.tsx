@@ -23,6 +23,7 @@ export type CenterView =
   | { kind: 'folder'; folderId: string }
   | { kind: 'checklist' }
   | { kind: 'workstream'; workstreamId: string }
+  | { kind: 'workstreamDocs'; workstreamId: string }
   | { kind: 'qna'; workstreamId?: string }; // optional workstream pre-filter
 
 interface FolderSidebarProps {
