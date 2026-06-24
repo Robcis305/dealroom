@@ -18,12 +18,18 @@ vi.mock('@/db/schema', () => ({
   activityLogs: {},
 }));
 
+// Stable references to the hoisted mock fns — always resolve to these objects
+import { verifySession } from './index';
+import { logActivity } from './activity';
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('getWorkspacesForUser()', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.doMock('./index', () => ({ verifySession }));
+    vi.doMock('./activity', () => ({ logActivity }));
   });
 
   it('returns all workspaces for admin users', async () => {
@@ -32,14 +38,12 @@ describe('getWorkspacesForUser()', () => {
       { id: 'ws-2', name: 'Deal Beta' },
     ];
 
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue({
-        userId: 'admin-1',
-        isAdmin: true,
-        sessionId: 's1',
-        userEmail: 'admin@cis.com',
-      }),
-    }));
+    vi.mocked(verifySession).mockResolvedValue({
+      userId: 'admin-1',
+      isAdmin: true,
+      sessionId: 's1',
+      userEmail: 'admin@cis.com',
+    });
 
     vi.doMock('@/db', () => ({
       db: {
@@ -59,14 +63,12 @@ describe('getWorkspacesForUser()', () => {
   it('returns only joined workspaces for non-admin users', async () => {
     const mockRows = [{ id: 'ws-1', name: 'Deal Alpha' }];
 
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue({
-        userId: 'user-1',
-        isAdmin: false,
-        sessionId: 's2',
-        userEmail: 'user@example.com',
-      }),
-    }));
+    vi.mocked(verifySession).mockResolvedValue({
+      userId: 'user-1',
+      isAdmin: false,
+      sessionId: 's2',
+      userEmail: 'user@example.com',
+    });
 
     vi.doMock('@/db', () => ({
       db: {
@@ -88,9 +90,7 @@ describe('getWorkspacesForUser()', () => {
   });
 
   it('throws Unauthorized when session is null', async () => {
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue(null),
-    }));
+    vi.mocked(verifySession).mockResolvedValue(null);
 
     const { getWorkspacesForUser } = await import('./workspaces');
     await expect(getWorkspacesForUser()).rejects.toThrow('Unauthorized');
@@ -101,17 +101,17 @@ describe('deleteWorkspace()', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.doMock('./index', () => ({ verifySession }));
+    vi.doMock('./activity', () => ({ logActivity }));
   });
 
   it('throws Admin required and does NOT call db.delete when called by non-admin', async () => {
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue({
-        userId: 'user-1',
-        isAdmin: false,
-        sessionId: 's2',
-        userEmail: 'user@example.com',
-      }),
-    }));
+    vi.mocked(verifySession).mockResolvedValue({
+      userId: 'user-1',
+      isAdmin: false,
+      sessionId: 's2',
+      userEmail: 'user@example.com',
+    });
 
     const deleteMock = vi.fn();
     vi.doMock('@/db', () => ({
@@ -124,14 +124,12 @@ describe('deleteWorkspace()', () => {
   });
 
   it('calls db.delete with the workspace id when called by admin', async () => {
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue({
-        userId: 'admin-1',
-        isAdmin: true,
-        sessionId: 's1',
-        userEmail: 'admin@cis.com',
-      }),
-    }));
+    vi.mocked(verifySession).mockResolvedValue({
+      userId: 'admin-1',
+      isAdmin: true,
+      sessionId: 's1',
+      userEmail: 'admin@cis.com',
+    });
 
     const whereMock = vi.fn().mockResolvedValue(undefined);
     const deleteMock = vi.fn().mockReturnValue({ where: whereMock });
@@ -149,6 +147,8 @@ describe('createWorkspace()', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.doMock('./index', () => ({ verifySession }));
+    vi.doMock('./activity', () => ({ logActivity }));
   });
 
   it('creates the workspace + creator participant, without seeding folders', async () => {
@@ -171,18 +171,12 @@ describe('createWorkspace()', () => {
       return fn(txMock);
     });
 
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue({
-        userId: 'admin-1',
-        isAdmin: true,
-        sessionId: 's1',
-        userEmail: 'admin@cis.com',
-      }),
-    }));
-
-    vi.doMock('./activity', () => ({
-      logActivity: vi.fn().mockResolvedValue(undefined),
-    }));
+    vi.mocked(verifySession).mockResolvedValue({
+      userId: 'admin-1',
+      isAdmin: true,
+      sessionId: 's1',
+      userEmail: 'admin@cis.com',
+    });
 
     vi.doMock('@/db', () => ({
       db: { transaction: txFn },
@@ -212,14 +206,12 @@ describe('createWorkspace()', () => {
   });
 
   it('throws Admin required when called by non-admin', async () => {
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue({
-        userId: 'user-1',
-        isAdmin: false,
-        sessionId: 's2',
-        userEmail: 'user@example.com',
-      }),
-    }));
+    vi.mocked(verifySession).mockResolvedValue({
+      userId: 'user-1',
+      isAdmin: false,
+      sessionId: 's2',
+      userEmail: 'user@example.com',
+    });
 
     const { createWorkspace } = await import('./workspaces');
     await expect(

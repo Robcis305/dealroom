@@ -21,6 +21,10 @@ vi.mock('@/db/schema', () => ({
   workstreamMembers: {},
 }));
 
+// Stable references to the hoisted mock fns — always resolve to these objects
+import { verifySession } from './index';
+import { logActivity } from './activity';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const ADMIN_SESSION = {
@@ -51,6 +55,8 @@ describe('inviteParticipant() — workstream membership', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.doMock('./index', () => ({ verifySession }));
+    vi.doMock('./activity', () => ({ logActivity }));
   });
 
   it('deletes existing workstream memberships and inserts new ones', async () => {
@@ -58,13 +64,7 @@ describe('inviteParticipant() — workstream membership', () => {
     const userId = 'user-1';
     const workstreamId = 'w1';
 
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue(ADMIN_SESSION),
-    }));
-
-    vi.doMock('./activity', () => ({
-      logActivity: vi.fn().mockResolvedValue(undefined),
-    }));
+    vi.mocked(verifySession).mockResolvedValue(ADMIN_SESSION);
 
     // Capture insert/delete calls inside the transaction
     const insertValuesSpy = vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) });
@@ -139,16 +139,12 @@ describe('assertAllWorkstreamsInWorkspace — guard paths', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.doMock('./index', () => ({ verifySession }));
+    vi.doMock('./activity', () => ({ logActivity }));
   });
 
   it('throws "Forbidden" when a workstream belongs to another workspace', async () => {
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue(ADMIN_SESSION),
-    }));
-
-    vi.doMock('./activity', () => ({
-      logActivity: vi.fn().mockResolvedValue(undefined),
-    }));
+    vi.mocked(verifySession).mockResolvedValue(ADMIN_SESSION);
 
     const txMock = {
       select: vi.fn()
@@ -180,13 +176,7 @@ describe('assertAllWorkstreamsInWorkspace — guard paths', () => {
   });
 
   it('throws "Workstream not found" when a workstream id does not exist', async () => {
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue(ADMIN_SESSION),
-    }));
-
-    vi.doMock('./activity', () => ({
-      logActivity: vi.fn().mockResolvedValue(undefined),
-    }));
+    vi.mocked(verifySession).mockResolvedValue(ADMIN_SESSION);
 
     const txMock = {
       select: vi.fn()
@@ -224,6 +214,8 @@ describe('markOnboarded()', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.doMock('./index', () => ({ verifySession }));
+    vi.doMock('./activity', () => ({ logActivity }));
   });
 
   it('issues UPDATE on workspace_participants setting onboardedAt, scoped to workspaceId + userId', async () => {
@@ -260,6 +252,8 @@ describe('getWelcomeForParticipant()', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.doMock('./index', () => ({ verifySession }));
+    vi.doMock('./activity', () => ({ logActivity }));
   });
 
   it('returns null when participant has onboardedAt set', async () => {
@@ -383,6 +377,8 @@ describe('getParticipants() — returns workstreamIds', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.doMock('./index', () => ({ verifySession }));
+    vi.doMock('./activity', () => ({ logActivity }));
   });
 
   it('returns rows carrying workstreamIds from the subquery', async () => {
@@ -403,9 +399,7 @@ describe('getParticipants() — returns workstreamIds', () => {
       },
     ];
 
-    vi.doMock('./index', () => ({
-      verifySession: vi.fn().mockResolvedValue(ADMIN_SESSION),
-    }));
+    vi.mocked(verifySession).mockResolvedValue(ADMIN_SESSION);
 
     vi.doMock('@/db', () => ({
       db: {
