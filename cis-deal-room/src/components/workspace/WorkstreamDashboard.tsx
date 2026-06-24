@@ -21,9 +21,11 @@ interface Props {
   refreshKey?: number;
   onClearLens: () => void;
   onManageMembers?: () => void;
+  /** Open the Q&A module filtered to this workstream. */
+  onOpenQna?: (workstreamId: string) => void;
 }
 
-export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, refreshKey, onClearLens, onManageMembers }: Props) {
+export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, refreshKey, onClearLens, onManageMembers, onOpenQna }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [showMembers, setShowMembers] = useState(false);
 
@@ -159,10 +161,19 @@ export function WorkstreamDashboard({ workspaceId, workstreamId, canManage, refr
               <p className="text-sm font-medium text-text-primary flex items-center gap-2"><FileText size={15} /> {ws.name} documents</p>
               <p className="text-xs text-text-muted mt-1">{ws.docCount} files tagged {ws.name}</p>
             </div>
-            <div className="rounded-lg border border-border bg-surface p-4">
+            <button
+              type="button"
+              onClick={() => onOpenQna?.(ws.id)}
+              disabled={!onOpenQna}
+              className="w-full text-left rounded-lg border border-border bg-surface p-4 transition-colors hover:border-accent hover:bg-surface-elevated focus:outline-none focus:ring-2 focus:ring-accent disabled:cursor-default disabled:hover:border-border disabled:hover:bg-surface cursor-pointer"
+            >
               <p className="text-sm font-medium text-text-primary flex items-center gap-2"><MessageSquare size={15} /> {ws.name} Q&A</p>
-              <p className="text-xs text-text-muted mt-1">Available in the Q&A module</p>
-            </div>
+              <p className="text-xs text-text-muted mt-1">
+                {ws.openQaCount > 0
+                  ? `${ws.openQaCount} open · view in Q&A`
+                  : 'View questions in the Q&A module'}
+              </p>
+            </button>
           </div>
         </div>
       </div>

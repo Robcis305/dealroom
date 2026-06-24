@@ -495,6 +495,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               refreshKey={dashboardRefresh}
               onClearLens={() => setView({ kind: 'overview' })}
               onManageMembers={() => setManageWorkstreamId(view.workstreamId)}
+              onOpenQna={(workstreamId) => setView({ kind: 'qna', workstreamId })}
             />
           ) : view.kind === 'qna' ? (
             <QnaView
@@ -504,6 +505,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
               folders={folders}
               onCountsChanged={refreshWorkstreams}
               initialQuestionId={initialQuestionId}
+              initialWorkstreamId={view.workstreamId}
             />
           ) : null}
         </main>
