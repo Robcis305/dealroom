@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, AlertCircle, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertCircle, Plus, Upload } from 'lucide-react';
 import clsx from 'clsx';
 import type {
   PlaybookCategory,
@@ -258,6 +258,7 @@ function PlaybookItemRow({
   isAdmin,
   workspaceId,
   onChanged,
+  onUploadForItem,
 }: PlaybookItemRowProps) {
   const [expanded, setExpanded] = useState(false);
   const isKiller = !!item.dealKillerGroup;
@@ -301,7 +302,18 @@ function PlaybookItemRow({
             </p>
           )}
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-2">
+          {item.itemId && (
+            <button
+              type="button"
+              aria-label={`Upload for ${item.name}`}
+              title="Upload document for this item"
+              onClick={() => onUploadForItem(item.itemId!, item.name)}
+              className="text-text-muted hover:text-accent transition-colors cursor-pointer"
+            >
+              <Upload size={14} />
+            </button>
+          )}
           <ChecklistStatusChip
             workspaceId={workspaceId}
             itemId={item.itemId ?? `pb:${item.playbookItemId}`}
@@ -329,6 +341,7 @@ function CustomItemRow({
   isAdmin,
   workspaceId,
   onChanged,
+  onUploadForItem,
 }: CustomItemRowProps) {
   return (
     <div data-testid="playbook-item-custom" className="p-4 flex items-center gap-3">
@@ -336,6 +349,15 @@ function CustomItemRow({
         Custom
       </span>
       <span className="text-sm text-text-primary flex-1 min-w-0 truncate">{item.name}</span>
+      <button
+        type="button"
+        aria-label={`Upload for ${item.name}`}
+        title="Upload document for this item"
+        onClick={() => onUploadForItem(item.itemId, item.name)}
+        className="text-text-muted hover:text-accent transition-colors cursor-pointer shrink-0"
+      >
+        <Upload size={14} />
+      </button>
       <ChecklistStatusChip
         workspaceId={workspaceId}
         itemId={item.itemId}

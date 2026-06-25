@@ -115,17 +115,70 @@ export async function ensureChecklistForWorkspace(
     return await getChecklistForWorkspace(workspaceId);
   }
 
-  const existing = await getChecklistForWorkspace(workspaceId);
-  if (existing) return existing;
+  let checklist = await getChecklistForWorkspace(workspaceId);
+  if (!checklist) {
+    const [created] = await db
+      .insert(checklists)
+      .values({ workspaceId, createdBy })
+      .returning();
+    // Don't log activity here — checklist auto-creation is invisible to users.
+    // The 'checklist_imported' action is reserved for the explicit import flow.
+    checklist = created;
+  }
 
-  const [created] = await db
-    .insert(checklists)
-    .values({ workspaceId, createdBy })
-    .returning();
+  // Eager-materialize the 48 canonical playbook rows so every item has a real
+  // DB row that files can be linked to and uploaded against. Without this,
+  // untouched canonical items are virtual (no checklist_items row) and cannot
+  // be selected in the upload modal's "Link to checklist item" dropdown.
+  // Idempotent: skips items that already have a row, and the partial unique
+  // index (checklist_id, playbook_item_id) makes concurrent calls race-safe.
+  await materializeCanonicalItems(checklist.id);
 
-  // Don't log activity here — checklist auto-creation is invisible to users.
-  // The 'checklist_imported' action is reserved for the explicit import flow.
-  return created;
+  return checklist;
+}
+
+/**
+ * Inserts a checklist_items row for every playbook item that doesn't yet have
+ * one for this checklist. Idempotent and race-safe (relies on the partial
+ * unique index `checklist_items_unique_playbook_idx`). Canonical items are
+ * folder-agnostic — files attach via checklist_item_files, so folderId stays
+ * null. Safe to call on every playbook load; only the first call inserts rows.
+ */
+export async function materializeCanonicalItems(checklistId: string): Promise<void> {
+  const [pbRows, existingRows] = await Promise.all([
+    db
+      .select({
+        id: playbookItems.id,
+        category: playbookItems.category,
+        name: playbookItems.name,
+        defaultPriority: playbookItems.defaultPriority,
+        number: playbookItems.number,
+      })
+      .from(playbookItems),
+    db
+      .select({ playbookItemId: checklistItems.playbookItemId })
+      .from(checklistItems)
+      .where(eq(checklistItems.checklistId, checklistId)),
+  ]);
+
+  const have = new Set(existingRows.map((r) => r.playbookItemId).filter(Boolean));
+  const toInsert = pbRows
+    .filter((pb) => !have.has(pb.id))
+    .map((pb) => ({
+      checklistId,
+      playbookItemId: pb.id,
+      folderId: null,
+      category: pb.category,
+      name: pb.name,
+      priority: pb.defaultPriority,
+      owner: 'unassigned' as const,
+      status: 'not_started' as const,
+      sortOrder: pb.number,
+    }));
+
+  if (toInsert.length > 0) {
+    await db.insert(checklistItems).values(toInsert).onConflictDoNothing();
+  }
 }
 
 /**

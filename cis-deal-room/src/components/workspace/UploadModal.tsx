@@ -322,7 +322,10 @@ export function UploadModal({
             >
               <option value="">— None —</option>
               {checklistItems
-                .filter((it) => !selectedFolderId || it.folderId === selectedFolderId)
+                // Folder-agnostic items (folderId === null — e.g. canonical
+                // playbook items) are always linkable. Folder-bound items only
+                // show when their folder matches the upload target.
+                .filter((it) => it.folderId === null || !selectedFolderId || it.folderId === selectedFolderId)
                 .map((it) => (
                   <option key={it.id} value={it.id}>{it.name}</option>
                 ))}
