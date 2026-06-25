@@ -40,6 +40,8 @@ interface Props {
   onCountsChanged?: () => void;
   /** Deep-link from a notification email: open straight to this question's detail. */
   initialQuestionId?: string | null;
+  /** Pre-seed the workstream filter (e.g. opened from a workstream dashboard). */
+  initialWorkstreamId?: string;
 }
 
 // ─── QnaView ──────────────────────────────────────────────────────────────────
@@ -51,6 +53,7 @@ export function QnaView({
   folders,
   onCountsChanged,
   initialQuestionId = null,
+  initialWorkstreamId,
 }: Props) {
   const [view, setView] = useState<InternalView>(
     initialQuestionId ? { kind: 'detail', id: initialQuestionId } : { kind: 'list' },
@@ -88,6 +91,7 @@ export function QnaView({
           workspaceId={workspaceId}
           onOpenQuestion={(id) => setView({ kind: 'detail', id })}
           onAsk={() => setShowAsk(true)}
+          initialWorkstreamId={initialWorkstreamId}
         />
       ) : (
         <QnaDetail

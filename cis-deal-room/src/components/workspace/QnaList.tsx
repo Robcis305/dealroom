@@ -17,10 +17,10 @@ interface FilterState {
   overdueOnly: boolean;
 }
 
-function emptyFilters(): FilterState {
+function emptyFilters(initialWorkstreamId?: string): FilterState {
   return {
     status: new Set(),
-    workstream: new Set(),
+    workstream: new Set(initialWorkstreamId ? [initialWorkstreamId] : []),
     assignee: new Set(),
     overdueOnly: false,
   };
@@ -49,6 +49,8 @@ interface Props {
   workspaceId: string;
   onOpenQuestion: (id: string) => void;
   onAsk: () => void;
+  /** Pre-seed the workstream filter (e.g. opened from a workstream dashboard). */
+  initialWorkstreamId?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -119,10 +121,10 @@ function ColumnHeader<V extends string>({ label, options, selected, onToggle }: 
 
 // ─── QnaList ─────────────────────────────────────────────────────────────────
 
-export function QnaList({ workspaceId, onOpenQuestion, onAsk }: Props) {
+export function QnaList({ workspaceId, onOpenQuestion, onAsk, initialWorkstreamId }: Props) {
   const [questions, setQuestions] = useState<QnaQuestionRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<FilterState>(emptyFilters);
+  const [filters, setFilters] = useState<FilterState>(() => emptyFilters(initialWorkstreamId));
 
   useEffect(() => {
     fetchWithAuth(`/api/workspaces/${workspaceId}/qna`)
