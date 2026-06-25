@@ -1,3 +1,5 @@
+import type { PlaybookCategory } from '@/types';
+
 export type FolderMatchKind = 'exact' | 'fuzzy' | 'none';
 
 export interface FolderSummary {
@@ -19,6 +21,39 @@ export interface FolderResolution {
  */
 export function normalizeFolderKey(s: string): string {
   return s.trim().toLowerCase().replace(/s$/, '');
+}
+
+/**
+ * Maps each playbook category to the canonical seed folder it belongs in (see
+ * CANONICAL_FOLDERS in the deal-setup wizard). `commercial` has no dedicated
+ * canonical folder, so it resolves to null (no smart default). Used to default
+ * the upload modal's target folder when uploading against a checklist item, so
+ * documents land in the right folder without the user having to re-pick it.
+ */
+const CATEGORY_TO_FOLDER_NAME: Record<PlaybookCategory, string | null> = {
+  corporate_legal: 'Legal',
+  financial: 'Financials',
+  commercial: null,
+  team_hr: 'Human Capital',
+  ip_technical: 'Technology',
+  operations_risk: 'Operations',
+};
+
+/**
+ * Resolves the default upload folder id for a playbook item's category against
+ * the workspace's actual folders. Tolerant of plural/case differences (via
+ * normalizeFolderKey) so a renamed 'Financial' still matches 'Financials'.
+ * Returns null when the category has no mapping or no folder matches.
+ */
+export function defaultFolderIdForCategory(
+  category: PlaybookCategory,
+  folders: FolderSummary[],
+): string | null {
+  const targetName = CATEGORY_TO_FOLDER_NAME[category];
+  if (!targetName) return null;
+  const key = normalizeFolderKey(targetName);
+  const match = folders.find((f) => normalizeFolderKey(f.name) === key);
+  return match?.id ?? null;
 }
 
 /**

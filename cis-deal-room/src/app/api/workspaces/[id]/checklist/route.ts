@@ -76,12 +76,12 @@ export async function GET(
 
   let checklist = await getChecklistForWorkspace(workspaceId);
 
-  // Auto-create the checklist shell when a playbook-eligible viewer opens
-  // a workspace that doesn't have one yet. This anchors the canonical 48-item
-  // playbook overlay without requiring a manual import step.
-  // On buy-side, ensureChecklistForWorkspace is a no-op (won't auto-create),
-  // but we skip the call entirely for clarity.
-  if (!checklist && showPlaybook) {
+  // For playbook-eligible viewers, always ensure the checklist exists AND that
+  // the 48 canonical rows are materialized. ensureChecklistForWorkspace is
+  // idempotent: it creates the shell if missing and backfills any canonical
+  // rows that don't exist yet (so rooms created before eager-materialization
+  // get their rows on next load). On buy-side it's a no-op.
+  if (showPlaybook) {
     checklist = await ensureChecklistForWorkspace(workspaceId, session.userId);
   }
 

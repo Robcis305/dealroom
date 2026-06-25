@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, AlertCircle, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertCircle, Plus, Upload } from 'lucide-react';
 import clsx from 'clsx';
 import type {
   PlaybookCategory,
@@ -13,6 +13,7 @@ import type {
   Stage,
 } from '@/types';
 import { CATEGORY_TO_STAGE, STAGE_META } from '@/lib/dal/playbook';
+import { defaultFolderIdForCategory } from '@/lib/checklist/folder-match';
 import { ChecklistStatusChip } from './ChecklistStatusChip';
 import { ChecklistItemEditModal } from './ChecklistItemEditModal';
 
@@ -53,7 +54,7 @@ interface Props {
   custom: CustomRow[];
   folders: Array<{ id: string; name: string }>;
   onChanged: () => void;
-  onUploadForItem: (itemId: string, name: string) => void;
+  onUploadForItem: (itemId: string, name: string, folderId: string | null) => void;
   /** When set, scrolls the matching item into view and pulses it. */
   highlightTarget?: PendingHighlight | null;
   onHighlightConsumed?: () => void;
@@ -167,7 +168,7 @@ interface CategorySectionProps {
   workspaceId: string;
   folders: Array<{ id: string; name: string }>;
   onChanged: () => void;
-  onUploadForItem: (itemId: string, name: string) => void;
+  onUploadForItem: (itemId: string, name: string, folderId: string | null) => void;
 }
 
 function CategorySection({
@@ -185,6 +186,9 @@ function CategorySection({
 }: CategorySectionProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const meta = STAGE_META[stage];
+  // All items in a section share a category, so resolve the default upload
+  // folder once and pass it to each row's upload action.
+  const defaultFolderId = defaultFolderIdForCategory(category, folders);
 
   return (
     <section
@@ -209,6 +213,7 @@ function CategorySection({
             workspaceId={workspaceId}
             onChanged={onChanged}
             onUploadForItem={onUploadForItem}
+            defaultFolderId={defaultFolderId}
           />
         ))}
         {customItems.map((item) => (
@@ -219,6 +224,7 @@ function CategorySection({
             workspaceId={workspaceId}
             onChanged={onChanged}
             onUploadForItem={onUploadForItem}
+            defaultFolderId={defaultFolderId}
           />
         ))}
       </div>
@@ -250,7 +256,8 @@ interface PlaybookItemRowProps {
   isAdmin: boolean;
   workspaceId: string;
   onChanged: () => void;
-  onUploadForItem: (itemId: string, name: string) => void;
+  onUploadForItem: (itemId: string, name: string, folderId: string | null) => void;
+  defaultFolderId: string | null;
 }
 
 function PlaybookItemRow({
@@ -258,6 +265,8 @@ function PlaybookItemRow({
   isAdmin,
   workspaceId,
   onChanged,
+  onUploadForItem,
+  defaultFolderId,
 }: PlaybookItemRowProps) {
   const [expanded, setExpanded] = useState(false);
   const isKiller = !!item.dealKillerGroup;
@@ -301,7 +310,18 @@ function PlaybookItemRow({
             </p>
           )}
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-2">
+          {item.itemId && (
+            <button
+              type="button"
+              aria-label={`Upload for ${item.name}`}
+              title="Upload document for this item"
+              onClick={() => onUploadForItem(item.itemId!, item.name, defaultFolderId)}
+              className="text-text-muted hover:text-accent transition-colors cursor-pointer"
+            >
+              <Upload size={14} />
+            </button>
+          )}
           <ChecklistStatusChip
             workspaceId={workspaceId}
             itemId={item.itemId ?? `pb:${item.playbookItemId}`}
@@ -321,7 +341,8 @@ interface CustomItemRowProps {
   isAdmin: boolean;
   workspaceId: string;
   onChanged: () => void;
-  onUploadForItem: (itemId: string, name: string) => void;
+  onUploadForItem: (itemId: string, name: string, folderId: string | null) => void;
+  defaultFolderId: string | null;
 }
 
 function CustomItemRow({
@@ -329,6 +350,8 @@ function CustomItemRow({
   isAdmin,
   workspaceId,
   onChanged,
+  onUploadForItem,
+  defaultFolderId,
 }: CustomItemRowProps) {
   return (
     <div data-testid="playbook-item-custom" className="p-4 flex items-center gap-3">
@@ -336,6 +359,15 @@ function CustomItemRow({
         Custom
       </span>
       <span className="text-sm text-text-primary flex-1 min-w-0 truncate">{item.name}</span>
+      <button
+        type="button"
+        aria-label={`Upload for ${item.name}`}
+        title="Upload document for this item"
+        onClick={() => onUploadForItem(item.itemId, item.name, defaultFolderId)}
+        className="text-text-muted hover:text-accent transition-colors cursor-pointer shrink-0"
+      >
+        <Upload size={14} />
+      </button>
       <ChecklistStatusChip
         workspaceId={workspaceId}
         itemId={item.itemId}

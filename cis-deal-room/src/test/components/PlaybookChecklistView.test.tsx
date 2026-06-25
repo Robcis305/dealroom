@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { PlaybookChecklistView } from '@/components/workspace/PlaybookChecklistView';
 
 const mockCanonical = [
@@ -56,6 +56,49 @@ describe('PlaybookChecklistView', () => {
     expect(screen.getByText('Corporate & Legal')).toBeInTheDocument();
     expect(screen.getByText('Cap table')).toBeInTheDocument();
     expect(screen.getByText('Cert of Inc')).toBeInTheDocument();
+  });
+
+  it('clicking an item\'s upload button calls onUploadForItem with its materialized itemId', () => {
+    const onUploadForItem = vi.fn();
+    render(
+      <PlaybookChecklistView
+        workspaceId="ws-1"
+        isAdmin={true}
+        canonical={[
+          {
+            ...mockCanonical[0],
+            itemId: 'item-5', // materialized — has a DB row to link files against
+          },
+        ]}
+        custom={[]}
+        folders={[]}
+        onChanged={() => {}}
+        onUploadForItem={onUploadForItem}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /upload/i }));
+    // corporate_legal → no "Legal" folder present here → null default folder
+    expect(onUploadForItem).toHaveBeenCalledWith('item-5', 'Cap table', null);
+  });
+
+  it('defaults the upload folder to the item\'s category folder when one exists', () => {
+    const onUploadForItem = vi.fn();
+    render(
+      <PlaybookChecklistView
+        workspaceId="ws-1"
+        isAdmin={true}
+        canonical={[{ ...mockCanonical[0], itemId: 'item-5' }]}
+        custom={[]}
+        folders={[{ id: 'f-legal', name: 'Legal' }, { id: 'f-fin', name: 'Financials' }]}
+        onChanged={() => {}}
+        onUploadForItem={onUploadForItem}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /upload/i }));
+    // corporate_legal maps to the "Legal" folder
+    expect(onUploadForItem).toHaveBeenCalledWith('item-5', 'Cap table', 'f-legal');
   });
 
   it('pins deal-killer items above non-killer items in the same category', () => {
