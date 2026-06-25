@@ -97,7 +97,7 @@ export function ChecklistView({ workspaceId, isAdmin, onChanged, onUploadForItem
         custom={playbook.custom as never}
         folders={folders}
         onChanged={() => { refresh(); onChanged?.(); }}
-        onUploadForItem={(itemId, name) => onUploadForItem(null, itemId, name)}
+        onUploadForItem={(itemId, name, folderId) => onUploadForItem(folderId, itemId, name)}
         highlightTarget={highlightTarget}
         onHighlightConsumed={onHighlightConsumed}
       />

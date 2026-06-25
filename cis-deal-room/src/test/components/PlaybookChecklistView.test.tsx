@@ -78,7 +78,27 @@ describe('PlaybookChecklistView', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /upload/i }));
-    expect(onUploadForItem).toHaveBeenCalledWith('item-5', 'Cap table');
+    // corporate_legal → no "Legal" folder present here → null default folder
+    expect(onUploadForItem).toHaveBeenCalledWith('item-5', 'Cap table', null);
+  });
+
+  it('defaults the upload folder to the item\'s category folder when one exists', () => {
+    const onUploadForItem = vi.fn();
+    render(
+      <PlaybookChecklistView
+        workspaceId="ws-1"
+        isAdmin={true}
+        canonical={[{ ...mockCanonical[0], itemId: 'item-5' }]}
+        custom={[]}
+        folders={[{ id: 'f-legal', name: 'Legal' }, { id: 'f-fin', name: 'Financials' }]}
+        onChanged={() => {}}
+        onUploadForItem={onUploadForItem}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /upload/i }));
+    // corporate_legal maps to the "Legal" folder
+    expect(onUploadForItem).toHaveBeenCalledWith('item-5', 'Cap table', 'f-legal');
   });
 
   it('pins deal-killer items above non-killer items in the same category', () => {

@@ -16,6 +16,12 @@ interface UploadModalProps {
   onClose: () => void;
   folders: Folder[];
   initialFolderId?: string;
+  /**
+   * Pre-selects the folder dropdown WITHOUT locking it (unlike initialFolderId,
+   * which renders a read-only label). Used to default the target folder to a
+   * checklist item's category folder while still letting the user change it.
+   */
+  defaultFolderId?: string;
   workspaceId: string;
   onUploadComplete: () => void;
   /** Called after a batch upload finishes — delta is the count of successfully uploaded files */
@@ -74,13 +80,14 @@ export function UploadModal({
   onClose,
   folders,
   initialFolderId,
+  defaultFolderId,
   workspaceId,
   onUploadComplete,
   onFolderCountChange,
   initialChecklistItemId,
   checklistItems,
 }: UploadModalProps) {
-  const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId ?? folders[0]?.id ?? '');
+  const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId ?? defaultFolderId ?? folders[0]?.id ?? '');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(initialChecklistItemId ?? null);
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -100,9 +107,9 @@ export function UploadModal({
   // without this sync the modal remembers the folder from its first open.
   useEffect(() => {
     if (open) {
-      setSelectedFolderId(initialFolderId ?? folders[0]?.id ?? '');
+      setSelectedFolderId(initialFolderId ?? defaultFolderId ?? folders[0]?.id ?? '');
     }
-  }, [open, initialFolderId, folders]);
+  }, [open, initialFolderId, defaultFolderId, folders]);
 
   // Sync selectedItemId when the pre-fill hint changes (e.g. opened from a
   // different checklist item without the modal being fully unmounted).

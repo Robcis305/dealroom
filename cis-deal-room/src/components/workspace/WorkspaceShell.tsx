@@ -95,6 +95,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
   const [openChecklistCount, setOpenChecklistCount] = useState(0);
   const [checklistItems, setChecklistItems] = useState<Array<{ id: string; name: string; folderId: string | null }>>([]);
   const [uploadItemHint, setUploadItemHint] = useState<string | null>(null);
+  const [uploadFolderHint, setUploadFolderHint] = useState<string | null>(null);
   const [pendingHighlight, setPendingHighlight] = useState<PendingHighlight | null>(null);
   const [panelWidth, setPanelWidth] = useState(320);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
@@ -215,11 +216,10 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
 
   function handleUploadForItem(folderId: string | null, itemId: string, _itemName: string) {
     setUploadItemHint(itemId);
-    if (folderId) {
-      setView({ kind: 'folder', folderId });
-    }
-    // If folderId is null (canonical playbook item has no folder yet), open the
-    // upload modal without pre-selecting a folder — the user picks one in the modal.
+    // Seed the modal's folder selector with the item's category folder (a
+    // default the user can still change) WITHOUT navigating away from the
+    // checklist. Null falls back to the modal's first-folder default.
+    setUploadFolderHint(folderId);
     setShowUploadModal(true);
   }
 
@@ -571,13 +571,16 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
         onClose={() => {
           setShowUploadModal(false);
           setUploadItemHint(null);
+          setUploadFolderHint(null);
         }}
         folders={folders}
         initialFolderId={selectedFolderId ?? undefined}
+        defaultFolderId={uploadFolderHint ?? undefined}
         workspaceId={workspace.id}
         onUploadComplete={() => {
           setShowUploadModal(false);
           setUploadItemHint(null);
+          setUploadFolderHint(null);
           setUploadRevision((n) => n + 1);
         }}
         onFolderCountChange={handleFolderCountChange}
