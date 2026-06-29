@@ -187,7 +187,10 @@ describe('POST /api/auth/verify (consuming)', () => {
     mockDb([validRow({ email: 'Mixed@Example.com' })]);
     const { POST } = await import('./route');
     const response = await POST(postReq('raw', 'mixed@example.com') as unknown as import('next/server').NextRequest);
-    expect(response.headers.get('Location') ?? '').not.toContain('error=');
+    expect(response.status).toBe(303);
+    const location = response.headers.get('Location') ?? '';
+    expect(location).not.toContain('error=');
+    expect(location).toContain('/deals');
   });
 
   it('ignores a protocol-relative redirectTo and falls back to /deals', async () => {
