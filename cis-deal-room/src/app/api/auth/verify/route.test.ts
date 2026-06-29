@@ -81,7 +81,7 @@ describe('GET /api/auth/verify (non-consuming)', () => {
     const { deleteMock } = mockDb([validRow()]);
     const { GET } = await import('./route');
 
-    const response = await GET(getReq() as any);
+    const response = await GET(getReq() as unknown as import('next/server').NextRequest);
     const location = response.headers.get('Location') ?? '';
 
     expect([302, 307]).toContain(response.status);
@@ -98,11 +98,11 @@ describe('GET /api/auth/verify (non-consuming)', () => {
     const { deleteMock } = mockDb([validRow()]);
     const { GET, POST } = await import('./route');
 
-    await GET(getReq() as any);
-    await GET(getReq() as any);
+    await GET(getReq() as unknown as import('next/server').NextRequest);
+    await GET(getReq() as unknown as import('next/server').NextRequest);
     expect(deleteMock).not.toHaveBeenCalled(); // scanner could not burn the token
 
-    const response = await POST(postReq() as any);
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
     expect(response.status).toBe(303);
     expect(response.headers.get('Location')).toContain('/deals');
     expect(deleteMock).toHaveBeenCalledOnce();
@@ -112,7 +112,7 @@ describe('GET /api/auth/verify (non-consuming)', () => {
     baseMocks();
     mockDb([]);
     const { GET } = await import('./route');
-    const response = await GET(getReq('used-token') as any);
+    const response = await GET(getReq('used-token') as unknown as import('next/server').NextRequest);
     expect(response.headers.get('Location') ?? '').toContain('error=used');
   });
 
@@ -120,7 +120,7 @@ describe('GET /api/auth/verify (non-consuming)', () => {
     baseMocks();
     const { deleteMock } = mockDb([validRow({ expiresAt: new Date(Date.now() - 60_000) })]);
     const { GET } = await import('./route');
-    const response = await GET(getReq() as any);
+    const response = await GET(getReq() as unknown as import('next/server').NextRequest);
     expect(response.headers.get('Location') ?? '').toContain('error=expired');
     expect(deleteMock).not.toHaveBeenCalled();
   });
@@ -129,7 +129,7 @@ describe('GET /api/auth/verify (non-consuming)', () => {
     baseMocks();
     mockDb([validRow({ email: 'victim@example.com' })]);
     const { GET } = await import('./route');
-    const response = await GET(getReq('raw', 'attacker@example.com') as any);
+    const response = await GET(getReq('raw', 'attacker@example.com') as unknown as import('next/server').NextRequest);
     expect(response.headers.get('Location') ?? '').toContain('error=invalid');
   });
 
@@ -137,7 +137,7 @@ describe('GET /api/auth/verify (non-consuming)', () => {
     baseMocks();
     mockDb([]);
     const { GET } = await import('./route');
-    const response = await GET(new Request(`${APP_URL}/api/auth/verify?token=raw`) as any);
+    const response = await GET(new Request(`${APP_URL}/api/auth/verify?token=raw`) as unknown as import('next/server').NextRequest);
     expect(response.headers.get('Location') ?? '').toContain('error=invalid');
   });
 
@@ -149,7 +149,7 @@ describe('GET /api/auth/verify (non-consuming)', () => {
     vi.doMock('@/db/schema', () => ({ magicLinkTokens: {}, users: {}, workspaceParticipants: {} }));
     mockDb([validRow()]);
     const { GET } = await import('./route');
-    const response = await GET(getReq() as any);
+    const response = await GET(getReq() as unknown as import('next/server').NextRequest);
     expect(response.headers.get('Location') ?? '').toContain('error=rate_limited');
   });
 });
@@ -163,7 +163,7 @@ describe('POST /api/auth/verify (consuming)', () => {
     const session = await import('@/lib/auth/session');
     const { POST } = await import('./route');
 
-    const response = await POST(postReq() as any);
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
 
     expect(response.status).toBe(303);
     expect(response.headers.get('Location')).toContain('/deals');
@@ -176,7 +176,7 @@ describe('POST /api/auth/verify (consuming)', () => {
     baseMocks();
     const { updateMock, updateSet } = mockDb([validRow({ email: 'cahyo@mrscraper.com' })]);
     const { POST } = await import('./route');
-    const response = await POST(postReq('raw', 'cahyo@mrscraper.com') as any);
+    const response = await POST(postReq('raw', 'cahyo@mrscraper.com') as unknown as import('next/server').NextRequest);
     expect(response.status).toBe(303);
     expect(updateMock).toHaveBeenCalledOnce();
     expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'active' }));
@@ -186,7 +186,7 @@ describe('POST /api/auth/verify (consuming)', () => {
     baseMocks();
     mockDb([validRow({ email: 'Mixed@Example.com' })]);
     const { POST } = await import('./route');
-    const response = await POST(postReq('raw', 'mixed@example.com') as any);
+    const response = await POST(postReq('raw', 'mixed@example.com') as unknown as import('next/server').NextRequest);
     expect(response.headers.get('Location') ?? '').not.toContain('error=');
   });
 
@@ -194,7 +194,7 @@ describe('POST /api/auth/verify (consuming)', () => {
     baseMocks();
     mockDb([validRow({ purpose: 'invitation', redirectTo: '//evil.example/pwn' })]);
     const { POST } = await import('./route');
-    const response = await POST(postReq() as any);
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
     const location = response.headers.get('Location') ?? '';
     expect(location).not.toContain('evil.example');
     expect(location).toContain('/deals');
@@ -204,7 +204,7 @@ describe('POST /api/auth/verify (consuming)', () => {
     baseMocks();
     mockDb([validRow({ purpose: 'invitation', redirectTo: '/workspace/abc' })]);
     const { POST } = await import('./route');
-    const response = await POST(postReq() as any);
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
     expect(response.headers.get('Location') ?? '').toContain('/workspace/abc');
   });
 
@@ -231,7 +231,7 @@ describe('POST /api/auth/verify (consuming)', () => {
       },
     }));
     const { POST } = await import('./route');
-    const response = await POST(postReq() as any);
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
     expect(response.headers.get('Location') ?? '').toContain('/complete-profile');
   });
 
@@ -239,7 +239,7 @@ describe('POST /api/auth/verify (consuming)', () => {
     baseMocks();
     const { deleteMock } = mockDb([]);
     const { POST } = await import('./route');
-    const response = await POST(postReq() as any);
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
     expect(response.status).toBe(303);
     expect(response.headers.get('Location') ?? '').toContain('error=used');
     expect(deleteMock).not.toHaveBeenCalled();
@@ -250,7 +250,7 @@ describe('POST /api/auth/verify (consuming)', () => {
     mockDb([]);
     const { POST } = await import('./route');
     const response = await POST(
-      new Request(`${APP_URL}/api/auth/verify`, { method: 'POST', body: new URLSearchParams({ token: 'raw' }) }) as any,
+      new Request(`${APP_URL}/api/auth/verify`, { method: 'POST', body: new URLSearchParams({ token: 'raw' }) }) as unknown as import('next/server').NextRequest,
     );
     expect(response.headers.get('Location') ?? '').toContain('error=invalid');
   });
