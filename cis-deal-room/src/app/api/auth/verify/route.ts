@@ -2,114 +2,122 @@ import { NextRequest, NextResponse } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
 import { magicLinkTokens, users, workspaceParticipants } from '@/db/schema';
-import { hashToken } from '@/lib/auth/tokens';
 import { authVerifyLimiter } from '@/lib/auth/rate-limit';
 import { createSession, setSessionCookie } from '@/lib/auth/session';
 import { getAppUrl } from '@/lib/app-url';
+import { validateMagicLinkToken } from '@/lib/auth/verify-token';
 
+function clientIpFrom(request: NextRequest): string {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
+}
+
+// Only accept safe relative redirects. Rejects protocol-relative (`//…`) and
+// absolute URLs (`http:…`).
+function safeRelative(p: string | null | undefined): string | null {
+  if (!p) return null;
+  if (!p.startsWith('/')) return null;
+  if (p.startsWith('//')) return null;
+  return p;
+}
+
+/**
+ * GET — VALIDATE ONLY, never mutates.
+ *
+ * Email security gateways (Microsoft Safe Links/ATP, Mimecast, Proofpoint)
+ * pre-fetch every URL in inbound mail with a GET to scan it. If GET consumed
+ * the single-use token, the scanner would burn it before the human clicked.
+ * So GET only validates and hands the user to the confirmation interstitial,
+ * which POSTs back here to consume the token.
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const rawToken = searchParams.get('token');
   const email = searchParams.get('email');
-
   const appUrl = getAppUrl();
 
   if (!rawToken || !email) {
     return Response.redirect(`${appUrl}/auth/verify?error=invalid`);
   }
 
-  // 1. Rate limit by IP — authVerifyLimiter: 10 attempts per IP per 15 minutes
-  const clientIP =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
-  const rateLimitResult = await authVerifyLimiter.limit(clientIP);
+  const rateLimitResult = await authVerifyLimiter.limit(clientIpFrom(request));
   if (!rateLimitResult.success) {
     return Response.redirect(`${appUrl}/auth/verify?error=rate_limited`);
   }
 
-  // 2. Hash the raw token and look up in the database
-  const tokenHash = hashToken(rawToken);
-  const [tokenRow] = await db
-    .select()
-    .from(magicLinkTokens)
-    .where(eq(magicLinkTokens.tokenHash, tokenHash))
-    .limit(1);
-
-  // 3. No row found → already consumed (single-use) or never existed
-  if (!tokenRow) {
-    return Response.redirect(`${appUrl}/auth/verify?error=used`);
+  const result = await validateMagicLinkToken(rawToken, email);
+  if (!result.ok) {
+    return Response.redirect(`${appUrl}/auth/verify?error=${result.error}`);
   }
 
-  // 4. Row exists but expired → delete it and redirect with expired error
-  if (tokenRow.expiresAt < new Date()) {
-    await db.delete(magicLinkTokens).where(eq(magicLinkTokens.tokenHash, tokenHash));
-    return Response.redirect(`${appUrl}/auth/verify?error=expired`);
+  // Valid — send to the confirmation page, carrying the token. The page renders
+  // a "Confirm sign-in" button that POSTs back here to consume the token.
+  const confirmUrl = new URL(`${appUrl}/auth/verify`);
+  confirmUrl.searchParams.set('token', rawToken);
+  confirmUrl.searchParams.set('email', email);
+  return Response.redirect(confirmUrl.toString());
+}
+
+/**
+ * POST — the ONLY consuming path. Triggered by the user clicking
+ * "Confirm sign-in". Deletes the token, upserts the user, activates pending
+ * participants, creates the session, and redirects with 303 See Other so the
+ * browser follows with a GET (not a re-POST).
+ */
+export async function POST(request: NextRequest) {
+  const appUrl = getAppUrl();
+  const form = await request.formData();
+  const rawToken = form.get('token');
+  const email = form.get('email');
+
+  if (typeof rawToken !== 'string' || typeof email !== 'string' || !rawToken || !email) {
+    return NextResponse.redirect(`${appUrl}/auth/verify?error=invalid`, 303);
   }
 
-  // 5. Binding check: the query-param email must match the token row.
-  // Prevents an attacker who observes a magic link from swapping ?email=
-  // to impersonate an arbitrary user. Compared case-insensitively so links
-  // mangled by email clients (e.g. lowercased) still resolve.
-  if (tokenRow.email.toLowerCase() !== email.toLowerCase()) {
-    return Response.redirect(`${appUrl}/auth/verify?error=invalid`);
+  const rateLimitResult = await authVerifyLimiter.limit(clientIpFrom(request));
+  if (!rateLimitResult.success) {
+    return NextResponse.redirect(`${appUrl}/auth/verify?error=rate_limited`, 303);
   }
 
-  // 6. Valid token → consume it (single-use contract)
-  await db.delete(magicLinkTokens).where(eq(magicLinkTokens.tokenHash, tokenHash));
+  const result = await validateMagicLinkToken(rawToken, email);
+  if (!result.ok) {
+    return NextResponse.redirect(`${appUrl}/auth/verify?error=${result.error}`, 303);
+  }
+  const { tokenRow } = result;
 
-  // 7. Upsert user using tokenRow.email (authoritative, not the query param).
-  // Token rows are written with lowercased emails, so the unique-key conflict
-  // target resolves deterministically.
+  // Consume the token (single-use contract).
+  await db.delete(magicLinkTokens).where(eq(magicLinkTokens.tokenHash, tokenRow.tokenHash));
+
+  // Upsert user using tokenRow.email (authoritative, lowercased at write time).
   const [user] = await db
     .insert(users)
     .values({ email: tokenRow.email, isAdmin: false })
-    .onConflictDoUpdate({
-      target: users.email,
-      set: { updatedAt: new Date() },
-    })
+    .onConflictDoUpdate({ target: users.email, set: { updatedAt: new Date() } })
     .returning({ id: users.id, firstName: users.firstName, lastName: users.lastName });
 
-  // 8. Activate any pending participant rows for this authenticated user.
-  // Runs for every successful auth (login OR invitation), not just invitation
-  // tokens — otherwise a user who races their invite link with a /login link
-  // (the send route deletes prior tokens) ends up authenticated but with
-  // status='invited' and an empty deal-rooms list.
+  // Activate any pending participant rows for this authenticated user (runs for
+  // login OR invitation tokens — see route history for the race rationale).
   await db
     .update(workspaceParticipants)
     .set({ status: 'active', activatedAt: new Date() })
     .where(
       and(
         eq(workspaceParticipants.userId, user.id),
-        eq(workspaceParticipants.status, 'invited')
-      )
+        eq(workspaceParticipants.status, 'invited'),
+      ),
     );
 
-  // 8. Create database session and set cookie
   const sessionId = await createSession(user.id);
-
   const needsProfile = !user.firstName || !user.lastName;
-
-  // Defense-in-depth: only accept safe relative redirects.
-  // Rejects protocol-relative (`//…`) and absolute URLs (`http:…`).
-  function safeRelative(p: string | null | undefined): string | null {
-    if (!p) return null;
-    if (!p.startsWith('/')) return null;
-    if (p.startsWith('//')) return null;
-    return p;
-  }
-
   const safeRedirect = safeRelative(tokenRow.redirectTo);
-
   const redirectPath = needsProfile
     ? '/complete-profile'
     : tokenRow.purpose === 'invitation' && safeRedirect
       ? safeRedirect
       : '/deals';
 
-  // Use NextResponse (mutable cookies API) instead of Response.redirect —
-  // the Fetch spec's Response.redirect() returns an immutable-headers
-  // response, so .headers.append('Set-Cookie', ...) throws TypeError.
-  const response = NextResponse.redirect(new URL(`${appUrl}${redirectPath}`));
+  // 303 See Other: a POST that returns 307 would make the browser re-POST to
+  // the redirect target. 303 forces a GET to redirectPath.
+  const response = NextResponse.redirect(new URL(`${appUrl}${redirectPath}`), 303);
   setSessionCookie(response, sessionId);
-
   return response;
 }
