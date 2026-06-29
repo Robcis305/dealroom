@@ -64,6 +64,7 @@ function postReq(token = 'raw', email = 'user@example.com') {
   return new Request(`${APP_URL}/api/auth/verify`, {
     method: 'POST',
     body: new URLSearchParams({ token, email }),
+    headers: { origin: 'http://localhost:3000' },
   });
 }
 
@@ -253,8 +254,23 @@ describe('POST /api/auth/verify (consuming)', () => {
     mockDb([]);
     const { POST } = await import('./route');
     const response = await POST(
-      new Request(`${APP_URL}/api/auth/verify`, { method: 'POST', body: new URLSearchParams({ token: 'raw' }) }) as unknown as import('next/server').NextRequest,
+      new Request(`${APP_URL}/api/auth/verify`, { method: 'POST', body: new URLSearchParams({ token: 'raw' }), headers: { origin: 'http://localhost:3000' } }) as unknown as import('next/server').NextRequest,
     );
     expect(response.headers.get('Location') ?? '').toContain('error=invalid');
+  });
+
+  it('rejects a cross-origin POST without consuming the token (CSRF guard)', async () => {
+    baseMocks();
+    const { deleteMock } = mockDb([validRow()]);
+    const { POST } = await import('./route');
+    const req = new Request(`${APP_URL}/api/auth/verify`, {
+      method: 'POST',
+      body: new URLSearchParams({ token: 'raw', email: 'user@example.com' }),
+      headers: { origin: 'https://evil.example' },
+    });
+    const response = await POST(req as unknown as import('next/server').NextRequest);
+    expect(response.status).toBe(303);
+    expect(response.headers.get('Location') ?? '').toContain('error=invalid');
+    expect(deleteMock).not.toHaveBeenCalled();
   });
 });

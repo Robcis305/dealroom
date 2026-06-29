@@ -6,6 +6,7 @@ import { authVerifyLimiter } from '@/lib/auth/rate-limit';
 import { createSession, setSessionCookie } from '@/lib/auth/session';
 import { getAppUrl } from '@/lib/app-url';
 import { validateMagicLinkToken } from '@/lib/auth/verify-token';
+import { isSameOriginRequest } from '@/lib/auth/csrf';
 
 function clientIpFrom(request: NextRequest): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
@@ -64,6 +65,9 @@ export async function GET(request: NextRequest) {
  * browser follows with a GET (not a re-POST).
  */
 export async function POST(request: NextRequest) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.redirect(`${getAppUrl()}/auth/verify?error=invalid`, 303);
+  }
   const appUrl = getAppUrl();
   const form = await request.formData();
   const rawToken = form.get('token');
