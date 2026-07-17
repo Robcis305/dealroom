@@ -43,7 +43,8 @@ interface ParticipantListProps {
   cisAdvisorySide: CisAdvisorySide;
   folders: Folder[];
   workstreams?: Workstream[];
-  isAdmin: boolean;
+  /** Global admins + per-deal-room 'admin' participants — gates invite/edit/revoke */
+  canManageParticipants: boolean;
   /** Parent increments to force a refetch (e.g., after an invite succeeds) */
   refreshToken: number;
   /** Current viewer's email — the row matching this hides its edit/revoke buttons */
@@ -59,7 +60,7 @@ export function ParticipantList({
   cisAdvisorySide,
   folders,
   workstreams = [],
-  isAdmin,
+  canManageParticipants,
   refreshToken,
   currentUserEmail,
   folderId,
@@ -125,7 +126,7 @@ export function ParticipantList({
 
   return (
     <div className="space-y-3">
-      {isAdmin && (
+      {canManageParticipants && (
         <button
           onClick={() => setShowInvite(true)}
           className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover
@@ -187,7 +188,7 @@ export function ParticipantList({
                 <p className="text-sm text-text-primary truncate font-medium">
                   {displayName(row)}
                 </p>
-                {isAdmin && displayName(row) !== row.email && (
+                {canManageParticipants && displayName(row) !== row.email && (
                   <p className="text-xs text-text-muted truncate">{row.email}</p>
                 )}
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -212,7 +213,7 @@ export function ParticipantList({
                   </span>
                 </div>
               </div>
-              {isAdmin && row.email !== currentUserEmail && (
+              {canManageParticipants && row.email !== currentUserEmail && (
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     aria-label={`Edit ${row.email}`}

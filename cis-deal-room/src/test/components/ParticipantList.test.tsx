@@ -48,7 +48,7 @@ describe('ParticipantList', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={[]}
-        isAdmin={false}
+        canManageParticipants={false}
         refreshToken={0}
         currentUserEmail="admin@cis.com"
       />
@@ -64,7 +64,7 @@ describe('ParticipantList', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={[]}
-        isAdmin={false}
+        canManageParticipants={false}
         refreshToken={0}
         currentUserEmail="admin@cis.com"
       />
@@ -80,7 +80,7 @@ describe('ParticipantList', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={[]}
-        isAdmin
+        canManageParticipants
         refreshToken={0}
         currentUserEmail="admin@cis.com"
       />
@@ -96,7 +96,7 @@ describe('ParticipantList', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={[]}
-        isAdmin
+        canManageParticipants
         refreshToken={0}
         currentUserEmail="client@x.com"
       />
@@ -118,7 +118,7 @@ describe('ParticipantList', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={[]}
-        isAdmin
+        canManageParticipants
         refreshToken={0}
         currentUserEmail="admin@cis.com"
       />
@@ -169,7 +169,7 @@ describe('ParticipantList — folder scope', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={[]}
-        isAdmin={false}
+        canManageParticipants={false}
         refreshToken={0}
         currentUserEmail="someone@else.com"
         folderId="folder-1"
@@ -188,7 +188,7 @@ describe('ParticipantList — folder scope', () => {
         workspaceId={WORKSPACE_ID}
         cisAdvisorySide="buyer_side"
         folders={[]}
-        isAdmin={false}
+        canManageParticipants={false}
         refreshToken={0}
         currentUserEmail="someone@else.com"
         folderId="folder-1"

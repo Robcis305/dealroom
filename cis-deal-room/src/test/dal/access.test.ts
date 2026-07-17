@@ -47,6 +47,27 @@ describe('requireDealAccess', () => {
   });
 });
 
+import { canManageParticipants } from '@/lib/dal/access';
+
+describe('canManageParticipants', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('global admin returns true without querying DB', async () => {
+    await expect(canManageParticipants(WORKSPACE_ID, adminSession)).resolves.toBe(true);
+    expect(mockSelectLimit).not.toHaveBeenCalled();
+  });
+
+  it('active participant with role admin returns true', async () => {
+    mockSelectLimit.mockResolvedValue([{ id: 'p1' }]);
+    await expect(canManageParticipants(WORKSPACE_ID, clientSession)).resolves.toBe(true);
+  });
+
+  it('participant without an admin-role row returns false', async () => {
+    mockSelectLimit.mockResolvedValue([]);
+    await expect(canManageParticipants(WORKSPACE_ID, clientSession)).resolves.toBe(false);
+  });
+});
+
 import { requireFolderAccess } from '@/lib/dal/access';
 
 const FOLDER_ID = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';

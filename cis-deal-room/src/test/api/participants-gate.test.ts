@@ -27,6 +27,7 @@ vi.mock('@/lib/dal/checklist', () => ({
 
 vi.mock('@/lib/dal/access', () => ({
   requireDealAccess: vi.fn().mockResolvedValue({ workspace: { cisAdvisorySide: 'seller_side' } }),
+  canManageParticipants: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('@/lib/dal/participants', () => ({

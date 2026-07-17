@@ -72,6 +72,11 @@ export default async function WorkspacePage({ params, searchParams }: WorkspaceP
     (participant != null &&
       (participant.role === 'cis_team' || participant.role === 'admin'));
 
+  // Inviting / editing / revoking participants: global admins, plus the
+  // per-deal-room 'admin' role (mirrors canManageParticipants in access.ts).
+  const canManageParticipants =
+    session.isAdmin || (participant != null && participant.role === 'admin');
+
   const welcome = await getWelcomeForParticipant(workspaceId, session, workspace.cisAdvisorySide);
 
   return (
@@ -84,6 +89,7 @@ export default async function WorkspacePage({ params, searchParams }: WorkspaceP
       userId={session.userId}
       participantRole={participantRole}
       canManageWorkstreams={canManageWorkstreams}
+      canManageParticipants={canManageParticipants}
       welcome={welcome}
       initialQuestionId={initialQuestionId}
     />
