@@ -83,6 +83,13 @@ vi.mock('@/lib/dal/index', () => ({
   verifySession: vi.fn(),
 }));
 
+// Default mirrors the real helper: global admins OR (per-deal-room) role 'admin'.
+// Keyed off the session flag here so existing admin/non-admin tests are unchanged;
+// per-deal-room-admin tests override it explicitly.
+vi.mock('@/lib/dal/access', () => ({
+  canManageParticipants: vi.fn(async (_ws: string, session: { isAdmin?: boolean }) => !!session?.isAdmin),
+}));
+
 vi.mock('@/lib/dal/activity', () => ({
   logActivity: vi.fn(),
 }));
@@ -93,6 +100,7 @@ vi.mock('@/lib/auth/tokens', () => ({
 }));
 
 import { verifySession } from '@/lib/dal/index';
+import { canManageParticipants } from '@/lib/dal/access';
 import {
   getParticipants,
   inviteParticipant,
@@ -138,11 +146,27 @@ describe('inviteParticipant', () => {
     ).rejects.toThrow('Unauthorized');
   });
 
-  it('throws Admin required for non-admin', async () => {
+  it('throws Admin required for non-admin without the per-deal-room admin role', async () => {
     vi.mocked(verifySession).mockResolvedValue({ ...adminSession, isAdmin: false });
+    vi.mocked(canManageParticipants).mockResolvedValueOnce(false);
     await expect(
       inviteParticipant({ workspaceId: WORKSPACE_ID, email: 'x@y.com', role: 'client', folderIds: [], workstreamIds: [] })
     ).rejects.toThrow('Admin required');
+  });
+
+  it('lets a per-deal-room admin (not global admin) invite', async () => {
+    vi.mocked(verifySession).mockResolvedValue({ ...adminSession, isAdmin: false });
+    vi.mocked(canManageParticipants).mockResolvedValueOnce(true);
+    mockSelectChain
+      .mockResolvedValueOnce([{ id: 'user-1' }])  // user exists
+      .mockResolvedValueOnce([]);                   // no existing participant
+    mockInsertReturning.mockResolvedValueOnce([
+      { id: 'p-new', userId: 'user-1', role: 'client', status: 'invited' },
+    ]);
+    const result = await inviteParticipant({
+      workspaceId: WORKSPACE_ID, email: 'x@y.com', role: 'client', folderIds: [], workstreamIds: [],
+    });
+    expect(result.participant.id).toBe('p-new');
   });
 
   it('creates participant row and returns it', async () => {
@@ -257,9 +281,24 @@ describe('inviteParticipant', () => {
 describe('removeParticipant', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('throws Admin required for non-admin', async () => {
+  it('throws Admin required for non-admin without the per-deal-room admin role', async () => {
     vi.mocked(verifySession).mockResolvedValue({ ...adminSession, isAdmin: false });
+    // Participant exists (so we reach the auth check), but the caller cannot manage.
+    mockSelectChain.mockResolvedValue([
+      { id: PARTICIPANT_ID, workspaceId: WORKSPACE_ID, userId: 'other-u', email: 'x@y.com', role: 'client' },
+    ]);
+    vi.mocked(canManageParticipants).mockResolvedValueOnce(false);
     await expect(removeParticipant(PARTICIPANT_ID)).rejects.toThrow('Admin required');
+  });
+
+  it('lets a per-deal-room admin (not global admin) remove another participant', async () => {
+    vi.mocked(verifySession).mockResolvedValue({ ...adminSession, isAdmin: false });
+    mockSelectChain.mockResolvedValue([
+      { id: PARTICIPANT_ID, workspaceId: WORKSPACE_ID, userId: 'other-u', email: 'other@x.com', role: 'client' },
+    ]);
+    vi.mocked(canManageParticipants).mockResolvedValueOnce(true);
+    await removeParticipant(PARTICIPANT_ID);
+    expect(mockDeleteWhere).toHaveBeenCalled();
   });
 
   it('throws when admin tries to remove themselves', async () => {

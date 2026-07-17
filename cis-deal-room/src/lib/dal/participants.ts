@@ -11,6 +11,7 @@ import {
   workstreamMembers,
 } from '@/db/schema';
 import { verifySession } from './index';
+import { canManageParticipants } from './access';
 import { logActivity } from './activity';
 import { generateToken, hashToken } from '@/lib/auth/tokens';
 import { roleLabel } from '@/lib/participants/roles';
@@ -136,7 +137,11 @@ export async function getParticipants(workspaceId: string) {
 export async function inviteParticipant(input: InviteInput) {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
-  if (!session.isAdmin) throw new Error('Admin required');
+  // Global admins OR per-deal-room 'admin' participants. Mirrors the route gate
+  // (canManageParticipants) so the two layers can't drift apart.
+  if (!(await canManageParticipants(input.workspaceId, session))) {
+    throw new Error('Admin required');
+  }
 
   // Canonicalize email before any DB lookup so the unique constraint on
   // users.email and the participant-flip lookup in /api/auth/verify all key
@@ -269,7 +274,6 @@ export async function inviteParticipant(input: InviteInput) {
 export async function updateParticipant(participantId: string, input: UpdateInput) {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
-  if (!session.isAdmin) throw new Error('Admin required');
 
   const [existing] = await db
     .select({
@@ -285,6 +289,11 @@ export async function updateParticipant(participantId: string, input: UpdateInpu
     .limit(1);
 
   if (!existing) throw new Error('Participant not found');
+
+  // Global admins OR per-deal-room 'admin' participants (mirrors the route gate).
+  if (!(await canManageParticipants(existing.workspaceId, session))) {
+    throw new Error('Admin required');
+  }
 
   // Self-guard: an admin cannot demote their own role away from 'admin'
   if (existing.userId === session.userId && input.role !== 'admin' && existing.role === 'admin') {
@@ -447,7 +456,6 @@ export async function markOnboarded(workspaceId: string, session: Session): Prom
 export async function removeParticipant(participantId: string) {
   const session = await verifySession();
   if (!session) throw new Error('Unauthorized');
-  if (!session.isAdmin) throw new Error('Admin required');
 
   const [existing] = await db
     .select({
@@ -463,6 +471,11 @@ export async function removeParticipant(participantId: string) {
     .limit(1);
 
   if (!existing) throw new Error('Participant not found');
+
+  // Global admins OR per-deal-room 'admin' participants (mirrors the route gate).
+  if (!(await canManageParticipants(existing.workspaceId, session))) {
+    throw new Error('Admin required');
+  }
   if (existing.userId === session.userId) throw new Error('Cannot remove self');
 
   await db
