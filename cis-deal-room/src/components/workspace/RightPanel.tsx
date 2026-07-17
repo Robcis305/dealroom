@@ -22,7 +22,8 @@ interface RightPanelProps {
   cisAdvisorySide: CisAdvisorySide;
   folders: Folder[];
   workstreams?: Workstream[];
-  isAdmin: boolean;
+  /** Global admins + per-deal-room 'admin' participants — gates invite/edit/revoke */
+  canManageParticipants: boolean;
   /** Parent increments to force a participant refetch */
   participantsRefreshToken: number;
   /** Current viewer's email — used to hide self-edit/self-revoke buttons */
@@ -44,7 +45,7 @@ export function RightPanel({
   cisAdvisorySide,
   folders,
   workstreams = [],
-  isAdmin,
+  canManageParticipants,
   participantsRefreshToken,
   currentUserEmail,
   folderId,
@@ -93,7 +94,7 @@ export function RightPanel({
             cisAdvisorySide={cisAdvisorySide}
             folders={folders}
             workstreams={workstreams}
-            isAdmin={isAdmin}
+            canManageParticipants={canManageParticipants}
             refreshToken={participantsRefreshToken}
             currentUserEmail={currentUserEmail}
             folderId={folderId}

@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/dal/index', () => ({ verifySession: vi.fn() }));
-vi.mock('@/lib/dal/access', () => ({ requireDealAccess: vi.fn() }));
+vi.mock('@/lib/dal/access', () => ({
+  requireDealAccess: vi.fn(),
+  // Mirror the real helper: global admins OR per-deal-room 'admin' participants.
+  // The route passes (workspaceId, session); here we key off the session flag,
+  // and individual tests can override for the per-deal-room admin path.
+  canManageParticipants: vi.fn(async (_ws: string, session: { isAdmin?: boolean }) => !!session?.isAdmin),
+}));
 vi.mock('@/lib/dal/assertions', () => ({ assertParticipantInWorkspace: vi.fn() }));
 vi.mock('@/lib/dal/participants', () => ({
   getParticipants: vi.fn(),
@@ -16,7 +22,7 @@ vi.mock('@/lib/dal/workspaces', () => ({
 vi.mock('@/lib/email/send', () => ({ sendEmail: vi.fn().mockResolvedValue({ id: 'stub' }) }));
 
 import { verifySession } from '@/lib/dal/index';
-import { requireDealAccess } from '@/lib/dal/access';
+import { requireDealAccess, canManageParticipants } from '@/lib/dal/access';
 import { assertParticipantInWorkspace } from '@/lib/dal/assertions';
 import { getParticipants, inviteParticipant, updateParticipant, removeParticipant } from '@/lib/dal/participants';
 import { getWorkspace } from '@/lib/dal/workspaces';
@@ -80,6 +86,21 @@ describe('POST /api/workspaces/[id]/participants', () => {
       { params: Promise.resolve({ id: WORKSPACE_ID }) }
     );
     expect(res.status).toBe(403);
+  });
+
+  it('allows a per-deal-room admin (not global admin) to invite', async () => {
+    vi.mocked(verifySession).mockResolvedValue(clientSession);
+    vi.mocked(canManageParticipants).mockResolvedValueOnce(true);
+    vi.mocked(getWorkspace).mockResolvedValue({ id: WORKSPACE_ID, name: 'Test Deal' } as any);
+    vi.mocked(inviteParticipant).mockResolvedValue({
+      participant: { id: 'p9', userId: 'u9', role: 'client', status: 'invited' } as any,
+      rawToken: 'fake-token',
+    });
+    const res = await POST(
+      makePost({ email: 'x@y.com', role: 'client', folderIds: [] }),
+      { params: Promise.resolve({ id: WORKSPACE_ID }) }
+    );
+    expect(res.status).toBe(201);
   });
 
   it('returns 400 for invalid body', async () => {
@@ -162,6 +183,17 @@ describe('PATCH /api/workspaces/[id]/participants/[pid]', () => {
     expect(res.status).toBe(403);
   });
 
+  it('allows a per-deal-room admin (not global admin) to edit', async () => {
+    vi.mocked(verifySession).mockResolvedValue(clientSession);
+    vi.mocked(canManageParticipants).mockResolvedValueOnce(true);
+    vi.mocked(updateParticipant).mockResolvedValue(undefined);
+    const res = await PATCH(
+      makePatch({ role: 'client', folderIds: [] }),
+      { params: Promise.resolve({ id: WORKSPACE_ID, pid: PARTICIPANT_ID }) }
+    );
+    expect(res.status).toBe(200);
+  });
+
   it('returns 400 when DAL throws Cannot demote self', async () => {
     vi.mocked(verifySession).mockResolvedValue(adminSession);
     vi.mocked(updateParticipant).mockRejectedValue(new Error('Cannot demote self'));
@@ -240,6 +272,17 @@ describe('DELETE /api/workspaces/[id]/participants/[pid]', () => {
       { params: Promise.resolve({ id: WORKSPACE_ID, pid: PARTICIPANT_ID }) }
     );
     expect(res.status).toBe(403);
+  });
+
+  it('allows a per-deal-room admin (not global admin) to revoke', async () => {
+    vi.mocked(verifySession).mockResolvedValue(clientSession);
+    vi.mocked(canManageParticipants).mockResolvedValueOnce(true);
+    vi.mocked(removeParticipant).mockResolvedValue(undefined);
+    const res = await DELETE(
+      makeDelete(),
+      { params: Promise.resolve({ id: WORKSPACE_ID, pid: PARTICIPANT_ID }) }
+    );
+    expect(res.status).toBe(204);
   });
 
   it('returns 400 when DAL throws Cannot remove self', async () => {

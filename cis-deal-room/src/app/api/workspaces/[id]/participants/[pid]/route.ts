@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { verifySession } from '@/lib/dal/index';
 import { updateParticipant, removeParticipant } from '@/lib/dal/participants';
 import { assertParticipantInWorkspace } from '@/lib/dal/assertions';
+import { canManageParticipants } from '@/lib/dal/access';
 
 const patchSchema = z.object({
   role: z.enum([
@@ -22,9 +23,11 @@ export async function PATCH(
 ) {
   const session = await verifySession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
 
   const { id: workspaceId, pid } = await params;
+  if (!(await canManageParticipants(workspaceId, session))) {
+    return Response.json({ error: 'Admin required' }, { status: 403 });
+  }
 
   try {
     await assertParticipantInWorkspace(pid, workspaceId);
@@ -69,9 +72,11 @@ export async function DELETE(
 ) {
   const session = await verifySession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
 
   const { id: workspaceId, pid } = await params;
+  if (!(await canManageParticipants(workspaceId, session))) {
+    return Response.json({ error: 'Admin required' }, { status: 403 });
+  }
 
   try {
     await assertParticipantInWorkspace(pid, workspaceId);

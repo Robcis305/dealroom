@@ -59,6 +59,8 @@ interface WorkspaceShellProps {
   participantRole: ParticipantRole;
   /** True for global admins and active cis_team participants — gates workstream Manage UI. */
   canManageWorkstreams: boolean;
+  /** True for global admins and per-deal-room 'admin' participants — gates invite/edit/revoke of participants. */
+  canManageParticipants: boolean;
   /** First-entry welcome data. null if no welcome is due. */
   welcome?: WelcomeProp | null;
   /** Deep-link from a Q&A notification email: open the Q&A tab on this question. */
@@ -76,7 +78,7 @@ const STATUS_OPTIONS: { value: WorkspaceStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' },
 ];
 
-export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, userEmail, userId, participantRole, canManageWorkstreams, welcome = null, initialQuestionId = null }: WorkspaceShellProps) {
+export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts: initialFileCounts, isAdmin, userEmail, userId, participantRole, canManageWorkstreams, canManageParticipants, welcome = null, initialQuestionId = null }: WorkspaceShellProps) {
   const [showWelcome, setShowWelcome] = useState(!!welcome);
   const [view, setView] = useState<CenterView>(initialQuestionId ? { kind: 'qna' } : { kind: 'overview' });
   const [status, setStatus] = useState<WorkspaceStatus>(workspace.status);
@@ -552,7 +554,7 @@ export function WorkspaceShell({ workspace, folders: initialFolders, fileCounts:
                 cisAdvisorySide={workspace.cisAdvisorySide}
                 folders={folders}
                 workstreams={workstreams.map((w) => ({ id: w.id, name: w.name }))}
-                isAdmin={isAdmin}
+                canManageParticipants={canManageParticipants}
                 participantsRefreshToken={participantsRefresh}
                 currentUserEmail={userEmail}
                 folderId={selectedFolderId}

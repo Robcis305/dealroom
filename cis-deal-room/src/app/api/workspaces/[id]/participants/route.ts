@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { verifySession } from '@/lib/dal/index';
-import { requireDealAccess } from '@/lib/dal/access';
+import { requireDealAccess, canManageParticipants } from '@/lib/dal/access';
 import { getParticipants, inviteParticipant } from '@/lib/dal/participants';
 import { getWorkspace } from '@/lib/dal/workspaces';
 import { sendEmail } from '@/lib/email/send';
@@ -60,9 +60,11 @@ export async function POST(
 ) {
   const session = await verifySession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
 
   const { id: workspaceId } = await params;
+  if (!(await canManageParticipants(workspaceId, session))) {
+    return Response.json({ error: 'Admin required' }, { status: 403 });
+  }
 
   let parsed: z.infer<typeof inviteSchema>;
   try {

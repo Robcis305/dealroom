@@ -24,6 +24,27 @@ export async function isCisTeamOrAdmin(workspaceId: string, session: Session): P
 }
 
 /**
+ * True if the session user may invite / edit / revoke participants in the
+ * given workspace: a global admin (users.is_admin), OR an active participant
+ * whose per-deal-room role is 'admin'. This is the ONE gate that lets a
+ * non-global admin manage users, and it is scoped to a single workspace.
+ */
+export async function canManageParticipants(workspaceId: string, session: Session): Promise<boolean> {
+  if (session.isAdmin) return true;
+  const [row] = await db
+    .select({ id: workspaceParticipants.id })
+    .from(workspaceParticipants)
+    .where(and(
+      eq(workspaceParticipants.workspaceId, workspaceId),
+      eq(workspaceParticipants.userId, session.userId),
+      eq(workspaceParticipants.status, 'active'),
+      eq(workspaceParticipants.role, 'admin'),
+    ))
+    .limit(1);
+  return !!row;
+}
+
+/**
  * Verify the session user has access to the given workspace.
  *
  * Admin users bypass the check. Non-admins must have an active
