@@ -3,6 +3,7 @@ import archiver from 'archiver';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'node:stream';
 import { verifySession } from '@/lib/dal/index';
+import { requireFileAccess } from '@/lib/dal/access';
 import { getFilesForBulkDownload } from '@/lib/dal/files';
 import { getS3Client, S3_BUCKET } from '@/lib/storage/s3';
 import { logActivity } from '@/lib/dal/activity';
@@ -35,7 +36,6 @@ function uniqueName(taken: Set<string>, base: string): string {
 export async function POST(request: Request) {
   const session = await verifySession();
   if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!session.isAdmin) return Response.json({ error: 'Admin required' }, { status: 403 });
 
   let body: z.infer<typeof bodySchema>;
   try {
@@ -47,7 +47,28 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid body' }, { status: 400 });
   }
 
-  const rows = await getFilesForBulkDownload(body.fileIds);
+  const candidates = await getFilesForBulkDownload(body.fileIds);
+  if (candidates.length === 0) {
+    return Response.json({ error: 'No accessible files' }, { status: 404 });
+  }
+
+  // Per-file authorization mirrors single-file download: admins bypass, and any
+  // participant who could download a file individually (folder access with
+  // download capability, or workstream membership) may include it here. Files
+  // the caller can't access are dropped — just as missing/deleted files are —
+  // rather than failing the whole request. This also neutralizes id-stuffing:
+  // you can only ever zip files you're already entitled to.
+  const authChecks = await Promise.all(
+    candidates.map(async (row) => {
+      try {
+        await requireFileAccess(row.id, session, 'download');
+        return row;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const rows = authChecks.filter((r): r is (typeof candidates)[number] => r !== null);
   if (rows.length === 0) {
     return Response.json({ error: 'No accessible files' }, { status: 404 });
   }

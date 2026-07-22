@@ -251,7 +251,10 @@ export function FileList({ workspaceId, folderId, folderName, isAdmin, canManage
       });
       if (!res.ok) {
         toast.error('Failed to prepare download', {
-          description: res.status === 403 ? 'Admin access required.' : undefined,
+          description:
+            res.status === 404
+              ? "You don't have access to the selected files."
+              : undefined,
         });
         return;
       }

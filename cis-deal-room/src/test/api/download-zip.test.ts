@@ -10,6 +10,10 @@ vi.mock('@/lib/dal/files', () => ({
   getFilesForBulkDownload: vi.fn(),
 }));
 
+vi.mock('@/lib/dal/access', () => ({
+  requireFileAccess: vi.fn(),
+}));
+
 vi.mock('@/lib/storage/s3', () => ({
   getS3Client: vi.fn(() => ({ send: vi.fn() })),
   S3_BUCKET: 'test-bucket',
@@ -38,6 +42,7 @@ vi.mock('archiver', () => ({
 
 import { verifySession } from '@/lib/dal/index';
 import { getFilesForBulkDownload } from '@/lib/dal/files';
+import { requireFileAccess } from '@/lib/dal/access';
 import { POST } from '@/app/api/files/download-zip/route';
 
 // ─── Test data ────────────────────────────────────────────────────────────────
@@ -75,7 +80,12 @@ function makeRequest(body: unknown) {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('POST /api/files/download-zip', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Default: the caller may access every file. Individual tests override
+    // with mockRejectedValue to simulate a file the caller can't download.
+    vi.mocked(requireFileAccess).mockResolvedValue(undefined);
+  });
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -87,12 +97,38 @@ describe('POST /api/files/download-zip', () => {
     expect(body.error).toBe('Unauthorized');
   });
 
-  it('returns 403 when session is not admin', async () => {
+  it('allows a non-admin who can access the file (per-file authorization)', async () => {
     vi.mocked(verifySession).mockResolvedValue({ ...ADMIN_SESSION, isAdmin: false });
+    vi.mocked(getFilesForBulkDownload).mockResolvedValue([makeFileRow(UUID_A, WS_ID)]);
+    vi.mocked(requireFileAccess).mockResolvedValue(undefined);
     const res = await POST(makeRequest({ fileIds: [UUID_A] }));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('application/zip');
+  });
+
+  it('returns 404 when a non-admin cannot access any requested file', async () => {
+    vi.mocked(verifySession).mockResolvedValue({ ...ADMIN_SESSION, isAdmin: false });
+    vi.mocked(getFilesForBulkDownload).mockResolvedValue([makeFileRow(UUID_A, WS_ID)]);
+    vi.mocked(requireFileAccess).mockRejectedValue(new Error('Unauthorized'));
+    const res = await POST(makeRequest({ fileIds: [UUID_A] }));
+    expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toBe('Admin required');
+    expect(body.error).toBe('No accessible files');
+  });
+
+  it('drops files the caller cannot access and zips only the accessible ones', async () => {
+    vi.mocked(verifySession).mockResolvedValue({ ...ADMIN_SESSION, isAdmin: false });
+    vi.mocked(getFilesForBulkDownload).mockResolvedValue([
+      makeFileRow(UUID_A, WS_ID),
+      makeFileRow(UUID_B, WS_ID),
+    ]);
+    // Deny the first file, allow the second.
+    vi.mocked(requireFileAccess).mockImplementation(async (fileId: string) => {
+      if (fileId === UUID_A) throw new Error('Unauthorized');
+    });
+    const res = await POST(makeRequest({ fileIds: [UUID_A, UUID_B] }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('application/zip');
   });
 
   // ── Validation ────────────────────────────────────────────────────────────
