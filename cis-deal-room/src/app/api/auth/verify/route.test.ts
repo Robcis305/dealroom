@@ -1,297 +1,276 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ─── Module mocks ─────────────────────────────────────────────────────────────
+const APP_URL = 'http://localhost:3000';
 
-vi.mock('@/lib/auth/rate-limit', () => ({
-  authVerifyLimiter: {
-    limit: vi.fn().mockResolvedValue({ success: true }),
-  },
-}));
+// ─── Shared mock builders ─────────────────────────────────────────────────────
 
-vi.mock('@/lib/auth/tokens', () => ({
-  hashToken: vi.fn().mockReturnValue('hashed-token'),
-}));
+function baseMocks() {
+  vi.doMock('@/lib/auth/rate-limit', () => ({
+    authVerifyLimiter: { limit: vi.fn().mockResolvedValue({ success: true }) },
+  }));
+  vi.doMock('@/lib/auth/session', () => ({
+    createSession: vi.fn().mockResolvedValue('session-id-123'),
+    setSessionCookie: vi.fn(),
+  }));
+  vi.doMock('@/db/schema', () => ({
+    magicLinkTokens: {},
+    users: { email: 'email' },
+    workspaceParticipants: { userId: 'userId', status: 'status' },
+  }));
+}
 
-vi.mock('@/lib/auth/session', () => ({
-  createSession: vi.fn().mockResolvedValue('session-id-123'),
-  setSessionCookie: vi.fn(),
-}));
-
-vi.mock('@/db/schema', () => ({
-  magicLinkTokens: {},
-  users: { email: 'email' },
-  workspaceParticipants: { userId: 'userId', status: 'status' },
-}));
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
-describe('GET /api/auth/verify', () => {
-  const APP_URL = 'http://localhost:3000';
-
-  beforeEach(() => {
-    vi.resetModules();
-    vi.clearAllMocks();
-    process.env.NEXT_PUBLIC_APP_URL = APP_URL;
+// Builds a db mock whose token lookup returns `rows`. Captures the delete /
+// insert / update spies so tests can assert consumption happened (or did not).
+function mockDb(rows: unknown[]) {
+  const deleteWhere = vi.fn().mockResolvedValue(undefined);
+  const deleteMock = vi.fn().mockReturnValue({ where: deleteWhere });
+  const updateSet = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+  const updateMock = vi.fn().mockReturnValue({ set: updateSet });
+  const insertMock = vi.fn().mockReturnValue({
+    values: vi.fn().mockReturnValue({
+      onConflictDoUpdate: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: 'user-id', firstName: 'A', lastName: 'B' }]),
+      }),
+    }),
   });
-
-  it('redirects to ?error=expired when token row exists but expiresAt is in the past', async () => {
-    const expiredRow = {
-      id: 'token-1',
-      email: 'user@example.com',
-      tokenHash: 'hashed-token',
-      expiresAt: new Date(Date.now() - 60_000), // 1 minute ago
-      createdAt: new Date(),
-    };
-
-    vi.doMock('@/lib/auth/rate-limit', () => ({
-      authVerifyLimiter: { limit: vi.fn().mockResolvedValue({ success: true }) },
-    }));
-    vi.doMock('@/lib/auth/tokens', () => ({
-      hashToken: vi.fn().mockReturnValue('hashed-token'),
-    }));
-    vi.doMock('@/lib/auth/session', () => ({
-      createSession: vi.fn().mockResolvedValue('session-id'),
-      setSessionCookie: vi.fn(),
-    }));
-    vi.doMock('@/db', () => ({
-      db: {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([expiredRow]),
-            }),
-          }),
+  vi.doMock('@/db', () => ({
+    db: {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue(rows) }),
         }),
-        delete: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
-      },
-    }));
+      }),
+      delete: deleteMock,
+      insert: insertMock,
+      update: updateMock,
+    },
+  }));
+  return { deleteMock, deleteWhere, updateMock, updateSet, insertMock };
+}
 
+function validRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 't', email: 'user@example.com', tokenHash: 'hashed-token',
+    expiresAt: new Date(Date.now() + 60_000), createdAt: new Date(),
+    purpose: 'login', redirectTo: null, ...overrides,
+  };
+}
+
+function getReq(token = 'raw', email = 'user@example.com') {
+  return new Request(`${APP_URL}/api/auth/verify?token=${token}&email=${encodeURIComponent(email)}`);
+}
+
+function postReq(token = 'raw', email = 'user@example.com') {
+  return new Request(`${APP_URL}/api/auth/verify`, {
+    method: 'POST',
+    body: new URLSearchParams({ token, email }),
+    headers: { origin: 'http://localhost:3000' },
+  });
+}
+
+beforeEach(() => {
+  vi.resetModules();
+  vi.clearAllMocks();
+  process.env.NEXT_PUBLIC_APP_URL = APP_URL;
+});
+
+// ─── GET: validate-only, never consumes ──────────────────────────────────────
+
+describe('GET /api/auth/verify (non-consuming)', () => {
+  it('redirects a valid token to the confirmation page carrying token+email, and does NOT delete', async () => {
+    baseMocks();
+    const { deleteMock } = mockDb([validRow()]);
     const { GET } = await import('./route');
 
-    const url = `${APP_URL}/api/auth/verify?token=raw-token&email=user%40example.com`;
-    const request = new Request(url);
-
-    const response = await GET(request as unknown as import('next/server').NextRequest);
-
-    // Accept any redirect status (302 or 307)
-    expect([302, 307]).toContain(response.status);
+    const response = await GET(getReq() as unknown as import('next/server').NextRequest);
     const location = response.headers.get('Location') ?? '';
-    expect(location).toContain('error=expired');
-  });
-
-  it('redirects to ?error=used when no token row is found (already consumed)', async () => {
-    vi.doMock('@/lib/auth/rate-limit', () => ({
-      authVerifyLimiter: { limit: vi.fn().mockResolvedValue({ success: true }) },
-    }));
-    vi.doMock('@/lib/auth/tokens', () => ({
-      hashToken: vi.fn().mockReturnValue('hashed-token'),
-    }));
-    vi.doMock('@/lib/auth/session', () => ({
-      createSession: vi.fn().mockResolvedValue('session-id'),
-      setSessionCookie: vi.fn(),
-    }));
-    vi.doMock('@/db', () => ({
-      db: {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([]), // empty — no row found
-            }),
-          }),
-        }),
-      },
-    }));
-
-    const { GET } = await import('./route');
-
-    const url = `${APP_URL}/api/auth/verify?token=used-token&email=user%40example.com`;
-    const request = new Request(url);
-
-    const response = await GET(request as unknown as import('next/server').NextRequest);
-
-    // Accept any redirect status (302 or 307)
-    expect([302, 307]).toContain(response.status);
-    const location = response.headers.get('Location') ?? '';
-    expect(location).toContain('error=used');
-  });
-
-  it('rejects requests where ?email does not match the token row', async () => {
-    const validRow = {
-      id: 'token-1',
-      email: 'victim@example.com',
-      tokenHash: 'hashed-token',
-      expiresAt: new Date(Date.now() + 60_000),
-      createdAt: new Date(),
-      purpose: 'login',
-      redirectTo: null,
-    };
-
-    vi.doMock('@/lib/auth/rate-limit', () => ({
-      authVerifyLimiter: { limit: vi.fn().mockResolvedValue({ success: true }) },
-    }));
-    vi.doMock('@/lib/auth/tokens', () => ({
-      hashToken: vi.fn().mockReturnValue('hashed-token'),
-    }));
-    vi.doMock('@/lib/auth/session', () => ({
-      createSession: vi.fn(),
-      setSessionCookie: vi.fn(),
-    }));
-    vi.doMock('@/db', () => ({
-      db: {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([validRow]),
-            }),
-          }),
-        }),
-        delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
-        insert: vi.fn(),
-      },
-    }));
-
-    const { GET } = await import('./route');
-    const url = `${APP_URL}/api/auth/verify?token=raw&email=attacker%40example.com`;
-    const response = await GET(new Request(url) as any);
 
     expect([302, 307]).toContain(response.status);
-    const location = response.headers.get('Location') ?? '';
-    expect(location).toContain('error=invalid');
+    expect(location).toContain('/auth/verify');
+    expect(location).toContain('token=raw');
+    expect(location).toContain('email=');
+    expect(location).not.toContain('error=');
+    expect(location).not.toContain('/deals');
+    expect(deleteMock).not.toHaveBeenCalled();
   });
 
-  it('flips pending invited participant rows on a login-token verify (race-with-invitation)', async () => {
-    // Scenario: external user was invited (participant.status='invited') but
-    // the invitation token was clobbered by a fresh /login request before
-    // they clicked it. They sign in via /login — purpose='login'. The
-    // participant flip must still run, otherwise their deal-rooms list is
-    // empty even though they are authenticated.
-    const loginRow = {
-      id: 't', email: 'cahyo@mrscraper.com', tokenHash: 'hashed-token',
-      expiresAt: new Date(Date.now() + 60_000), createdAt: new Date(),
-      purpose: 'login', redirectTo: null,
-    };
-    const updateSet = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
-    const updateMock = vi.fn().mockReturnValue({ set: updateSet });
+  it('two prefetch GETs followed by a POST still signs in (scanner-prefetch regression)', async () => {
+    baseMocks();
+    const { deleteMock } = mockDb([validRow()]);
+    const { GET, POST } = await import('./route');
 
-    vi.doMock('@/lib/auth/rate-limit', () => ({
-      authVerifyLimiter: { limit: vi.fn().mockResolvedValue({ success: true }) },
-    }));
-    vi.doMock('@/lib/auth/tokens', () => ({ hashToken: vi.fn().mockReturnValue('hashed-token') }));
-    vi.doMock('@/lib/auth/session', () => ({
-      createSession: vi.fn().mockResolvedValue('s1'),
-      setSessionCookie: vi.fn(),
-    }));
-    vi.doMock('@/db', () => ({
-      db: {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([loginRow]) }),
-          }),
-        }),
-        delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
-        insert: vi.fn().mockReturnValue({
-          values: vi.fn().mockReturnValue({
-            onConflictDoUpdate: vi.fn().mockReturnValue({
-              returning: vi.fn().mockResolvedValue([{ id: 'user-id', firstName: 'Cahyo', lastName: 'Subroto' }]),
-            }),
-          }),
-        }),
-        update: updateMock,
-      },
-    }));
+    await GET(getReq() as unknown as import('next/server').NextRequest);
+    await GET(getReq() as unknown as import('next/server').NextRequest);
+    expect(deleteMock).not.toHaveBeenCalled(); // scanner could not burn the token
+
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
+    expect(response.status).toBe(303);
+    expect(response.headers.get('Location')).toContain('/deals');
+    expect(deleteMock).toHaveBeenCalledOnce();
+  });
+
+  it('redirects to ?error=used when no row exists', async () => {
+    baseMocks();
+    mockDb([]);
     const { GET } = await import('./route');
-    const response = await GET(
-      new Request(`${APP_URL}/api/auth/verify?token=t&email=cahyo%40mrscraper.com`) as any,
-    );
-    // Must redirect (auth succeeded) AND must have called update on participants.
-    expect([302, 307]).toContain(response.status);
+    const response = await GET(getReq('used-token') as unknown as import('next/server').NextRequest);
+    expect(response.headers.get('Location') ?? '').toContain('error=used');
+  });
+
+  it('redirects to ?error=expired for an expired row (without deleting)', async () => {
+    baseMocks();
+    const { deleteMock } = mockDb([validRow({ expiresAt: new Date(Date.now() - 60_000) })]);
+    const { GET } = await import('./route');
+    const response = await GET(getReq() as unknown as import('next/server').NextRequest);
+    expect(response.headers.get('Location') ?? '').toContain('error=expired');
+    expect(deleteMock).not.toHaveBeenCalled();
+  });
+
+  it('redirects to ?error=invalid when email does not match the row', async () => {
+    baseMocks();
+    mockDb([validRow({ email: 'victim@example.com' })]);
+    const { GET } = await import('./route');
+    const response = await GET(getReq('raw', 'attacker@example.com') as unknown as import('next/server').NextRequest);
+    expect(response.headers.get('Location') ?? '').toContain('error=invalid');
+  });
+
+  it('redirects to ?error=invalid when token or email param is missing', async () => {
+    baseMocks();
+    mockDb([]);
+    const { GET } = await import('./route');
+    const response = await GET(new Request(`${APP_URL}/api/auth/verify?token=raw`) as unknown as import('next/server').NextRequest);
+    expect(response.headers.get('Location') ?? '').toContain('error=invalid');
+  });
+
+  it('redirects to ?error=rate_limited when the IP limiter rejects', async () => {
+    vi.doMock('@/lib/auth/rate-limit', () => ({
+      authVerifyLimiter: { limit: vi.fn().mockResolvedValue({ success: false }) },
+    }));
+    vi.doMock('@/lib/auth/session', () => ({ createSession: vi.fn(), setSessionCookie: vi.fn() }));
+    vi.doMock('@/db/schema', () => ({ magicLinkTokens: {}, users: {}, workspaceParticipants: {} }));
+    mockDb([validRow()]);
+    const { GET } = await import('./route');
+    const response = await GET(getReq() as unknown as import('next/server').NextRequest);
+    expect(response.headers.get('Location') ?? '').toContain('error=rate_limited');
+  });
+});
+
+// ─── POST: the only consuming path ────────────────────────────────────────────
+
+describe('POST /api/auth/verify (consuming)', () => {
+  it('consumes the token, creates a session, and redirects (303) to /deals', async () => {
+    baseMocks();
+    const { deleteMock } = mockDb([validRow()]);
+    const session = await import('@/lib/auth/session');
+    const { POST } = await import('./route');
+
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get('Location')).toContain('/deals');
+    expect(deleteMock).toHaveBeenCalledOnce();
+    expect(session.createSession).toHaveBeenCalledWith('user-id');
+    expect(session.setSessionCookie).toHaveBeenCalled();
+  });
+
+  it('flips pending invited participant rows on a login-token verify', async () => {
+    baseMocks();
+    const { updateMock, updateSet } = mockDb([validRow({ email: 'cahyo@mrscraper.com' })]);
+    const { POST } = await import('./route');
+    const response = await POST(postReq('raw', 'cahyo@mrscraper.com') as unknown as import('next/server').NextRequest);
+    expect(response.status).toBe(303);
     expect(updateMock).toHaveBeenCalledOnce();
-    expect(updateSet).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'active' }),
-    );
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'active' }));
   });
 
-  it('accepts magic links where ?email casing differs from token row casing', async () => {
-    // Some email clients lowercase URL params in tracking redirects. Without
-    // case-insensitive comparison the user would hit ?error=invalid even
-    // though the token was issued for them.
-    const row = {
-      id: 't', email: 'Mixed@Example.com', tokenHash: 'hashed-token',
-      expiresAt: new Date(Date.now() + 60_000), createdAt: new Date(),
-      purpose: 'login', redirectTo: null,
-    };
-    vi.doMock('@/lib/auth/rate-limit', () => ({
-      authVerifyLimiter: { limit: vi.fn().mockResolvedValue({ success: true }) },
-    }));
-    vi.doMock('@/lib/auth/tokens', () => ({ hashToken: vi.fn().mockReturnValue('hashed-token') }));
-    vi.doMock('@/lib/auth/session', () => ({
-      createSession: vi.fn().mockResolvedValue('s'),
-      setSessionCookie: vi.fn(),
-    }));
-    vi.doMock('@/db', () => ({
-      db: {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([row]) }),
-          }),
-        }),
-        delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
-        insert: vi.fn().mockReturnValue({
-          values: vi.fn().mockReturnValue({
-            onConflictDoUpdate: vi.fn().mockReturnValue({
-              returning: vi.fn().mockResolvedValue([{ id: 'u', firstName: 'A', lastName: 'B' }]),
-            }),
-          }),
-        }),
-        update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }) }),
-      },
-    }));
-    const { GET } = await import('./route');
-    const response = await GET(
-      new Request(`${APP_URL}/api/auth/verify?token=t&email=mixed%40example.com`) as any,
-    );
+  it('accepts links where ?email casing differs from the row', async () => {
+    baseMocks();
+    mockDb([validRow({ email: 'Mixed@Example.com' })]);
+    const { POST } = await import('./route');
+    const response = await POST(postReq('raw', 'mixed@example.com') as unknown as import('next/server').NextRequest);
+    expect(response.status).toBe(303);
     const location = response.headers.get('Location') ?? '';
     expect(location).not.toContain('error=');
+    expect(location).toContain('/deals');
   });
 
-  it('ignores redirectTo that is not a safe relative path (protocol-relative)', async () => {
-    const row = {
-      id: 't', email: 'u@example.com', tokenHash: 'hashed-token',
-      expiresAt: new Date(Date.now() + 60_000), createdAt: new Date(),
-      purpose: 'invitation', redirectTo: '//evil.example/pwn',
-    };
-    vi.doMock('@/lib/auth/rate-limit', () => ({
-      authVerifyLimiter: { limit: vi.fn().mockResolvedValue({ success: true }) },
-    }));
-    vi.doMock('@/lib/auth/tokens', () => ({ hashToken: vi.fn().mockReturnValue('hashed-token') }));
-    vi.doMock('@/lib/auth/session', () => ({
-      createSession: vi.fn().mockResolvedValue('s1'),
-      setSessionCookie: vi.fn(),
-    }));
-    vi.doMock('@/db', () => ({
-      db: {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([row]) }),
-          }),
-        }),
-        delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
-        insert: vi.fn().mockReturnValue({
-          values: vi.fn().mockReturnValue({
-            onConflictDoUpdate: vi.fn().mockReturnValue({
-              returning: vi.fn().mockResolvedValue([{ id: 'u1', firstName: 'A', lastName: 'B' }]),
-            }),
-          }),
-        }),
-        update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }) }),
-      },
-    }));
-    const { GET } = await import('./route');
-    const response = await GET(new Request(`${APP_URL}/api/auth/verify?token=t&email=u%40example.com`) as any);
+  it('ignores a protocol-relative redirectTo and falls back to /deals', async () => {
+    baseMocks();
+    mockDb([validRow({ purpose: 'invitation', redirectTo: '//evil.example/pwn' })]);
+    const { POST } = await import('./route');
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
     const location = response.headers.get('Location') ?? '';
     expect(location).not.toContain('evil.example');
     expect(location).toContain('/deals');
+  });
+
+  it('honors a safe relative redirectTo for invitation tokens', async () => {
+    baseMocks();
+    mockDb([validRow({ purpose: 'invitation', redirectTo: '/workspace/abc' })]);
+    const { POST } = await import('./route');
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
+    expect(response.headers.get('Location') ?? '').toContain('/workspace/abc');
+  });
+
+  it('redirects to /complete-profile when the user has no name yet', async () => {
+    baseMocks();
+    // Custom db mock: the user upsert returns a user with no first/last name.
+    const deleteWhere = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('@/db', () => ({
+      db: {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([validRow()]) }),
+          }),
+        }),
+        delete: vi.fn().mockReturnValue({ where: deleteWhere }),
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn().mockReturnValue({
+            onConflictDoUpdate: vi.fn().mockReturnValue({
+              returning: vi.fn().mockResolvedValue([{ id: 'u', firstName: null, lastName: null }]),
+            }),
+          }),
+        }),
+        update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }) }),
+      },
+    }));
+    const { POST } = await import('./route');
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
+    expect(response.headers.get('Location') ?? '').toContain('/complete-profile');
+  });
+
+  it('redirects to ?error=used when the token was already consumed', async () => {
+    baseMocks();
+    const { deleteMock } = mockDb([]);
+    const { POST } = await import('./route');
+    const response = await POST(postReq() as unknown as import('next/server').NextRequest);
+    expect(response.status).toBe(303);
+    expect(response.headers.get('Location') ?? '').toContain('error=used');
+    expect(deleteMock).not.toHaveBeenCalled();
+  });
+
+  it('redirects to ?error=invalid when form fields are missing', async () => {
+    baseMocks();
+    mockDb([]);
+    const { POST } = await import('./route');
+    const response = await POST(
+      new Request(`${APP_URL}/api/auth/verify`, { method: 'POST', body: new URLSearchParams({ token: 'raw' }), headers: { origin: 'http://localhost:3000' } }) as unknown as import('next/server').NextRequest,
+    );
+    expect(response.headers.get('Location') ?? '').toContain('error=invalid');
+  });
+
+  it('rejects a cross-origin POST without consuming the token (CSRF guard)', async () => {
+    baseMocks();
+    const { deleteMock } = mockDb([validRow()]);
+    const { POST } = await import('./route');
+    const req = new Request(`${APP_URL}/api/auth/verify`, {
+      method: 'POST',
+      body: new URLSearchParams({ token: 'raw', email: 'user@example.com' }),
+      headers: { origin: 'https://evil.example' },
+    });
+    const response = await POST(req as unknown as import('next/server').NextRequest);
+    expect(response.status).toBe(303);
+    expect(response.headers.get('Location') ?? '').toContain('error=invalid');
+    expect(deleteMock).not.toHaveBeenCalled();
   });
 });
