@@ -72,9 +72,17 @@ export function CapTableUploadModal({ open, onClose, onSuccess, workspaceId }: P
     <Modal open={open} onClose={onClose} title="Upload Cap Table">
       <div className="space-y-4">
         <p className="text-sm text-text-secondary">
-          CSV with required columns: Holder, Class, Instrument, Shares, Ownership&nbsp;%,
-          Price per Share, Amount Invested. Optional: Round, Round Valuation, Vesting Start,
-          Vesting Schedule, Certificate / Grant&nbsp;#, Notes.
+          CSV needs only three columns: <strong className="text-text-primary">Holder</strong>,{' '}
+          <strong className="text-text-primary">Class</strong> (or Instrument), and{' '}
+          <strong className="text-text-primary">Shares</strong>. Everything else is optional —
+          Ownership&nbsp;%, Price per Share, Amount Invested, Status, Round, Round Valuation,
+          Vesting Start, Vesting Schedule, Certificate / Grant&nbsp;#, Notes.
+        </p>
+        <p className="text-xs text-text-muted">
+          Common header spellings are recognised automatically. Currency symbols, thousands
+          separators and percent signs are fine; totals and blank lines are ignored; blank
+          Ownership&nbsp;% is derived from share counts. Anything we had to assume shows up as a
+          warning on the cap table afterwards.
         </p>
 
         {/* Drop zone */}

@@ -1,4 +1,21 @@
 import type { CapTableInstrument } from '@/types';
+import {
+  COLUMN_ALIASES,
+  NULLISH,
+  PURCHASE_INSTRUMENTS,
+  REQUIRED_CANONICALS,
+  REQUIRED_LABELS,
+  detectDelimiter,
+  isNonDataRow,
+  matchInstrument,
+  normalizeHeader,
+  notPlaceholder,
+  parseDate,
+  parseNumber,
+  toNumericString,
+  tokenize,
+  type Canonical,
+} from './csv-normalize';
 
 export interface ParsedRow {
   rowNumber: number;
@@ -17,26 +34,30 @@ export interface ParsedRow {
   notes: string | null;
 }
 
+/**
+ * Fatal problems only. Anything recoverable is reported as a warning and the
+ * upload proceeds — a cap table CSV exported from a real captable tool rarely
+ * matches our column names or number formatting exactly.
+ */
 export interface ParseError {
-  code:
-    | 'MISSING_REQUIRED_COLUMN'
-    | 'MISSING_REQUIRED_FIELD'
-    | 'INVALID_INSTRUMENT'
-    | 'INVALID_SHARES'
-    | 'INVALID_OWNERSHIP'
-    | 'INVALID_PRICE'
-    | 'INVALID_AMOUNT'
-    | 'INVALID_VALUATION'
-    | 'INVALID_DATE'
-    | 'ROUND_VALUATION_MISMATCH'
-    | 'EMPTY_CSV';
+  code: 'MISSING_REQUIRED_COLUMN' | 'NO_VALID_ROWS' | 'EMPTY_CSV';
   row?: number;
   column?: string;
   message: string;
 }
 
 export interface ParseWarning {
-  code: 'OWNERSHIP_SUM_DEVIATION' | 'PURCHASE_MATH_MISMATCH' | 'PREFERRED_NO_ROUND';
+  code:
+    | 'ROW_SKIPPED'
+    | 'INSTRUMENT_INFERRED'
+    | 'OWNERSHIP_DERIVED'
+    | 'OWNERSHIP_CLAMPED'
+    | 'SHARES_ROUNDED'
+    | 'VALUE_IGNORED'
+    | 'ROUND_VALUATION_MISMATCH'
+    | 'OWNERSHIP_SUM_DEVIATION'
+    | 'PURCHASE_MATH_MISMATCH'
+    | 'PREFERRED_NO_ROUND';
   row?: number;
   message: string;
 }
@@ -47,270 +68,280 @@ export interface ParseResult {
   warnings: ParseWarning[];
 }
 
-const REQUIRED_COLS = [
-  'Holder',
-  'Class',
-  'Instrument',
-  'Shares',
-  'Ownership %',
-  'Price per Share',
-  'Amount Invested',
-] as const;
-
-const OPTIONAL_COLS = [
-  'Round',
-  'Round Valuation',
-  'Vesting Start',
-  'Vesting Schedule',
-  'Certificate / Grant #',
-  'Notes',
-] as const;
-
-const ALL_COLS = [...REQUIRED_COLS, ...OPTIONAL_COLS];
-
-const INSTRUMENTS = new Set<CapTableInstrument>([
-  'common',
-  'preferred',
-  'option',
-  'rsu',
-  'safe',
-  'convertible_note',
-  'warrant',
-]);
-
-const PURCHASE_INSTRUMENTS: ReadonlySet<CapTableInstrument> = new Set(['common', 'preferred']);
-
-/** Parse a single CSV line respecting quoted fields per RFC 4180. */
-function parseCsvLine(line: string): string[] {
-  const fields: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (inQuotes) {
-      if (c === '"' && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else if (c === '"') {
-        inQuotes = false;
-      } else {
-        current += c;
-      }
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ',') {
-      fields.push(current);
-      current = '';
-    } else {
-      current += c;
-    }
-  }
-  fields.push(current);
-  return fields.map((f) => f.trim());
-}
-
-function normalizeHeader(h: string): string {
-  return h.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function isValidIsoDate(s: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
-  const d = new Date(s);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+interface PendingRow {
+  rowNumber: number;
+  holder: string;
+  className: string;
+  instrument: CapTableInstrument;
+  shares: number;
+  ownership: number | null;
+  price: number;
+  amount: number;
+  round: string | null;
+  roundValuation: number | null;
+  vestingStart: string | null;
+  vestingSchedule: string | null;
+  certificateNumber: string | null;
+  notes: string | null;
 }
 
 export function parseCsv(text: string): ParseResult {
   const errors: ParseError[] = [];
   const warnings: ParseWarning[] = [];
-  const rows: ParsedRow[] = [];
 
-  // Strip BOM
-  if (text.charCodeAt(0) === 0xfeff) {
-    text = text.slice(1);
-  }
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
 
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length === 0) {
+  const records = tokenize(text, detectDelimiter(text)).filter(
+    (r) => !r.every((c) => c === ''),
+  );
+  if (records.length === 0) {
     errors.push({ code: 'EMPTY_CSV', message: 'CSV is empty' });
-    return { rows, errors, warnings };
-  }
-
-  const rawHeaders = parseCsvLine(lines[0]);
-  const headerMap = new Map<string, number>(); // normalized name → index
-  rawHeaders.forEach((h, i) => headerMap.set(normalizeHeader(h), i));
-
-  // Check required headers
-  for (const required of REQUIRED_COLS) {
-    if (!headerMap.has(normalizeHeader(required))) {
-      errors.push({
-        code: 'MISSING_REQUIRED_COLUMN',
-        column: required,
-        message: `Missing required column: ${required}`,
-      });
-    }
-  }
-  if (errors.length > 0) {
-    return { rows, errors, warnings };
-  }
-
-  function getField(cells: string[], colName: string): string {
-    const idx = headerMap.get(normalizeHeader(colName));
-    if (idx === undefined) return '';
-    return cells[idx] ?? '';
-  }
-
-  // Parse data rows (line 0 is header; data starts at line 1, file row index 2)
-  for (let lineIdx = 1; lineIdx < lines.length; lineIdx++) {
-    const fileRow = lineIdx + 1;
-    const cells = parseCsvLine(lines[lineIdx]);
-
-    // Required field presence
-    let hasMissingRequired = false;
-    for (const r of REQUIRED_COLS) {
-      if (!getField(cells, r)) {
-        errors.push({
-          code: 'MISSING_REQUIRED_FIELD',
-          row: fileRow,
-          column: r,
-          message: `Row ${fileRow}: missing required field "${r}"`,
-        });
-        hasMissingRequired = true;
-      }
-    }
-    if (hasMissingRequired) continue;
-
-    const instrumentRaw = getField(cells, 'Instrument').toLowerCase().replace(/[\s-]/g, '_');
-    if (!INSTRUMENTS.has(instrumentRaw as CapTableInstrument)) {
-      errors.push({
-        code: 'INVALID_INSTRUMENT',
-        row: fileRow,
-        message: `Row ${fileRow}: invalid Instrument "${getField(cells, 'Instrument')}". Must be one of: common, preferred, option, rsu, safe, convertible_note, warrant`,
-      });
-      continue;
-    }
-    const instrument = instrumentRaw as CapTableInstrument;
-
-    const sharesRaw = getField(cells, 'Shares');
-    const sharesNum = Number(sharesRaw);
-    if (!Number.isInteger(sharesNum) || sharesNum < 0) {
-      errors.push({
-        code: 'INVALID_SHARES',
-        row: fileRow,
-        message: `Row ${fileRow}: Shares must be a non-negative integer (got "${sharesRaw}")`,
-      });
-      continue;
-    }
-
-    const ownershipRaw = getField(cells, 'Ownership %').replace(/%$/, '').trim();
-    const ownershipNum = Number(ownershipRaw);
-    if (!Number.isFinite(ownershipNum) || ownershipNum < 0 || ownershipNum > 100) {
-      errors.push({
-        code: 'INVALID_OWNERSHIP',
-        row: fileRow,
-        message: `Row ${fileRow}: Ownership % must be between 0 and 100 (got "${ownershipRaw}")`,
-      });
-      continue;
-    }
-
-    const priceRaw = getField(cells, 'Price per Share').replace(/^\$/, '').trim();
-    const priceNum = Number(priceRaw);
-    if (!Number.isFinite(priceNum) || priceNum < 0) {
-      errors.push({
-        code: 'INVALID_PRICE',
-        row: fileRow,
-        message: `Row ${fileRow}: Price per Share must be a non-negative number (got "${priceRaw}")`,
-      });
-      continue;
-    }
-
-    const amountRaw = getField(cells, 'Amount Invested').replace(/^\$/, '').replace(/,/g, '').trim();
-    const amountNum = Number(amountRaw);
-    if (!Number.isFinite(amountNum) || amountNum < 0) {
-      errors.push({
-        code: 'INVALID_AMOUNT',
-        row: fileRow,
-        message: `Row ${fileRow}: Amount Invested must be a non-negative number (got "${amountRaw}")`,
-      });
-      continue;
-    }
-
-    const round = getField(cells, 'Round') || null;
-
-    let roundValuation: string | null = null;
-    const roundValRaw = getField(cells, 'Round Valuation').replace(/^\$/, '').replace(/,/g, '').trim();
-    if (roundValRaw) {
-      const v = Number(roundValRaw);
-      if (!Number.isFinite(v) || v < 0) {
-        errors.push({
-          code: 'INVALID_VALUATION',
-          row: fileRow,
-          message: `Row ${fileRow}: Round Valuation must be a non-negative number (got "${roundValRaw}")`,
-        });
-        continue;
-      }
-      roundValuation = String(v);
-    }
-
-    let vestingStart: string | null = null;
-    const vsRaw = getField(cells, 'Vesting Start');
-    if (vsRaw) {
-      if (!isValidIsoDate(vsRaw)) {
-        errors.push({
-          code: 'INVALID_DATE',
-          row: fileRow,
-          message: `Row ${fileRow}: Vesting Start must be ISO YYYY-MM-DD (got "${vsRaw}")`,
-        });
-        continue;
-      }
-      vestingStart = vsRaw;
-    }
-
-    rows.push({
-      rowNumber: fileRow,
-      holder: getField(cells, 'Holder'),
-      className: getField(cells, 'Class'),
-      instrument,
-      shares: sharesNum,
-      ownershipPercent: ownershipRaw,
-      pricePerShare: priceRaw,
-      amountInvested: amountRaw,
-      round,
-      roundValuation,
-      vestingStart,
-      vestingSchedule: getField(cells, 'Vesting Schedule') || null,
-      certificateNumber: getField(cells, 'Certificate / Grant #') || null,
-      notes: getField(cells, 'Notes') || null,
-    });
-  }
-
-  // If row-level errors accumulated, return them; the rows array is partial but caller treats errors as fatal anyway.
-  if (errors.length > 0) {
-    return { rows, errors, warnings };
-  }
-
-  // Cross-row checks (only run if individual rows are clean)
-  // 1. Round Valuation consistency within a Round
-  const roundValMap = new Map<string, string>(); // round → first valuation seen
-  for (const r of rows) {
-    if (r.round && r.roundValuation) {
-      const seen = roundValMap.get(r.round);
-      if (seen !== undefined && seen !== r.roundValuation) {
-        errors.push({
-          code: 'ROUND_VALUATION_MISMATCH',
-          row: r.rowNumber,
-          message: `Round "${r.round}" has conflicting valuations: ${seen} vs ${r.roundValuation}`,
-        });
-      } else {
-        roundValMap.set(r.round, r.roundValuation);
-      }
-    }
-  }
-
-  if (errors.length > 0) {
     return { rows: [], errors, warnings };
   }
 
-  // 2. Warnings — ownership sum deviation
+  // ─── Header mapping ───────────────────────────────────────────────────────
+  const colIndex = new Map<Canonical, number>();
+  records[0].forEach((raw, i) => {
+    const h = normalizeHeader(raw);
+    if (!h) return;
+    for (const [canonical, aliases] of Object.entries(COLUMN_ALIASES) as [Canonical, string[]][]) {
+      if (!colIndex.has(canonical) && aliases.includes(h)) {
+        colIndex.set(canonical, i);
+        return;
+      }
+    }
+  });
+
+  // A single type column satisfies both Class and Instrument.
+  const hasClassish = colIndex.has('class') || colIndex.has('instrument');
+  for (const required of REQUIRED_CANONICALS) {
+    if (required === 'class' ? !hasClassish : !colIndex.has(required)) {
+      errors.push({
+        code: 'MISSING_REQUIRED_COLUMN',
+        column: REQUIRED_LABELS[required],
+        message: `Missing required column: ${REQUIRED_LABELS[required]}`,
+      });
+    }
+  }
+  if (errors.length > 0) return { rows: [], errors, warnings };
+
+  const field = (cells: string[], c: Canonical): string => {
+    const idx = colIndex.get(c);
+    return idx === undefined ? '' : (cells[idx] ?? '');
+  };
+
+  // ─── Row pass ─────────────────────────────────────────────────────────────
+  const pending: PendingRow[] = [];
+
+  for (let i = 1; i < records.length; i++) {
+    const rowNumber = i + 1;
+    const cells = records[i];
+    if (isNonDataRow(cells)) continue;
+
+    const skip = (reason: string) => {
+      warnings.push({ code: 'ROW_SKIPPED', row: rowNumber, message: `Row ${rowNumber} skipped — ${reason}` });
+    };
+
+    const holder = field(cells, 'holder');
+    if (!holder) {
+      skip('no Holder');
+      continue;
+    }
+
+    const sharesRaw = field(cells, 'shares');
+    const sharesNum = parseNumber(sharesRaw);
+    if (sharesNum === null || sharesNum < 0) {
+      skip(`Shares is not a non-negative number (got "${sharesRaw}")`);
+      continue;
+    }
+    let shares = sharesNum;
+    if (!Number.isInteger(shares)) {
+      shares = Math.round(shares);
+      warnings.push({
+        code: 'SHARES_ROUNDED',
+        row: rowNumber,
+        message: `Row ${rowNumber}: fractional Shares ${sharesRaw} rounded to ${shares}`,
+      });
+    }
+
+    // Instrument: prefer the Instrument column, fall back to Class text.
+    const instrumentRaw = field(cells, 'instrument');
+    const classRaw = field(cells, 'class');
+    let instrument = instrumentRaw ? matchInstrument(instrumentRaw) : null;
+    let instrumentSource = instrumentRaw;
+    if (!instrument && classRaw) {
+      instrument = matchInstrument(classRaw);
+      instrumentSource = classRaw;
+    }
+    if (!instrument) {
+      instrument = 'common';
+      warnings.push({
+        code: 'INSTRUMENT_INFERRED',
+        row: rowNumber,
+        message: `Row ${rowNumber}: could not recognise instrument from "${instrumentSource || classRaw || instrumentRaw}" — defaulted to common`,
+      });
+    }
+
+    // Class must be non-empty (DB NOT NULL); fall back to the instrument column's text.
+    const className = classRaw || instrumentRaw;
+    if (!className) {
+      skip('no Class');
+      continue;
+    }
+
+    // A non-instrument value in the Instrument column is almost always a
+    // certificate / grant id (e.g. "CS-1"), so keep it rather than drop it.
+    let certificateNumber = notPlaceholder(field(cells, 'certificate'));
+    if (!certificateNumber && instrumentRaw && !matchInstrument(instrumentRaw)) {
+      certificateNumber = notPlaceholder(instrumentRaw);
+    }
+
+    const numericOrDefault = (canonical: Canonical, label: string, fallback: number): number => {
+      const raw = field(cells, canonical);
+      if (!raw) return fallback;
+      const n = parseNumber(raw);
+      if (n === null || n < 0) {
+        warnings.push({
+          code: 'VALUE_IGNORED',
+          row: rowNumber,
+          message: `Row ${rowNumber}: ${label} "${raw}" is not a non-negative number — treated as ${fallback}`,
+        });
+        return fallback;
+      }
+      return n;
+    };
+
+    const price = numericOrDefault('price', 'Price per Share', 0);
+    const amount = numericOrDefault('amount', 'Amount Invested', 0);
+
+    let ownership: number | null = null;
+    const ownershipRaw = field(cells, 'ownership');
+    if (ownershipRaw) {
+      const n = parseNumber(ownershipRaw);
+      if (n === null) {
+        warnings.push({
+          code: 'VALUE_IGNORED',
+          row: rowNumber,
+          message: `Row ${rowNumber}: Ownership % "${ownershipRaw}" is not a number — derived from share count instead`,
+        });
+      } else if (n < 0 || n > 100) {
+        ownership = Math.min(100, Math.max(0, n));
+        warnings.push({
+          code: 'OWNERSHIP_CLAMPED',
+          row: rowNumber,
+          message: `Row ${rowNumber}: Ownership % ${n} is outside 0–100 — clamped to ${ownership}`,
+        });
+      } else {
+        ownership = n;
+      }
+    }
+
+    let roundValuation: number | null = null;
+    const valuationRaw = field(cells, 'valuation');
+    if (valuationRaw) {
+      const n = parseNumber(valuationRaw);
+      if (n === null || n < 0) {
+        warnings.push({
+          code: 'VALUE_IGNORED',
+          row: rowNumber,
+          message: `Row ${rowNumber}: Round Valuation "${valuationRaw}" is not a non-negative number — left blank`,
+        });
+      } else {
+        roundValuation = n;
+      }
+    }
+
+    let vestingStart: string | null = null;
+    const vestingRaw = field(cells, 'vestingStart');
+    if (vestingRaw) {
+      vestingStart = parseDate(vestingRaw);
+      if (!vestingStart && !NULLISH.has(vestingRaw.toLowerCase())) {
+        warnings.push({
+          code: 'VALUE_IGNORED',
+          row: rowNumber,
+          message: `Row ${rowNumber}: Vesting Start "${vestingRaw}" is not a recognisable date — left blank`,
+        });
+      }
+    }
+
+    // Status has no column of its own; preserve it on the row's notes.
+    const statusRaw = field(cells, 'status');
+    const notesRaw = field(cells, 'notes');
+    let notes: string | null = notesRaw || null;
+    if (statusRaw) notes = notes ? `${notes} — Status: ${statusRaw}` : `Status: ${statusRaw}`;
+
+    pending.push({
+      rowNumber,
+      holder,
+      className,
+      instrument,
+      shares,
+      ownership,
+      price,
+      amount,
+      round: field(cells, 'round') || null,
+      roundValuation,
+      vestingStart,
+      vestingSchedule: field(cells, 'vestingSchedule') || null,
+      certificateNumber,
+      notes,
+    });
+  }
+
+  if (pending.length === 0) {
+    errors.push({
+      code: 'NO_VALID_ROWS',
+      message: 'No usable rows found. Every row was blank, a totals line, or missing Holder/Class/Shares.',
+    });
+    return { rows: [], errors, warnings };
+  }
+
+  // ─── Derive missing ownership from share count ────────────────────────────
+  const totalShares = pending.reduce((acc, r) => acc + r.shares, 0);
+  const derived = pending.filter((r) => r.ownership === null);
+  if (derived.length > 0) {
+    for (const r of derived) {
+      r.ownership = totalShares > 0 ? (r.shares / totalShares) * 100 : 0;
+    }
+    warnings.push({
+      code: 'OWNERSHIP_DERIVED',
+      message: `Ownership % was blank on ${derived.length} row${derived.length === 1 ? '' : 's'} — derived from share count (row${derived.length === 1 ? '' : 's'} ${derived.map((r) => r.rowNumber).join(', ')})`,
+    });
+  }
+
+  const rows: ParsedRow[] = pending.map((r) => ({
+    rowNumber: r.rowNumber,
+    holder: r.holder,
+    className: r.className,
+    instrument: r.instrument,
+    shares: r.shares,
+    ownershipPercent: toNumericString(r.ownership ?? 0, 4),
+    pricePerShare: toNumericString(r.price, 8),
+    amountInvested: toNumericString(r.amount, 2),
+    round: r.round,
+    roundValuation: r.roundValuation === null ? null : toNumericString(r.roundValuation, 2),
+    vestingStart: r.vestingStart,
+    vestingSchedule: r.vestingSchedule,
+    certificateNumber: r.certificateNumber,
+    notes: r.notes,
+  }));
+
+  // ─── Cross-row sanity checks (all non-fatal) ──────────────────────────────
+  const roundValMap = new Map<string, string>();
+  for (const r of rows) {
+    if (!r.round || !r.roundValuation) continue;
+    const seen = roundValMap.get(r.round);
+    if (seen !== undefined && seen !== r.roundValuation) {
+      warnings.push({
+        code: 'ROUND_VALUATION_MISMATCH',
+        row: r.rowNumber,
+        message: `Round "${r.round}" has conflicting valuations: ${seen} vs ${r.roundValuation}`,
+      });
+    } else {
+      roundValMap.set(r.round, r.roundValuation);
+    }
+  }
+
   const ownershipSum = rows.reduce((acc, r) => acc + Number(r.ownershipPercent), 0);
   if (Math.abs(ownershipSum - 100) > 0.5) {
     warnings.push({
@@ -319,12 +350,12 @@ export function parseCsv(text: string): ParseResult {
     });
   }
 
-  // 3. Warnings — purchase math mismatch
   for (const r of rows) {
     if (PURCHASE_INSTRUMENTS.has(r.instrument)) {
       const expected = r.shares * Number(r.pricePerShare);
       const actual = Number(r.amountInvested);
-      if (Math.abs(expected - actual) > 1) {
+      // Blank price or amount is common in exports — only flag genuine mismatches.
+      if (expected > 0 && actual > 0 && Math.abs(expected - actual) > 1) {
         warnings.push({
           code: 'PURCHASE_MATH_MISMATCH',
           row: r.rowNumber,
@@ -332,10 +363,6 @@ export function parseCsv(text: string): ParseResult {
         });
       }
     }
-  }
-
-  // 4. Warnings — preferred without round
-  for (const r of rows) {
     if (r.instrument === 'preferred' && !r.round) {
       warnings.push({
         code: 'PREFERRED_NO_ROUND',
